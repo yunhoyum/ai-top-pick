@@ -1,0 +1,148 @@
+# =====================================================================
+# PC1: web, main-api, postgres, redis, celery-worker, celery-beat,
+#      embed-server, vision-server  (시스템 아키텍처 11.1)
+# 실행: pc1 폴더에서  docker compose up -d --build
+# 변수: 같은 폴더의 .env (pc1/.env) 를 읽는다
+# =====================================================================
+
+# ---------- 공통 설정 (YAML 앵커) ----------
+# FastAPI 서비스의 /health 확인. slim 이미지에는 curl이 없어서 python으로 호출한다
+# localhost 대신 127.0.0.1: localhost가 IPv6(::1)로 풀리면 IPv4로 뜬 서버에 접속하지 못할 수 있다
+x-fastapi-healthcheck: &fastapi-healthcheck
+  test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 10s
+
+# GPU 1개 할당 (시스템 아키텍처 11.2)
+x-gpu: &gpu
+  resources:
+    reservations:
+      devices:
+        - driver: nvidia
+          count: 1
+          capabilities: [gpu]
+
+# main-api, celery-worker, celery-beat가 같은 코드를 쓴다 (코드베이스 3장)
+x-main-api-build: &main-api-build
+  context: ../main-api
+
+services:
+
+  # ---------- DB ----------
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg17
+    env_file: .env
+    ports:
+      # PC2의 ai-service가 접속한다 (아키텍처 4.1-3)
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # $$ 는 compose가 치환하지 않고 컨테이너 안 셸이 치환하게 한다
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------- Celery 브로커 ----------
+  redis:
+    image: redis:8.2
+    # PC1 안에서만 쓰므로 포트를 공개하지 않는다
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------- 메인 API ----------
+  main-api:
+    build: *main-api-build
+    env_file: .env
+    ports:
+      - "${MAIN_API_PORT}:8000"
+    volumes:
+      - storage:/data/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck: *fastapi-healthcheck
+
+  # ---------- 배치 작업 실행 ----------
+  celery-worker:
+    build: *main-api-build
+    command: celery -A app.workers.celery_app worker --loglevel=INFO
+    env_file: .env
+    volumes:
+      - storage:/data/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      # 자기 자신(celery@컨테이너 호스트명)에게만 ping을 보낸다
+      test: ["CMD-SHELL", "celery -A app.workers.celery_app inspect ping -d celery@$${HOSTNAME}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ---------- 전형 마감 감지 ----------
+  celery-beat:
+    build: *main-api-build
+    command: celery -A app.workers.celery_app beat --loglevel=INFO
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    # beat에는 ping 명령이 없어서 healthcheck를 두지 않는다
+
+  # ---------- 모델 서버 (GPU) ----------
+  embed-server:
+    build:
+      context: ../model-servers/embed-server
+    env_file: .env
+    ports:
+      # PC2의 ai-service가 접속한다
+      - "${EMBED_PORT}:8000"
+    deploy: *gpu
+    healthcheck: *fastapi-healthcheck
+
+  vision-server:
+    build:
+      context: ../model-servers/vision-server
+    env_file: .env   # TF_FORCE_GPU_ALLOW_GROWTH=true 포함 (아키텍처 11.2)
+    ports:
+      # PC2의 ai-service가 접속한다
+      - "${VISION_PORT}:8000"
+    volumes:
+      # main-api가 저장한 면접 영상을 읽기만 한다 (아키텍처 3)
+      - storage:/data/storage:ro
+    deploy: *gpu
+    healthcheck: *fastapi-healthcheck
+
+  # ---------- 화면 ----------
+  web:
+    build:
+      context: ../web
+      args:
+        # Next.js는 NEXT_PUBLIC_ 변수를 빌드할 때 코드에 넣는다
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL}
+    ports:
+      - "${WEB_PORT}:3000"
+    healthcheck:
+      # web/app/api/health/route.ts 가 있어야 한다
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  pgdata:     # PostgreSQL 데이터
+  storage:    # 면접 영상, 포트폴리오, 프로젝트 문서 (STORAGE_ROOT=/data/storage)

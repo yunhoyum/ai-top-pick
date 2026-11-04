@@ -1,0 +1,7 @@
+# embed-server: KURE-v1 임베딩
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+pydantic==2.13.5
+numpy==2.5.4
+
+# KURE-v1을 불러올 라이브러리는 목록에 없다. 2단계에서 추가한다

@@ -1,0 +1,16 @@
+# ai-service: LangGraph 면접 그래프, LangChain 체인, RAG
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+pydantic==2.13.5
+sqlalchemy==2.0.55
+psycopg[binary]==3.3.6
+pgvector==0.3.6
+langchain==1.4.7
+langchain-core==1.6.13
+langchain-ollama==1.1.0
+langgraph==1.2.18
+httpx
+
+# 목록에 없음. LangGraph 체크포인트를 PostgreSQL에 저장하려면 필요하다 (아키텍처 9.3)
+# 면접 그래프를 만들 때 버전을 정해서 주석을 푼다
+# langgraph-checkpoint-postgres

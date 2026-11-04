@@ -1,0 +1,85 @@
+# ===== 비밀 정보 (절대 올리면 안 됨) =====
+# 실제 값이 들어 있는 환경변수 파일 (pc1/.env, pc2/.env 등)
+.env
+.env.*
+!.env.example
+*.env
+
+# 키·인증서
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+secrets/
+credentials*.json
+
+# ===== 모델 가중치·대용량 파일 =====
+*.gguf
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.onnx
+*.h5
+*.keras
+*.pb
+*.tflite
+*.bin
+models/
+weights/
+huggingface/
+.cache/
+
+# ===== 런타임 데이터 =====
+storage/
+data/
+uploads/
+*.db
+*.sqlite
+*.sqlite3
+pgdata/
+postgres-data/
+redis-data/
+celerybeat-schedule*
+*.log
+logs/
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
+
+# ===== Node / Next.js =====
+node_modules/
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+.pnpm-debug.log*
+.vercel
+
+# ===== IDE · OS =====
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Claude Code 로컬 설정 =====
+.claude/settings.local.json
