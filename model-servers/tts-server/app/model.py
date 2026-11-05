@@ -6,6 +6,8 @@ import wave
 import numpy as np
 from supertonic import TTS
 
+MODEL_DIR = os.getenv("TTS_MODEL_DIR")  # 없으면 라이브러리 기본 위치
+AUTO_DOWNLOAD = os.getenv("TTS_AUTO_DOWNLOAD", "1") == "1"
 VOICE = os.getenv("TTS_VOICE", "M1")
 LANG = os.getenv("TTS_LANG", "ko")
 SAMPLE_RATE = int(os.environ["TTS_SAMPLE_RATE"])  # 0번에서 확인한 값
@@ -31,7 +33,7 @@ class TTSModel:
         self._lock = threading.Lock()
 
     def load(self):
-        self._tts = TTS(auto_download=True)
+        self._tts = TTS(model_dir=MODEL_DIR, auto_download=AUTO_DOWNLOAD)
         self._style = self._tts.get_voice_style(voice_name=VOICE)
         self.synthesize("준비")  # 예열
 

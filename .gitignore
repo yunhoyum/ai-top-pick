@@ -83,3 +83,6 @@ desktop.ini
 
 # ===== Claude Code 로컬 설정 =====
 .claude/settings.local.json
+
+# ===== 테스트 산출물 =====
+scripts/model-tests/*.wav

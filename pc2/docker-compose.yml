@@ -39,11 +39,24 @@ services:
   tts-server:
     build:
       context: ../model-servers/tts-server
-    env_file: .env
-    # PC2 안에서 ai-service만 부르므로 포트를 공개하지 않는다
-    # GPU 필요 여부는 '확인 필요' (아키텍처 3, 14). 필요하면 아래 주석을 푼다
-    # deploy: *gpu
-    healthcheck: *fastapi-healthcheck
+    environment:
+      TTS_MODEL_DIR: /models/tts
+      INTERNAL_TOKEN: ${INTERNAL_TOKEN}
+      TTS_SAMPLE_RATE: ${TTS_SAMPLE_RATE}
+      HF_HOME: /models/hf
+    volumes:
+      - tts-models:/models
+    ports:
+      - "127.0.0.1:8003:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+
+volumes:
+  tts-models:
 
   # ---------- LLM ----------
   # 서빙 도구(Ollama, llama.cpp server, vLLM)와 모델이 미정이라 주석으로 둔다
