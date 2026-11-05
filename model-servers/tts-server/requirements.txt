@@ -3,5 +3,4 @@ fastapi==0.162.0
 uvicorn[standard]==0.54.0
 pydantic==2.13.5
 numpy==2.5.4
-
-# Supertonic-3 실행 라이브러리는 목록에 없다. 2단계에서 추가한다
+supertonic
