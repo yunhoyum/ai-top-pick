@@ -30,6 +30,7 @@ def health():
 # CPU를 오래 쓰므로 def(동기)로 둔다. FastAPI가 스레드풀에서 실행해 이벤트 루프를 막지 않는다
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(req: AnalyzeRequest, x_internal_token: str | None = Header(default=None)):
+    """SYS-005 감정 분석"""
     if not x_internal_token or not hmac.compare_digest(x_internal_token, INTERNAL_TOKEN):
         raise HTTPException(status_code=401, detail="invalid token")
     try:

@@ -1,5 +1,6 @@
 # =====================================================================
-# PC2: ai-service, llm-server, tts-server  (시스템 아키텍처 11.1)
+# PC2: ai-service, tts-server  (시스템 아키텍처 11.1)
+# llm-server(Ollama)는 PC2에 직접 설치해 compose 밖에서 실행한다
 # 실행: pc2 폴더에서  docker compose up -d --build
 # 변수: 같은 폴더의 .env (pc2/.env) 를 읽는다
 # =====================================================================
@@ -32,7 +33,7 @@ services:
     depends_on:
       tts-server:
         condition: service_healthy
-      # llm-server를 추가하면 여기에도 넣는다
+      # llm-server(Ollama)는 compose 밖이라 depends_on에 없다
     healthcheck: *fastapi-healthcheck
 
   # ---------- TTS ----------
@@ -55,16 +56,17 @@ services:
       retries: 5
       start_period: 120s
 
-volumes:
-  tts-models:
-
   # ---------- LLM ----------
-  # 서빙 도구(Ollama, llama.cpp server, vLLM)와 모델이 미정이라 주석으로 둔다
-  # 도구를 정하면 image, command, 헬스 확인 경로, 포트를 채운다
+  # EXAONE 3.5 7.8B (IQ4_XS)는 PC2에 직접 설치한 Ollama가 서빙한다 (compose 밖)
+  # ai-service는 host.docker.internal:11434로 접속한다 (pc2/.env의 LLM_URL)
+  # 컨테이너로 옮길지는 통합 테스트 때 정한다. 옮기면 아래 형태로 채운다
   # llm-server:
   #   image: <서빙 도구 이미지>
   #   deploy: *gpu
   #   healthcheck:
   #     test: [...]
 
-# x-gpu 앵커는 llm-server, tts-server에서 쓰려고 미리 둔다
+volumes:
+  tts-models:
+
+# x-gpu 앵커는 llm-server를 컨테이너로 옮길 때 쓰려고 미리 둔다
