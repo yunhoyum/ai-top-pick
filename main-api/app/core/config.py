@@ -16,26 +16,9 @@ class Settings(BaseSettings):
     # ---------- 인증 ----------
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MIN: int = 60
-    INTERNAL_TOKEN: str = ""
-
-    # ---------- 브로커 ----------
-    REDIS_URL: str = "redis://redis:6379/0"
-
-    # ---------- 외부·내부 서비스 ----------
-    DEEPGRAM_API_KEY: str = ""
-    AI_SERVICE_URL: str = ""
-    EMBED_URL: str = ""
-    VISION_URL: str = ""
 
     # ---------- 파일 저장 ----------
     STORAGE_ROOT: str = "/data/storage"
-
-    # ---------- CORS: 쉼표로 구분. 와일드카드는 쿠키 인증과 함께 쓸 수 없다 ----------
-    CORS_ORIGINS: str = ""
-
-    @property
-    def cors_origin_list(self) -> list[str]:
-        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
     @property
     def sqlalchemy_url(self) -> str:
