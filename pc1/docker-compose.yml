@@ -106,11 +106,18 @@ services:
     build:
       context: ../model-servers/embed-server
     env_file: .env
+    environment:
+      HF_HOME: /models/hf
+      HF_HUB_OFFLINE: "1"   # 모델은 볼륨에 있으므로 HF Hub에 접속하지 않는다
     ports:
       # PC2의 ai-service가 접속한다
       - "${EMBED_PORT}:8000"
+    volumes:
+      - embed-models:/models
     deploy: *gpu
-    healthcheck: *fastapi-healthcheck
+    healthcheck:
+      <<: *fastapi-healthcheck
+      start_period: 180s
 
   vision-server:
     build:
@@ -122,8 +129,12 @@ services:
     volumes:
       # main-api가 저장한 면접 영상을 읽기만 한다 (아키텍처 3)
       - storage:/data/storage:ro
-    deploy: *gpu
-    healthcheck: *fastapi-healthcheck
+      # DeepFace 가중치 (첫 실행 때 받는다)
+      - vision-models:/models
+    # GPU를 쓰지 않는다. CPU로 60초 영상이 약 3초에 끝나서 embed-server와 GPU를 다투지 않게 한다
+    healthcheck:
+      <<: *fastapi-healthcheck
+      start_period: 120s
 
   # ---------- 화면 ----------
   web:
@@ -146,3 +157,5 @@ services:
 volumes:
   pgdata:     # PostgreSQL 데이터
   storage:    # 면접 영상, 포트폴리오, 프로젝트 문서 (STORAGE_ROOT=/data/storage)
+  embed-models:
+  vision-models:
