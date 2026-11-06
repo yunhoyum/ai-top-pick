@@ -26,6 +26,12 @@ class SignupRequest(BaseModel):
         return self
 
 
+class LoginRequest(BaseModel):
+    role: Role
+    email: EmailStr
+    password: str = Field(min_length=1)
+
+
 class MemberOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
