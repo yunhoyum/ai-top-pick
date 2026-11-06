@@ -5,7 +5,9 @@ from deepface import DeepFace
 
 from .schemas import EMOTIONS, FrameEmotion
 
-# DeepFace(TensorFlow)의 동시 호출 안전성이 확인되지 않아 한 번에 하나만 실행한다
+# DeepFace(TensorFlow)의 동시 호출 안전성이 확인되지 않아 한 번에 하나만 실행한다.
+# 영상 1개를 처음부터 끝까지 한 번에 잡는다. 프레임마다 잡으면 두 요청이 번갈아 처리되어
+# 둘 다 늦게 끝난다 (먼저 온 요청이 단독 시간에 끝나지 않는다).
 _lock = threading.Lock()
 
 
@@ -19,15 +21,20 @@ def load() -> None:
 def analyze_frame(image: np.ndarray, t: float) -> FrameEmotion | None:
     """프레임 1장의 감정을 분석한다. 얼굴이 없으면 None."""
     with _lock:
-        try:
-            results = DeepFace.analyze(
-                image,
-                actions=["emotion"],
-                enforce_detection=True,  # False면 얼굴이 없어도 전체 이미지를 분석해 버린다
-                silent=True,
-            )
-        except ValueError:
-            return None  # 얼굴을 찾지 못함
+        return _analyze_frame(image, t)
+
+
+def _analyze_frame(image: np.ndarray, t: float) -> FrameEmotion | None:
+    """Lock 을 잡은 상태에서만 부른다."""
+    try:
+        results = DeepFace.analyze(
+            image,
+            actions=["emotion"],
+            enforce_detection=True,  # False면 얼굴이 없어도 전체 이미지를 분석해 버린다
+            silent=True,
+        )
+    except ValueError:
+        return None  # 얼굴을 찾지 못함
     if isinstance(results, dict):
         results = [results]
     if not results:
@@ -45,10 +52,11 @@ def analyze_video(path, interval_sec: float) -> tuple[list[FrameEmotion], int]:
 
     frames: list[FrameEmotion] = []
     skipped = 0
-    for t, image in sample_frames(path, interval_sec):
-        result = analyze_frame(image, t)
-        if result is None:
-            skipped += 1
-        else:
-            frames.append(result)
+    with _lock:  # 영상 단위로 직렬화한다
+        for t, image in sample_frames(path, interval_sec):
+            result = _analyze_frame(image, t)
+            if result is None:
+                skipped += 1
+            else:
+                frames.append(result)
     return frames, skipped
