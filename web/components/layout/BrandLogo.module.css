@@ -1,0 +1,31 @@
+.logo {
+  position: relative;
+  width: 150px;
+  height: 35.836px;
+  flex-shrink: 0;
+}
+
+.mark,
+.text {
+  position: absolute;
+}
+
+.mark img,
+.text img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+}
+
+/* Figma 좌표: inset 9.37% 78.35% 9.38% 2.24% */
+.mark {
+  inset: 9.37% 78.35% 9.38% 2.24%;
+}
+
+/* Figma 좌표: inset 28.86% 0.85% 15.71% 29.01% */
+.text {
+  inset: 28.86% 0.85% 15.71% 29.01%;
+}

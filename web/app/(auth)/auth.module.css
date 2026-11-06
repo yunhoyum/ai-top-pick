@@ -1,0 +1,24 @@
+.layout {
+  display: grid;
+  grid-template-columns: 750fr 1170fr;
+  min-height: 100vh;
+  background: #fff; /* 디자인은 라이트 전용: 전역 다크 모드 배경을 덮는다 */
+}
+
+.formArea {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+}
+
+/* 좁은 화면에서는 브랜드 패널을 숨긴다 */
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .layout > aside {
+    display: none;
+  }
+}

@@ -1,6 +1,19 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Figma 디자인 토큰 */
+  --primary-700: #1e3a5f;
+  --primary-900: #142b47;
+  --accent-50: #eef8f6;
+  --accent-600: #3e8f86;
+  --gray-100: #eef1f4;
+  --gray-200: #e2e6ec;
+  --gray-400: #9aa3b1;
+  --gray-500: #6b7686;
+  --gray-700: #3f4a5a;
+  --gray-900: #1b2430;
+  --danger: #c2413a;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -26,7 +39,7 @@ body {
   flex-direction: column;
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-noto), Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

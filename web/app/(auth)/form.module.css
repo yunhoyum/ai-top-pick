@@ -1,0 +1,50 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 460px;
+  max-width: 100%;
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  line-height: 1.5;
+}
+
+.title {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--gray-500);
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formError {
+  font-size: 13px;
+  color: var(--danger);
+}
+
+.footer {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--gray-500);
+}
+
+.footer a {
+  font-weight: 700;
+  color: var(--accent-600);
+}
