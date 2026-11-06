@@ -9,6 +9,9 @@ from fastapi.responses import JSONResponse
 class ErrorCode(str, Enum):
     EMAIL_DUPLICATED = "EMAIL_DUPLICATED"
     LOGIN_FAILED = "LOGIN_FAILED"
+    UNAUTHENTICATED = "UNAUTHENTICATED"
+    TOKEN_EXPIRED = "TOKEN_EXPIRED"
+    FORBIDDEN = "FORBIDDEN"
 
 
 class AppError(Exception):

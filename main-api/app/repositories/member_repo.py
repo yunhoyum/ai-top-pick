@@ -8,6 +8,9 @@ class MemberRepo:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def get_by_id(self, member_id: int) -> Member | None:
+        return await self.db.get(Member, member_id)
+
     async def get_by_email(self, email: str) -> Member | None:
         return await self.db.scalar(select(Member).where(Member.email == email))
 
