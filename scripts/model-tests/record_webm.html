@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>webm 녹화 (vision-server 테스트용)</title>
+<style>
+  body { font-family: sans-serif; max-width: 720px; margin: 24px auto; padding: 0 16px; }
+  video { width: 100%; background: #000; border-radius: 8px; }
+  button { font-size: 16px; padding: 8px 16px; margin: 8px 8px 8px 0; }
+  #status { margin: 8px 0; color: #333; }
+  #timer { font-variant-numeric: tabular-nums; font-size: 20px; }
+</style>
+</head>
+<body>
+<h2>webm 녹화 (vision-server 테스트용)</h2>
+<p>브라우저 MediaRecorder로 녹화합니다. 실제 면접 화면과 같은 방식의 webm이 만들어집니다.</p>
+
+<video id="preview" autoplay muted playsinline></video>
+<div><span id="timer">00:00</span> <span id="status">대기 중</span></div>
+
+<button id="start">카메라 켜기</button>
+<button id="rec" disabled>녹화 시작</button>
+<button id="stop" disabled>녹화 종료</button>
+
+<p>
+  <label>파일 이름 <input id="name" value="test_face.webm"></label>
+</p>
+<p id="result"></p>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let stream, recorder, chunks = [], t0, tick;
+
+$("start").onclick = async () => {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+  } catch (e) {
+    $("status").textContent = "카메라를 열 수 없습니다: " + e.message;
+    return;
+  }
+  $("preview").srcObject = stream;
+  $("rec").disabled = false;
+  $("status").textContent = "카메라 켜짐";
+};
+
+$("rec").onclick = () => {
+  chunks = [];
+  // 크롬 기본 형식(VP8 webm). 길이 메타데이터가 없는 webm이 만들어진다
+  recorder = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp8" });
+  recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+  recorder.onstop = () => {
+    const blob = new Blob(chunks, { type: "video/webm" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = $("name").value || "test_face.webm";
+    a.click();
+    $("result").textContent = `저장됨: ${a.download} (${(blob.size / 1024 / 1024).toFixed(1)} MB). 다운로드 폴더를 확인하세요.`;
+  };
+  recorder.start(1000);
+  t0 = Date.now();
+  tick = setInterval(() => {
+    const s = Math.floor((Date.now() - t0) / 1000);
+    $("timer").textContent = String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+  }, 250);
+  $("status").textContent = "녹화 중 (30초~1분 권장)";
+  $("rec").disabled = true;
+  $("stop").disabled = false;
+};
+
+$("stop").onclick = () => {
+  recorder.stop();
+  clearInterval(tick);
+  $("status").textContent = "녹화 종료";
+  $("rec").disabled = false;
+  $("stop").disabled = true;
+};
+</script>
+</body>
+</html>

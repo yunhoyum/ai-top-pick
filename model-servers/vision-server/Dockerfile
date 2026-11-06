@@ -2,7 +2,8 @@ FROM python:3.12-slim
 
 # 로그를 바로 출력하고 .pyc 파일을 만들지 않는다
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    DEEPFACE_HOME=/models
 
 WORKDIR /app
 

@@ -5,3 +5,7 @@ pydantic==2.13.5
 numpy==2.5.4
 opencv-contrib-python-headless==4.14.0.94
 deepface==0.0.103
+# deepface 0.0.103 은 tensorflow 를 설치하지 않는다. 직접 넣는다
+tensorflow==2.21.0
+tf-keras==2.21.0
+werkzeug==3.1.9  # deepface 가 import 하지만 의존성에 선언하지 않았다
