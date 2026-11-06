@@ -5,12 +5,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import Button from "@/components/common/Button";
 import Field from "@/components/common/Field";
+import RoleTabs, { type Role } from "@/components/common/RoleTabs";
 import { ApiError, apiFetch } from "@/lib/api";
-import styles from "./signup.module.css";
-
-type Role = "관리자" | "지원자";
-const ROLES: Role[] = ["관리자", "지원자"];
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { EMAIL_PATTERN } from "@/lib/validation";
+import styles from "../form.module.css";
 
 // 화면 02 회원가입 (ADM-001, APP-001)
 export default function SignupForm() {
@@ -99,19 +97,7 @@ export default function SignupForm() {
         <p className={styles.subtitle}>관리자는 채용공고를 등록하고, 지원자는 공고에 지원합니다.</p>
       </div>
 
-      <div className={styles.segmented} role="group" aria-label="역할 선택">
-        {ROLES.map((r) => (
-          <button
-            key={r}
-            type="button"
-            className={`${styles.segment} ${role === r ? styles.active : ""}`}
-            aria-pressed={role === r}
-            onClick={() => setRole(r)}
-          >
-            {r}
-          </button>
-        ))}
-      </div>
+      <RoleTabs value={role} onChange={setRole} />
 
       <div className={styles.fields}>
         <Field label="이름" name="name" placeholder="이름 입력" autoComplete="name" error={fieldErrors.name} />
