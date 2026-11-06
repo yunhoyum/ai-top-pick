@@ -29,6 +29,7 @@ credentials*.json
 *.tflite
 *.bin
 models/
+!main-api/app/models/
 weights/
 huggingface/
 .cache/
