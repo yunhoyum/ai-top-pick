@@ -20,6 +20,13 @@ class Settings(BaseSettings):
     # ---------- 파일 저장 ----------
     STORAGE_ROOT: str = "/data/storage"
 
+    # ---------- CORS: 쉼표로 구분. 쿠키 인증이라 와일드카드는 쓸 수 없다 ----------
+    CORS_ORIGINS: str = ""
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
     @property
     def sqlalchemy_url(self) -> str:
         """psycopg3 드라이버 접두어를 붙인다. .env에는 postgresql:// 형태로 둔다."""
