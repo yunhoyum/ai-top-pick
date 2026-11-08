@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import Button from "@/components/common/Button";
 import Field from "@/components/common/Field";
@@ -19,7 +19,11 @@ const HOME: Record<Role, string> = {
 // 화면 01 로그인 (ADM-002, APP-002)
 export default function LoginForm() {
   const router = useRouter();
-  const [role, setRole] = useState<Role>("관리자");
+  // 지원자 화면(공고 상세 등)에서 로그인하러 온 경우 로그인 뒤 그 화면으로 돌아간다.
+  // 같은 사이트의 /postings 아래 주소만 허용한다 (다른 사이트로 보내는 주소는 무시)
+  const next = useSearchParams().get("next");
+  const returnTo = next && /^\/postings(\/|$)/.test(next) ? next : null;
+  const [role, setRole] = useState<Role>(returnTo ? "지원자" : "관리자");
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -45,7 +49,7 @@ export default function LoginForm() {
         method: "POST",
         body: JSON.stringify({ role, email, password }),
       });
-      router.push(HOME[role]);
+      router.push(returnTo ?? HOME[role]);
     } catch (err) {
       if (err instanceof ApiError && err.fields.email) {
         setFieldErrors({ email: "올바른 이메일 형식이 아닙니다." });

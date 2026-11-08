@@ -123,3 +123,19 @@ export type PostingStats = {
   // 면접 중 문의에서 AI가 처리하지 못한 건수
   ai_unhandled_error_count: number;
 };
+
+// 지원자 화면의 채용공고 상세: 기본 정보와 전형 일정만
+export type PublicPostingDetail = {
+  posting_id: number;
+  position_name: string | null;
+  job_category: string | null;
+  employment_type: string | null;
+  job_description: string | null;
+  progress_status: string | null;
+  doc_start_at: string | null;
+  doc_end_at: string | null;
+  doc_result_at: string | null;
+  interview_start_at: string | null;
+  interview_end_at: string | null;
+  interview_result_at: string | null;
+};

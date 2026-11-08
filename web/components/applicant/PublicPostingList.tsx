@@ -5,9 +5,11 @@ import { useEffect, useState } from "react";
 import Badge from "@/components/common/Badge";
 import styles from "@/components/posting/PostingList.module.css";
 import { ApiError, apiFetch } from "@/lib/api";
+import { fetchMeIfLoggedIn } from "@/lib/auth";
 import { formatMonthDay } from "@/lib/format";
 import { PROGRESS_TONES } from "@/lib/posting";
 import type { PublicPostingItem } from "@/types/posting";
+import AdminPreviewNotice from "./AdminPreviewNotice";
 
 // 필터 칩. '전형 진행'은 서류 평가부터 면접 평가까지를 묶는다
 const FILTERS = [
@@ -25,12 +27,14 @@ const period = (p: PublicPostingItem) =>
 export default function PublicPostingList() {
   const [items, setItems] = useState<PublicPostingItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["key"]>("all");
 
   useEffect(() => {
     apiFetch<PublicPostingItem[]>("/api/postings")
       .then(setItems)
       .catch((e) => setError(e instanceof ApiError ? e.message : "서버에 연결하지 못했습니다."));
+    fetchMeIfLoggedIn().then((me) => setIsAdmin(me?.role === "관리자"));
   }, []);
 
   if (error) return <p className={styles.error}>{error}</p>;
@@ -41,6 +45,7 @@ export default function PublicPostingList() {
 
   return (
     <div className={styles.page}>
+      {isAdmin && <AdminPreviewNotice />}
       <header className={styles.header}>
         <div className={styles.headText}>
           <h1 className={styles.title}>채용공고</h1>

@@ -90,3 +90,14 @@ export function formatMonthDayWeek(iso: string | null): string {
   );
   return `${p.month}.${p.day} (${p.weekday})`;
 }
+
+// 지원 바용: "2026.11.05 (목)" (Asia/Seoul)
+export function formatFullDateWeek(iso: string | null): string {
+  if (!iso) return "-";
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" })
+      .formatToParts(new Date(iso))
+      .map((x) => [x.type, x.value]),
+  );
+  return `${p.year}.${p.month}.${p.day} (${p.weekday})`;
+}
