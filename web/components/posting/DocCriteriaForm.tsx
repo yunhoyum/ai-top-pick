@@ -5,12 +5,12 @@ import { useEffect, useState } from "react";
 import Button from "@/components/common/Button";
 import Stepper from "@/components/common/Stepper";
 import { ApiError, apiFetch } from "@/lib/api";
+import { summarizeRatios } from "@/lib/ratio";
 import type { DocCriteria, EvalCriterion, PostingDetail } from "@/types/posting";
 import shared from "./PostingInfoForm.module.css";
-import styles from "./DocCriteriaForm.module.css";
+import RatioSection from "./RatioSection";
 
 const STEPS = ["공고 정보", "서류 문항", "서류 평가기준", "면접 평가기준", "기업 질문", "검토"];
-const SEGMENT_CLASSES = [styles.seg0, styles.seg1, styles.seg2, styles.seg3];
 
 const errorMessage = (e: unknown) => (e instanceof ApiError ? e.message : "서버에 연결하지 못했습니다.");
 
@@ -41,29 +41,16 @@ export default function DocCriteriaForm({ postingId }: { postingId: number }) {
       .finally(() => setLoading(false));
   }, [postingId]);
 
-  function onChange(criteriaId: number, raw: string) {
-    // 숫자만, 최대 3자리. 앞의 0은 지운다 ("007" → "7")
-    const digits = raw.replace(/\D/g, "").slice(0, 3);
-    setValues((v) => ({ ...v, [criteriaId]: digits === "" ? "" : String(Number(digits)) }));
+  function onChange(criteriaId: number, value: string) {
+    setValues((v) => ({ ...v, [criteriaId]: value }));
     setError(null);
     setNotice(null);
   }
 
-  const numbers = criteria.map((c) => (values[c.criteria_id] ? Number(values[c.criteria_id]) : 0));
-  const sum = numbers.reduce((a, b) => a + b, 0);
-  const blanks = criteria.filter((c) => values[c.criteria_id] === "").length;
-  const itemError = (id: number) =>
-    Number(values[id]) > 100 ? "0~100 사이의 정수를 입력해 주세요." : undefined;
-  const hasItemError = criteria.some((c) => itemError(c.criteria_id));
-  const complete = sum === 100 && blanks === 0 && !hasItemError;
-
-  function status(): { text: string; tone: "ok" | "warn" | "bad" } {
-    if (complete) return { text: "입력 완료", tone: "ok" };
-    if (blanks === criteria.length) return { text: "비율을 입력해 주세요", tone: "warn" };
-    if (sum > 100) return { text: `${sum - 100} 초과`, tone: "bad" };
-    if (sum < 100) return { text: `${100 - sum} 부족`, tone: "warn" };
-    return { text: "비어 있는 항목이 있습니다", tone: "warn" };
-  }
+  const itemError = (c: EvalCriterion) =>
+    Number(values[c.criteria_id]) > 100 ? "0~100 사이의 정수를 입력해 주세요." : undefined;
+  const hasItemError = criteria.some((c) => itemError(c));
+  const { sum } = summarizeRatios(criteria, values, hasItemError);
 
   // validate=false는 임시 저장(합계가 100 이하이면 됨), true는 '다음'(합계가 정확히 100)
   async function save(validate: boolean): Promise<boolean> {
@@ -114,8 +101,6 @@ export default function DocCriteriaForm({ postingId }: { postingId: number }) {
   if (loading) return null;
   if (loadError) return <p className={shared.loadError}>{loadError}</p>;
 
-  const { text, tone } = status();
-
   return (
     <div className={shared.page}>
       <header className={shared.header}>
@@ -132,56 +117,7 @@ export default function DocCriteriaForm({ postingId }: { postingId: number }) {
             AI가 회사 인재상과의 유사도를 기준으로 각 항목을 평가합니다. 비율의 합은 100이어야 합니다.
           </p>
         </div>
-
-        {criteria.map((c) => {
-          const err = itemError(c.criteria_id);
-          return (
-            <div key={c.criteria_id} className={styles.row}>
-              <div className={styles.rowText}>
-                <label className={styles.rowName} htmlFor={`ratio-${c.criteria_id}`}>
-                  {c.criteria_name}
-                </label>
-                {c.description && <p className={styles.rowDesc}>{c.description}</p>}
-              </div>
-              <div className={styles.rowInput}>
-                <div className={`${styles.numberBox} ${err ? styles.invalid : ""}`}>
-                  <input
-                    id={`ratio-${c.criteria_id}`}
-                    className={styles.number}
-                    inputMode="numeric"
-                    autoComplete="off"
-                    placeholder="0"
-                    aria-invalid={err ? true : undefined}
-                    value={values[c.criteria_id] ?? ""}
-                    onChange={(e) => onChange(c.criteria_id, e.target.value)}
-                  />
-                  <span className={styles.unit}>%</span>
-                </div>
-                {err && <p className={styles.itemError}>{err}</p>}
-              </div>
-            </div>
-          );
-        })}
-
-        <div className={styles.total}>
-          <span className={styles.totalLabel}>합계</span>
-          <span className={`${styles.totalValue} ${styles[`total_${tone}`]}`}>{sum} / 100</span>
-          <span className={`${styles.badge} ${styles[`badge_${tone}`]}`} role="status">
-            {text}
-          </span>
-        </div>
-
-        <div className={styles.preview}>
-          <p className={styles.previewLabel}>미리보기</p>
-          <div className={styles.bar} aria-hidden="true">
-            {criteria.map((c, i) =>
-              numbers[i] > 0 ? (
-                <span key={c.criteria_id} className={SEGMENT_CLASSES[i % SEGMENT_CLASSES.length]} style={{ flexGrow: numbers[i] }} />
-              ) : null,
-            )}
-            {sum < 100 && <span style={{ flexGrow: 100 - sum }} />}
-          </div>
-        </div>
+        <RatioSection criteria={criteria} values={values} onChange={onChange} itemError={itemError} preview />
       </section>
 
       {error && (

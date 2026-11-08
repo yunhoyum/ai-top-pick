@@ -57,3 +57,13 @@ export type EvalCriterion = {
 export type DocCriteria = {
   criteria: EvalCriterion[];
 };
+
+// 화면 07 면접 평가기준
+export type InterviewCriteria = {
+  criteria: EvalCriterion[];
+  question_count: number | null;
+  // 사용 true, 사용 안 함 false, 아직 고르지 않음 null
+  follow_up_enabled: boolean | null;
+  think_time_sec: number | null;
+  answer_time_sec: number | null;
+};
