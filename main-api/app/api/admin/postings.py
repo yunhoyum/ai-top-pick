@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, require_admin
 from app.models.member import Member
+from app.schemas.doc_items import DocItemsIn, DocItemsOut
 from app.schemas.posting import DocumentOut, PostingCreated, PostingDetail, PostingInfoIn
 from app.services.posting_service import PostingService
 
@@ -55,3 +56,23 @@ async def delete_document(
 ):
     """ADM-015 프로젝트 문서 삭제"""
     await PostingService(db).delete_document(admin, posting_id, document_id)
+
+
+@router.get("/{posting_id}/doc-items", response_model=DocItemsOut)
+async def get_doc_items(
+    posting_id: int, admin: Member = Depends(require_admin), db: AsyncSession = Depends(get_db)
+):
+    """ADM-006 서류 작성 문항 조회"""
+    return await PostingService(db).get_doc_items(admin, posting_id)
+
+
+@router.put("/{posting_id}/doc-items", response_model=DocItemsOut)
+async def save_doc_items(
+    posting_id: int,
+    req: DocItemsIn,
+    validate: bool = True,
+    admin: Member = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """ADM-006 서류 작성 문항 저장. 임시 저장은 validate=false"""
+    return await PostingService(db).save_doc_items(admin, posting_id, req, validate)

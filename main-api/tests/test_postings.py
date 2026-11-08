@@ -204,3 +204,132 @@ def test_delete_document_removes_row_and_file(admin, posting_id):
     assert admin.get(f"/api/admin/postings/{posting_id}").json()["documents"] == []
     r = admin.delete(f"/api/admin/postings/{posting_id}/documents/{doc['document_id']}")
     assert r.status_code == 404 and r.json()["code"] == "DOCUMENT_NOT_FOUND"
+
+
+# ---------- 서류 작성 문항 (화면 05, ADM-006) ----------
+def _items(admin, pid):
+    return admin.get(f"/api/admin/postings/{pid}/doc-items").json()
+
+
+def _selected(data):
+    return sorted(i["item_id"] for i in data["basic_items"] if i["selected"])
+
+
+DOC_ITEMS = {
+    "basic_item_ids": [1, 2, 5],
+    "skills": [{"skill_name": "Java", "cutoff_score": 2}, {"skill_name": "SQL", "cutoff_score": None}],
+    "essay_topics": ["지원 동기", "성격의 장단점"],
+}
+
+
+def test_doc_items_requires_login(client):
+    assert client.get("/api/admin/postings/1/doc-items").status_code == 401
+
+
+def test_doc_items_initial_has_only_required_selected(admin, posting_id):
+    data = _items(admin, posting_id)
+    # 필수 문항이 앞에 온다
+    assert [i["item_name"] for i in data["basic_items"]] == ["인적사항", "기술 적용 사례", "학력", "경력", "프로젝트"]
+    assert _selected(data) == [1, 5]
+    assert data["skills"] == [] and data["essay_topics"] == []
+
+
+def test_doc_items_round_trip(admin, posting_id):
+    r = admin.put(f"/api/admin/postings/{posting_id}/doc-items", json=DOC_ITEMS)
+    assert r.status_code == 200
+    data = _items(admin, posting_id)
+    assert _selected(data) == [1, 2, 5]
+    assert data["skills"] == DOC_ITEMS["skills"]
+    assert data["essay_topics"] == ["지원 동기", "성격의 장단점"]
+
+
+def test_doc_items_save_replaces_previous(admin, posting_id):
+    admin.put(f"/api/admin/postings/{posting_id}/doc-items", json=DOC_ITEMS)
+    admin.put(
+        f"/api/admin/postings/{posting_id}/doc-items",
+        json={"basic_item_ids": [3], "skills": [{"skill_name": "Spring", "cutoff_score": 3}], "essay_topics": ["지원 동기"]},
+    )
+    data = _items(admin, posting_id)
+    assert _selected(data) == [1, 3, 5]
+    assert [s["skill_name"] for s in data["skills"]] == ["Spring"]
+    assert data["essay_topics"] == ["지원 동기"]
+
+
+def test_doc_items_required_items_cannot_be_removed(admin, posting_id):
+    admin.put(f"/api/admin/postings/{posting_id}/doc-items?validate=false", json={"basic_item_ids": []})
+    assert _selected(_items(admin, posting_id)) == [1, 5]
+
+
+def test_doc_items_unknown_basic_item(admin, posting_id):
+    r = admin.put(f"/api/admin/postings/{posting_id}/doc-items", json={"basic_item_ids": [99]})
+    assert r.status_code == 422 and r.json()["code"] == "POSTING_INVALID"
+
+
+def test_doc_items_next_requires_skill_and_topic(admin, posting_id):
+    r = admin.put(f"/api/admin/postings/{posting_id}/doc-items", json={})
+    assert r.status_code == 422
+    assert "필수 기술" in r.json()["message"] and "자기소개서 주제" in r.json()["message"]
+    only_skill = {"skills": [{"skill_name": "Java"}]}
+    r = admin.put(f"/api/admin/postings/{posting_id}/doc-items", json=only_skill)
+    assert r.status_code == 422 and "자기소개서 주제" in r.json()["message"] and "필수 기술" not in r.json()["message"]
+
+
+def test_doc_items_draft_allows_empty(admin, posting_id):
+    r = admin.put(f"/api/admin/postings/{posting_id}/doc-items?validate=false", json={})
+    assert r.status_code == 200
+
+
+def test_doc_items_blank_rows_are_dropped(admin, posting_id):
+    admin.put(
+        f"/api/admin/postings/{posting_id}/doc-items?validate=false",
+        json={"skills": [{"skill_name": "  "}, {"skill_name": " Java "}], "essay_topics": ["", " 지원 동기 "]},
+    )
+    data = _items(admin, posting_id)
+    assert [s["skill_name"] for s in data["skills"]] == ["Java"]
+    assert data["essay_topics"] == ["지원 동기"]
+
+
+@pytest.mark.parametrize("validate", ["true", "false"])
+def test_doc_items_duplicate_skill_rejected(admin, posting_id, validate):
+    body = {"skills": [{"skill_name": "Java"}, {"skill_name": "java"}], "essay_topics": ["지원 동기"]}
+    r = admin.put(f"/api/admin/postings/{posting_id}/doc-items?validate={validate}", json=body)
+    assert r.status_code == 422 and "두 번" in r.json()["message"]
+
+
+@pytest.mark.parametrize("score", [0, 5])
+def test_doc_items_cutoff_out_of_range(admin, posting_id, score):
+    r = admin.put(
+        f"/api/admin/postings/{posting_id}/doc-items",
+        json={"skills": [{"skill_name": "Java", "cutoff_score": score}], "essay_topics": ["a"]},
+    )
+    assert r.status_code == 422
+
+
+def test_doc_items_skill_is_shared_between_postings(admin, posting_id):
+    other = admin.post("/api/admin/postings").json()["posting_id"]
+    name = f"Skill-{uuid.uuid4().hex[:8]}"
+    for pid, written in ((posting_id, name), (other, name.upper())):
+        admin.put(
+            f"/api/admin/postings/{pid}/doc-items?validate=false", json={"skills": [{"skill_name": written}]}
+        )
+    count = _sql("select count(*) from skill where lower(skill_name) = :n", n=name.lower())[0][0]
+    assert count == 1
+
+
+def test_doc_items_other_admin_gets_404(admin, posting_id, client):
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    with TestClient(app) as other:
+        _login(other)
+        assert other.get(f"/api/admin/postings/{posting_id}/doc-items").status_code == 404
+        assert other.put(f"/api/admin/postings/{posting_id}/doc-items", json=DOC_ITEMS).status_code == 404
+
+
+def test_doc_items_not_editable(admin, posting_id):
+    _sql(
+        "update job_posting set write_status = '등록 완료', progress_status = '서류 접수 중' where posting_id = :p",
+        p=posting_id,
+    )
+    r = admin.put(f"/api/admin/postings/{posting_id}/doc-items", json=DOC_ITEMS)
+    assert r.status_code == 409 and r.json()["code"] == "POSTING_NOT_EDITABLE"

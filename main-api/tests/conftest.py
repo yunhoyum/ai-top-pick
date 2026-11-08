@@ -21,3 +21,11 @@ def client():
 
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture(scope="session", autouse=True)
+def seed_reference_data():
+    # 기본 문항 같은 기준 데이터가 있어야 하는 테스트가 있다. 이미 있으면 건너뛴다
+    from scripts.seed import main
+
+    main()

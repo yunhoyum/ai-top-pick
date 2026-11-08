@@ -8,7 +8,9 @@ from app.domain.enums import UploadStatus
 from app.domain.rules import can_edit_posting, validate_schedule
 from app.models.member import Member
 from app.models.posting import JobPosting, PostingDocument
+from app.repositories.doc_item_repo import DocItemRepo
 from app.repositories.posting_repo import PostingRepo
+from app.schemas.doc_items import BasicItemOut, DocItemsIn, DocItemsOut, SkillOut
 from app.schemas.posting import PostingDetail, PostingInfoIn
 from app.services import file_service
 
@@ -33,6 +35,7 @@ class PostingService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.postings = PostingRepo(db)
+        self.doc_items = DocItemRepo(db)
 
     async def create_draft(self, admin: Member) -> int:
         """ADM-004, ADM-011 공고 행을 만든다. 작성 상태 '임시 저장', 진행 상태 '모집 전'"""
@@ -105,6 +108,68 @@ class PostingService:
         await self.postings.delete_document(document)
         await self.db.commit()
         file_service.delete(path)
+
+    async def get_doc_items(self, admin: Member, posting_id: int) -> DocItemsOut:
+        """ADM-006, ADM-037 서류 작성 문항 조회. 기본 문항 전체 목록에 선택 여부를 붙여 돌려준다."""
+        await self._get_owned(admin, posting_id)
+        return await self._doc_items_out(posting_id)
+
+    async def save_doc_items(
+        self, admin: Member, posting_id: int, req: DocItemsIn, validate: bool
+    ) -> DocItemsOut:
+        """ADM-006, ADM-011 기본 문항, 필수 기술, 자소서 주제 저장. 있던 값은 보낸 값으로 모두 바뀐다.
+        validate=True('다음')면 필수 기술과 자소서 주제가 각각 1개 이상이어야 한다."""
+        posting = await self._get_owned(admin, posting_id)
+        self._ensure_editable(posting)
+
+        catalog = await self.doc_items.list_basic_items()
+        known = {item.item_id for item in catalog}
+        unknown = set(req.basic_item_ids) - known
+        if unknown:
+            raise AppError(422, ErrorCode.POSTING_INVALID, "알 수 없는 기본 문항입니다.")
+        # 필수 문항은 관리자가 해제할 수 없으므로 항상 포함한다
+        item_ids = sorted(set(req.basic_item_ids) | {i.item_id for i in catalog if i.is_required})
+
+        skills = [(s.skill_name, s.cutoff_score) for s in req.skills if s.skill_name]
+        names = [name.lower() for name, _ in skills]
+        duplicated = sorted({name for name in names if names.count(name) > 1})
+        if duplicated:
+            raise AppError(
+                422, ErrorCode.POSTING_INVALID, "같은 기술을 두 번 입력할 수 없습니다: " + ", ".join(duplicated)
+            )
+        topics = [t for t in req.essay_topics if t]
+
+        if validate:
+            missing = []
+            if not skills:
+                missing.append("필수 기술을 1개 이상 입력해 주세요.")
+            if not topics:
+                missing.append("자기소개서 주제를 1개 이상 입력해 주세요.")
+            if missing:
+                raise AppError(422, ErrorCode.POSTING_INVALID, " ".join(missing))
+
+        await self.doc_items.replace_all(posting_id, item_ids, skills, topics)
+        await self.db.commit()
+        return await self._doc_items_out(posting_id)
+
+    async def _doc_items_out(self, posting_id: int) -> DocItemsOut:
+        catalog = await self.doc_items.list_basic_items()
+        selected = await self.doc_items.selected_item_ids(posting_id)
+        return DocItemsOut(
+            basic_items=[
+                BasicItemOut(
+                    item_id=i.item_id,
+                    item_name=i.item_name,
+                    is_required=i.is_required,
+                    selected=i.is_required or i.item_id in selected,
+                )
+                for i in catalog
+            ],
+            skills=[
+                SkillOut(skill_name=n, cutoff_score=c) for n, c in await self.doc_items.list_skills(posting_id)
+            ],
+            essay_topics=await self.doc_items.list_topics(posting_id),
+        )
 
     async def _get_owned(self, admin: Member, posting_id: int) -> JobPosting:
         """본인 공고가 아니면 404 (다른 관리자의 공고가 있는지도 알리지 않는다)"""
