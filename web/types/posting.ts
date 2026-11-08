@@ -44,3 +44,16 @@ export type DocItems = {
   skills: RequiredSkill[];
   essay_topics: string[];
 };
+
+// 화면 06 서류 평가기준
+export type EvalCriterion = {
+  criteria_id: number;
+  criteria_name: string;
+  description: string | null;
+  // 아직 입력하지 않았으면 null
+  ratio: number | null;
+};
+
+export type DocCriteria = {
+  criteria: EvalCriterion[];
+};

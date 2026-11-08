@@ -49,12 +49,22 @@
   color: #fff;
 }
 
+.done {
+  border-color: var(--accent-300);
+  background: var(--accent-50);
+  color: var(--accent-600);
+}
+
 .label {
   font-size: 13px;
   font-weight: 500;
   line-height: 1.5;
   color: var(--gray-400);
   white-space: nowrap;
+}
+
+.doneLabel {
+  color: var(--gray-700);
 }
 
 .currentLabel {

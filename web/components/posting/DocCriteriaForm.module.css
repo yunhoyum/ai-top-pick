@@ -1,0 +1,188 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+}
+
+.rowText {
+  display: flex;
+  flex: 1 0 0;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  line-height: 1.5;
+}
+
+.rowName {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.rowDesc {
+  font-size: 13px;
+  color: var(--gray-500);
+}
+
+.rowInput {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.numberBox {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  width: 110px;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.numberBox:focus-within {
+  outline: 2px solid var(--primary-700);
+  outline-offset: -1px;
+}
+
+.invalid {
+  border-color: var(--danger);
+}
+
+.number {
+  width: 100%;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--gray-900);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: right;
+  outline: none;
+}
+
+.number::placeholder {
+  color: var(--gray-400);
+  font-weight: 400;
+}
+
+.unit {
+  font-size: 13px;
+  color: var(--gray-400);
+}
+
+.itemError {
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.total {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--accent-50);
+  line-height: 1.5;
+}
+
+.totalLabel {
+  flex: 1 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.totalValue {
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.total_ok {
+  color: var(--accent-600);
+}
+
+.total_warn {
+  color: var(--gray-700);
+}
+
+.total_bad {
+  color: var(--danger);
+}
+
+.badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.badge_ok {
+  background: #fff;
+  color: var(--accent-600);
+}
+
+.badge_warn {
+  background: #fff;
+  color: var(--gray-500);
+}
+
+.badge_bad {
+  background: var(--red-50);
+  color: var(--danger);
+}
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.previewLabel {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--gray-500);
+}
+
+.bar {
+  display: flex;
+  gap: 2px;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--gray-100);
+}
+
+/* 막대 한 칸의 너비는 flex-grow(비율 값)로 정한다. 합이 100보다 작으면 남는 칸은 회색이다 */
+.bar > span {
+  flex-basis: 0;
+  min-width: 0;
+}
+
+.seg0 {
+  background: var(--primary-700);
+}
+
+.seg1 {
+  background: var(--primary-500);
+}
+
+.seg2 {
+  background: var(--accent-600);
+}
+
+.seg3 {
+  background: var(--accent-300);
+}
