@@ -91,6 +91,9 @@ export type Review = {
 };
 
 // 화면 10 채용공고 목록
+// 지원자 화면의 채용공고 목록 한 줄 (지원자 수는 공개하지 않는다)
+export type PublicPostingItem = Omit<PostingListItem, "applicant_count">;
+
 export type PostingListItem = {
   posting_id: number;
   position_name: string | null;
