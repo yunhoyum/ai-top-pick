@@ -27,3 +27,8 @@
   background: var(--amber-50);
   color: var(--amber-600);
 }
+
+.red {
+  background: var(--red-50);
+  color: var(--red-600);
+}

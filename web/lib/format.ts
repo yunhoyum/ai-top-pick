@@ -79,3 +79,14 @@ export function formatMonthDayWeekTime(iso: string | null): string {
   );
   return `${p.month}.${p.day} (${p.weekday}) ${p.hour}:${p.minute}`;
 }
+
+// 대시보드 일정용: "10.27 (화)" (Asia/Seoul)
+export function formatMonthDayWeek(iso: string | null): string {
+  if (!iso) return "-";
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "2-digit", day: "2-digit", weekday: "short" })
+      .formatToParts(new Date(iso))
+      .map((x) => [x.type, x.value]),
+  );
+  return `${p.month}.${p.day} (${p.weekday})`;
+}

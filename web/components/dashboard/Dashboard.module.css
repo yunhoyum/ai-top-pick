@@ -1,0 +1,372 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.headText {
+  display: flex;
+  flex: 1 0 0;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  line-height: 1.5;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--gray-500);
+}
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 380px;
+  flex-shrink: 0;
+}
+
+.error {
+  font-size: 14px;
+  color: var(--danger);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.empty {
+  align-items: flex-start;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--gray-500);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cardTitle {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--gray-900);
+  white-space: nowrap;
+}
+
+.spacer {
+  flex: 1 0 0;
+}
+
+.link {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--accent-600);
+  white-space: nowrap;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.divider {
+  width: 100%;
+  height: 1px;
+  border: none;
+  background: var(--gray-200);
+}
+
+/* ---------- 공고·평가기준 요약 ---------- */
+.summaryCard {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 32px;
+}
+
+.col {
+  display: flex;
+  flex: 1 0 0;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+
+.col .cardHead {
+  width: 100%;
+}
+
+.vline {
+  align-self: stretch;
+  width: 1px;
+  flex-shrink: 0;
+  background: var(--gray-200);
+}
+
+.postingHead {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.postingName {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--primary-900);
+  overflow-wrap: anywhere;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.milestones {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.milestone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  line-height: 1.5;
+}
+
+.milestoneLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-700);
+  white-space: nowrap;
+}
+
+.milestoneDate {
+  font-size: 14px;
+  color: var(--gray-500);
+  white-space: nowrap;
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.blockTitle {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--gray-500);
+}
+
+.talent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--gray-900);
+}
+
+.talent > span:last-child {
+  flex: 1 0 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- 전형 현황, 오류 확인 ---------- */
+.rowB {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.stageCard {
+  flex: 1 0 0;
+}
+
+.chips {
+  display: flex;
+  gap: 6px;
+}
+
+.chip {
+  padding: 3px 10px;
+  border: none;
+  border-radius: 999px;
+  background: var(--gray-100);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--gray-500);
+  cursor: pointer;
+}
+
+.chip:hover {
+  color: var(--primary-700);
+}
+
+.chipActive {
+  background: var(--accent-50);
+  color: var(--accent-600);
+}
+
+.tiles {
+  display: flex;
+  gap: 16px;
+}
+
+.tile {
+  display: flex;
+  flex: 1 0 0;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  line-height: 1.5;
+}
+
+.tileLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-500);
+}
+
+.tileValue {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.tileValue strong {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.tileValue span {
+  font-size: 13px;
+  color: var(--gray-400);
+}
+
+.tileValue strong.tile_red {
+  color: var(--red-600);
+}
+
+.tileValue strong.tile_teal {
+  color: var(--accent-600);
+}
+
+.rank {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rankEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 120px;
+  border: 1px dashed var(--gray-200);
+  border-radius: 10px;
+  background: var(--gray-50);
+  line-height: 1.5;
+  text-align: center;
+}
+
+.rankTitle {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-500);
+}
+
+.rankDesc {
+  font-size: 12px;
+  color: var(--gray-400);
+}
+
+.errorCard {
+  width: 380px;
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.errorSub {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--gray-400);
+}
+
+.todo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: var(--gray-50);
+  line-height: 1.5;
+}
+
+.todoName {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gray-900);
+  overflow-wrap: anywhere;
+}
+
+.todoDesc {
+  font-size: 13px;
+  color: var(--gray-500);
+}
+
+@media (max-width: 1100px) {
+  .summaryCard,
+  .rowB,
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .vline {
+    width: 100%;
+    height: 1px;
+  }
+
+  .errorCard,
+  .picker {
+    width: auto;
+  }
+}

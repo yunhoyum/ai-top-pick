@@ -115,4 +115,8 @@ export type PostingStats = {
   submitted_count: number;
   interview_target_count: number;
   interview_done_count: number;
+  // 서류 제출 때 필수 기술 기준에 걸려 바로 탈락한 지원서 수
+  skill_shortfall_count: number;
+  // 면접 중 문의에서 AI가 처리하지 못한 건수
+  ai_unhandled_error_count: number;
 };

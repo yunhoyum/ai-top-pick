@@ -48,3 +48,7 @@ export function interviewStage(progress: string | null): StageState {
   if (progress === "면접 평가" || progress === "마감") return CLOSED;
   return BEFORE;
 }
+
+// 평가 비율 막대 색 (Figma): 서류 평가기준은 4색, 면접 평가기준은 3색 (언어는 accent-600, 비언어는 accent-300)
+export const DOC_RATIO_COLORS = ["var(--primary-700)", "var(--primary-500)", "var(--accent-600)", "var(--accent-300)"];
+export const INTERVIEW_RATIO_COLORS = ["var(--primary-700)", "var(--accent-600)", "var(--accent-300)"];
