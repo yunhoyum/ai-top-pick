@@ -5,8 +5,11 @@
   /* Figma 디자인 토큰 */
   --primary-700: #1e3a5f;
   --primary-900: #142b47;
+  --primary-50: #f1f4f8;
+  --primary-100: #dce4ee;
   --accent-50: #eef8f6;
   --accent-600: #3e8f86;
+  --gray-50: #f7f8fa;
   --gray-100: #eef1f4;
   --gray-200: #e2e6ec;
   --gray-400: #9aa3b1;
@@ -14,6 +17,8 @@
   --gray-700: #3f4a5a;
   --gray-900: #1b2430;
   --danger: #c2413a;
+  --red-50: #fceeee;
+  --red-600: #c94a4a;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -30,7 +35,7 @@ html {
 html,
 body {
   max-width: 100vw;
-  overflow-x: hidden;
+  overflow-x: clip; /* hidden은 body를 스크롤 컨테이너로 만들어 position: sticky를 막는다 */
 }
 
 body {

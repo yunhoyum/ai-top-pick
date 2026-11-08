@@ -4,8 +4,6 @@
   padding: 0 20px;
   border: none;
   border-radius: 8px;
-  background: var(--primary-700);
-  color: #fff;
   font-size: 14px;
   font-weight: 500;
   line-height: 1.5;
@@ -15,4 +13,24 @@
 .button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.primary {
+  background: var(--primary-700);
+  color: #fff;
+}
+
+.secondary {
+  border: 1px solid var(--gray-200);
+  background: #fff;
+  color: var(--primary-700);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--primary-700);
+}
+
+.inline {
+  width: auto;
 }

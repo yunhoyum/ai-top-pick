@@ -41,3 +41,17 @@
   font-size: 12px;
   color: var(--danger);
 }
+
+.textarea {
+  height: 120px;
+  padding: 12px 14px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.select {
+  padding-right: 38px;
+  appearance: none;
+  background: #fff url("/icons/chevron-down.svg") no-repeat right 14px center;
+  background-size: 16px 16px;
+}

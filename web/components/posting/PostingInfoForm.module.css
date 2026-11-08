@@ -1,0 +1,110 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  line-height: 1.5;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--gray-500);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.cardHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.5;
+}
+
+.cardTitle {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--gray-900);
+}
+
+.cardDesc {
+  font-size: 13px;
+  color: var(--gray-500);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.period {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--gray-50);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.periodLabel {
+  font-weight: 500;
+  color: var(--gray-500);
+}
+
+.periodValue {
+  font-weight: 700;
+  color: var(--primary-700);
+}
+
+.formError {
+  font-size: 13px;
+  color: var(--danger);
+}
+
+.notice {
+  font-size: 13px;
+  color: var(--accent-600);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.spacer {
+  flex: 1 0 0;
+}
+
+.loadError {
+  font-size: 14px;
+  color: var(--danger);
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
