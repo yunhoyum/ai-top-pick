@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, require_admin
 from app.models.member import Member
+from app.schemas.company_questions import CompanyQuestionsIn, CompanyQuestionsOut
 from app.schemas.doc_criteria import DocCriteriaIn, DocCriteriaOut
 from app.schemas.interview_criteria import InterviewCriteriaIn, InterviewCriteriaOut
 from app.schemas.doc_items import DocItemsIn, DocItemsOut
@@ -117,3 +118,22 @@ async def save_interview_criteria(
 ):
     """ADM-008 면접 평가기준 저장. 임시 저장은 validate=false"""
     return await PostingService(db).save_interview_criteria(admin, posting_id, req, validate)
+
+@router.get("/{posting_id}/company-questions", response_model=CompanyQuestionsOut)
+async def get_company_questions(
+    posting_id: int, admin: Member = Depends(require_admin), db: AsyncSession = Depends(get_db)
+):
+    """ADM-009 기업 질문 조회"""
+    return await PostingService(db).get_company_questions(admin, posting_id)
+
+
+@router.put("/{posting_id}/company-questions", response_model=CompanyQuestionsOut)
+async def save_company_questions(
+    posting_id: int,
+    req: CompanyQuestionsIn,
+    validate: bool = True,
+    admin: Member = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """ADM-009 기업 질문과 AI 질문 비율 저장. 임시 저장은 validate=false"""
+    return await PostingService(db).save_company_questions(admin, posting_id, req, validate)

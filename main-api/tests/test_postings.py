@@ -582,3 +582,119 @@ def test_interview_not_editable(admin, posting_id):
     )
     r = _put_interview(admin, posting_id)
     assert r.status_code == 409 and r.json()["code"] == "POSTING_NOT_EDITABLE"
+
+# ---------- 기업 질문 (화면 08, ADM-009) ----------
+def _company(admin, pid):
+    return admin.get(f"/api/admin/postings/{pid}/company-questions").json()
+
+
+def _put_company(admin, pid, questions=("질문1",), ratio=60, validate="true"):
+    body = {"questions": list(questions), "job_question_ratio": ratio}
+    return admin.put(f"/api/admin/postings/{pid}/company-questions?validate={validate}", json=body)
+
+
+def _set_question_count(pid, count):
+    _sql("update job_posting set question_count = :c where posting_id = :p", c=count, p=pid)
+
+
+def test_company_questions_require_login(client):
+    assert client.get("/api/admin/postings/1/company-questions").status_code == 401
+
+
+def test_company_questions_initial_is_blank(admin, posting_id):
+    assert _company(admin, posting_id) == {"questions": [], "job_question_ratio": None, "question_count": None}
+
+
+def test_company_questions_round_trip_keeps_order(admin, posting_id):
+    _set_question_count(posting_id, 6)
+    assert _put_company(admin, posting_id, ["셋째 아님", "A", "B"], ratio=60).status_code == 200
+    data = _company(admin, posting_id)
+    assert data == {"questions": ["셋째 아님", "A", "B"], "job_question_ratio": 60, "question_count": 6}
+    rows = _sql("select seq, content from company_question where posting_id = :p order by seq", p=posting_id)
+    assert [tuple(r) for r in rows] == [(1, "셋째 아님"), (2, "A"), (3, "B")]
+
+
+def test_company_questions_save_replaces_previous(admin, posting_id):
+    _set_question_count(posting_id, 6)
+    _put_company(admin, posting_id, ["A", "B", "C"])
+    _put_company(admin, posting_id, ["C", "A"], ratio=40)
+    assert _company(admin, posting_id)["questions"] == ["C", "A"]
+
+
+def test_company_questions_zero_is_allowed(admin, posting_id):
+    _set_question_count(posting_id, 6)
+    assert _put_company(admin, posting_id, [], ratio=50).status_code == 200
+    assert _company(admin, posting_id)["questions"] == []
+
+
+def test_company_questions_blank_rows_are_dropped_and_trimmed(admin, posting_id):
+    _set_question_count(posting_id, 6)
+    _put_company(admin, posting_id, ["  A  ", "", "   ", "B"], validate="false")
+    assert _company(admin, posting_id)["questions"] == ["A", "B"]
+
+
+@pytest.mark.parametrize("validate", ["true", "false"])
+def test_company_questions_cannot_exceed_question_count(admin, posting_id, validate):
+    _set_question_count(posting_id, 2)
+    r = _put_company(admin, posting_id, ["A", "B", "C"], validate=validate)
+    assert r.status_code == 422 and "출제 문제 개수(2개)" in r.json()["message"]
+    # 같은 개수는 된다
+    assert _put_company(admin, posting_id, ["A", "B"], validate=validate).status_code == 200
+
+
+@pytest.mark.parametrize("validate", ["true", "false"])
+def test_company_questions_need_question_count_first(admin, posting_id, validate):
+    r = _put_company(admin, posting_id, ["A"], validate=validate)
+    assert r.status_code == 422 and "출제 문제 개수를 먼저" in r.json()["message"]
+
+
+def test_company_questions_next_needs_question_count_even_if_empty(admin, posting_id):
+    r = _put_company(admin, posting_id, [], ratio=50)
+    assert r.status_code == 422 and "출제 문제 개수를 먼저" in r.json()["message"]
+    # 임시 저장은 된다
+    assert _put_company(admin, posting_id, [], ratio=None, validate="false").status_code == 200
+
+
+def test_company_questions_next_requires_ratio_when_ai_questions_exist(admin, posting_id):
+    _set_question_count(posting_id, 3)
+    r = _put_company(admin, posting_id, ["A"], ratio=None)
+    assert r.status_code == 422 and "비율을 설정" in r.json()["message"]
+    assert _put_company(admin, posting_id, ["A"], ratio=None, validate="false").status_code == 200
+
+
+def test_company_questions_ratio_not_needed_without_ai_questions(admin, posting_id):
+    _set_question_count(posting_id, 2)
+    assert _put_company(admin, posting_id, ["A", "B"], ratio=None).status_code == 200
+
+
+@pytest.mark.parametrize("ratio", [0, 100])
+def test_company_questions_ratio_bounds_are_allowed(admin, posting_id, ratio):
+    _set_question_count(posting_id, 3)
+    assert _put_company(admin, posting_id, ["A"], ratio=ratio).status_code == 200
+    assert _company(admin, posting_id)["job_question_ratio"] == ratio
+
+
+@pytest.mark.parametrize("ratio", [-1, 101])
+def test_company_questions_ratio_out_of_range(admin, posting_id, ratio):
+    _set_question_count(posting_id, 3)
+    assert _put_company(admin, posting_id, ["A"], ratio=ratio, validate="false").status_code == 422
+
+
+def test_company_questions_other_admin_gets_404(admin, posting_id):
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    with TestClient(app) as other:
+        _login(other)
+        assert other.get(f"/api/admin/postings/{posting_id}/company-questions").status_code == 404
+        assert _put_company(other, posting_id).status_code == 404
+
+
+def test_company_questions_not_editable(admin, posting_id):
+    _set_question_count(posting_id, 3)
+    _sql(
+        "update job_posting set write_status = '등록 완료', progress_status = '서류 접수 중' where posting_id = :p",
+        p=posting_id,
+    )
+    r = _put_company(admin, posting_id)
+    assert r.status_code == 409 and r.json()["code"] == "POSTING_NOT_EDITABLE"

@@ -8,9 +8,11 @@ from app.domain.enums import StageType, UploadStatus
 from app.domain.rules import can_edit_posting, resume_description, validate_schedule
 from app.models.member import Member
 from app.models.posting import EvalCriteria, JobPosting, PostingDocument
+from app.repositories.company_question_repo import CompanyQuestionRepo
 from app.repositories.doc_item_repo import DocItemRepo
 from app.repositories.eval_ratio_repo import EvalRatioRepo
 from app.repositories.posting_repo import PostingRepo
+from app.schemas.company_questions import CompanyQuestionsIn, CompanyQuestionsOut
 from app.schemas.doc_criteria import CriteriaOut, DocCriteriaIn, DocCriteriaOut
 from app.schemas.interview_criteria import InterviewCriteriaIn, InterviewCriteriaOut
 from app.schemas.doc_items import BasicItemOut, DocItemsIn, DocItemsOut, SkillOut
@@ -40,6 +42,7 @@ class PostingService:
         self.postings = PostingRepo(db)
         self.doc_items = DocItemRepo(db)
         self.eval_ratios = EvalRatioRepo(db)
+        self.company_questions = CompanyQuestionRepo(db)
 
     async def create_draft(self, admin: Member) -> int:
         """ADM-004, ADM-011 공고 행을 만든다. 작성 상태 '임시 저장', 진행 상태 '모집 전'"""
@@ -271,6 +274,50 @@ class PostingService:
             follow_up_enabled=posting.follow_up_enabled,
             think_time_sec=posting.think_time_sec,
             answer_time_sec=posting.answer_time_sec,
+        )
+
+    async def get_company_questions(self, admin: Member, posting_id: int) -> CompanyQuestionsOut:
+        """ADM-009, ADM-040 기업 질문과 AI 질문 비율 조회"""
+        posting = await self._get_owned(admin, posting_id)
+        return await self._company_questions_out(posting)
+
+    async def save_company_questions(
+        self, admin: Member, posting_id: int, req: CompanyQuestionsIn, validate: bool
+    ) -> CompanyQuestionsOut:
+        """ADM-009, ADM-011, ADM-032 기업 질문 목록과 AI 질문 비율 저장. 있던 질문은 보낸 목록으로 모두 바뀐다.
+        기업 질문은 0개도 된다. 출제 문제 개수를 넘으면 임시 저장도 할 수 없다.
+        validate=True('다음')면 출제 문제 개수가 입력돼 있어야 하고, AI 질문이 있으면 비율을 정해야 한다."""
+        posting = await self._get_owned(admin, posting_id)
+        self._ensure_editable(posting)
+
+        questions = [q for q in req.questions if q]
+        count = posting.question_count
+        if questions and count is None:
+            raise AppError(422, ErrorCode.POSTING_INVALID, "면접 평가기준에서 출제 문제 개수를 먼저 입력해 주세요.")
+        if count is not None and len(questions) > count:
+            raise AppError(
+                422,
+                ErrorCode.POSTING_INVALID,
+                f"기업 질문은 출제 문제 개수({count}개)를 넘길 수 없습니다. 현재 {len(questions)}개입니다.",
+            )
+
+        if validate:
+            if count is None:
+                raise AppError(422, ErrorCode.POSTING_INVALID, "면접 평가기준에서 출제 문제 개수를 먼저 입력해 주세요.")
+            # AI 질문이 하나도 없으면(기업 질문 수 = 출제 문제 개수) 비율은 필요 없다
+            if count - len(questions) > 0 and req.job_question_ratio is None:
+                raise AppError(422, ErrorCode.POSTING_INVALID, "AI 질문의 직무/인성 비율을 설정해 주세요.")
+
+        await self.company_questions.replace_all(posting_id, questions)
+        posting.job_question_ratio = req.job_question_ratio
+        await self.db.commit()
+        return await self._company_questions_out(posting)
+
+    async def _company_questions_out(self, posting: JobPosting) -> CompanyQuestionsOut:
+        return CompanyQuestionsOut(
+            questions=await self.company_questions.list_contents(posting.posting_id),
+            job_question_ratio=posting.job_question_ratio,
+            question_count=posting.question_count,
         )
 
     async def _doc_criteria_out(self, posting_id: int) -> DocCriteriaOut:
