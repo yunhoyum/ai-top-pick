@@ -4,12 +4,14 @@ from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ErrorCode
-from app.domain.enums import UploadStatus
-from app.domain.rules import can_edit_posting, validate_schedule
+from app.domain.enums import StageType, UploadStatus
+from app.domain.rules import can_edit_posting, resume_description, validate_schedule
 from app.models.member import Member
 from app.models.posting import JobPosting, PostingDocument
 from app.repositories.doc_item_repo import DocItemRepo
+from app.repositories.eval_ratio_repo import EvalRatioRepo
 from app.repositories.posting_repo import PostingRepo
+from app.schemas.doc_criteria import CriteriaOut, DocCriteriaIn, DocCriteriaOut
 from app.schemas.doc_items import BasicItemOut, DocItemsIn, DocItemsOut, SkillOut
 from app.schemas.posting import PostingDetail, PostingInfoIn
 from app.services import file_service
@@ -36,6 +38,7 @@ class PostingService:
         self.db = db
         self.postings = PostingRepo(db)
         self.doc_items = DocItemRepo(db)
+        self.eval_ratios = EvalRatioRepo(db)
 
     async def create_draft(self, admin: Member) -> int:
         """ADM-004, ADM-011 공고 행을 만든다. 작성 상태 '임시 저장', 진행 상태 '모집 전'"""
@@ -151,6 +154,60 @@ class PostingService:
         await self.doc_items.replace_all(posting_id, item_ids, skills, topics)
         await self.db.commit()
         return await self._doc_items_out(posting_id)
+
+    async def get_doc_criteria(self, admin: Member, posting_id: int) -> DocCriteriaOut:
+        """ADM-007, ADM-038 서류 평가기준 조회"""
+        await self._get_owned(admin, posting_id)
+        return await self._doc_criteria_out(posting_id)
+
+    async def save_doc_criteria(
+        self, admin: Member, posting_id: int, req: DocCriteriaIn, validate: bool
+    ) -> DocCriteriaOut:
+        """ADM-007, ADM-011 서류 평가 항목별 비율 저장. 서류 항목의 비율만 바뀌고 면접 항목은 그대로다.
+        합이 100을 넘으면 임시 저장도 할 수 없다. validate=True('다음')면 모든 항목을 입력해야 하고 합이 100이어야 한다."""
+        posting = await self._get_owned(admin, posting_id)
+        self._ensure_editable(posting)
+
+        criteria_ids = [c.criteria_id for c in await self.eval_ratios.list_criteria(StageType.DOCUMENT.value)]
+        sent = [r.criteria_id for r in req.ratios]
+        if set(sent) - set(criteria_ids) or len(sent) != len(set(sent)):
+            raise AppError(422, ErrorCode.POSTING_INVALID, "알 수 없거나 중복된 평가 항목입니다.")
+        ratios = {r.criteria_id: r.ratio for r in req.ratios if r.ratio is not None}
+
+        total = sum(ratios.values())
+        if total > 100:
+            raise AppError(
+                422, ErrorCode.POSTING_INVALID, f"비율의 합은 100을 넘을 수 없습니다. 현재 {total}입니다."
+            )
+        if validate:
+            if len(ratios) < len(criteria_ids):
+                raise AppError(422, ErrorCode.POSTING_INVALID, "모든 항목의 비율을 입력해 주세요.")
+            if total != 100:
+                raise AppError(
+                    422, ErrorCode.POSTING_INVALID, f"비율의 합은 100이어야 합니다. 현재 {total}입니다."
+                )
+
+        await self.eval_ratios.replace(posting_id, criteria_ids, ratios)
+        await self.db.commit()
+        return await self._doc_criteria_out(posting_id)
+
+    async def _doc_criteria_out(self, posting_id: int) -> DocCriteriaOut:
+        criteria = await self.eval_ratios.list_criteria(StageType.DOCUMENT.value)
+        ratios = await self.eval_ratios.ratios(posting_id, [c.criteria_id for c in criteria])
+        # 이력서 설명은 공고가 고른 기본 문항에 따라 달라진다 (ADM-007)
+        selected = await self.doc_items.selected_item_ids(posting_id)
+        names = [i.item_name for i in await self.doc_items.list_basic_items() if i.item_id in selected]
+        return DocCriteriaOut(
+            criteria=[
+                CriteriaOut(
+                    criteria_id=c.criteria_id,
+                    criteria_name=c.criteria_name,
+                    description=resume_description(names) if c.criteria_name == "이력서" else c.description,
+                    ratio=ratios.get(c.criteria_id),
+                )
+                for c in criteria
+            ]
+        )
 
     async def _doc_items_out(self, posting_id: int) -> DocItemsOut:
         catalog = await self.doc_items.list_basic_items()

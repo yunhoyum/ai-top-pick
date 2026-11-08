@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Protocol
 
-from app.domain.enums import PostingWriteStatus, ProgressStatus
+from app.domain.enums import ItemName, PostingWriteStatus, ProgressStatus
 
 
 class _Schedule(Protocol):
@@ -36,6 +36,14 @@ def validate_schedule(s: _Schedule) -> list[str]:
         if a > b or (a == b and not allow_equal):
             errors.append(message)
     return errors
+
+
+def resume_description(selected_item_names: list[str]) -> str:
+    """ADM-007 이력서 평가 대상 설명. 인적사항과 필수 기술은 항상 평가하고,
+    학력·경력·프로젝트는 공고가 선택한 것만 평가한다. 기술 적용 사례는 별도 평가 항목이다."""
+    optional = [ItemName.EDUCATION, ItemName.CAREER, ItemName.PROJECT]
+    chosen = [i.value for i in optional if i.value in selected_item_names]
+    return "·".join([ItemName.PROFILE.value, "필수 기술", *chosen])
 
 
 def can_edit_posting(posting) -> bool:

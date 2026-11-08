@@ -333,3 +333,112 @@ def test_doc_items_not_editable(admin, posting_id):
     )
     r = admin.put(f"/api/admin/postings/{posting_id}/doc-items", json=DOC_ITEMS)
     assert r.status_code == 409 and r.json()["code"] == "POSTING_NOT_EDITABLE"
+
+
+# ---------- 서류 평가기준 (화면 06, ADM-007) ----------
+def _criteria(admin, pid):
+    return admin.get(f"/api/admin/postings/{pid}/doc-criteria").json()["criteria"]
+
+
+def _put_ratios(admin, pid, values, validate="true"):
+    """values: 서류 항목 1~4의 비율 목록 (None은 미입력)"""
+    body = {"ratios": [{"criteria_id": i, "ratio": v} for i, v in enumerate(values, start=1)]}
+    return admin.put(f"/api/admin/postings/{pid}/doc-criteria?validate={validate}", json=body)
+
+
+def test_doc_criteria_requires_login(client):
+    assert client.get("/api/admin/postings/1/doc-criteria").status_code == 401
+
+
+def test_doc_criteria_initial_is_blank(admin, posting_id):
+    criteria = _criteria(admin, posting_id)
+    assert [c["criteria_name"] for c in criteria] == ["이력서", "기술 적용 사례", "포트폴리오", "자기소개"]
+    assert all(c["ratio"] is None for c in criteria)
+    assert [c["description"] for c in criteria][1:] == [
+        "기술을 실제로 적용한 경험",
+        "제출한 PDF 포트폴리오",
+        "자기소개서 주제별 답변",
+    ]
+
+
+def test_doc_criteria_resume_description_follows_basic_items(admin, posting_id):
+    assert _criteria(admin, posting_id)[0]["description"] == "인적사항·필수 기술"
+    admin.put(
+        f"/api/admin/postings/{posting_id}/doc-items?validate=false", json={"basic_item_ids": [4, 2]}
+    )
+    assert _criteria(admin, posting_id)[0]["description"] == "인적사항·필수 기술·학력·프로젝트"
+    admin.put(
+        f"/api/admin/postings/{posting_id}/doc-items?validate=false", json={"basic_item_ids": [2, 3, 4]}
+    )
+    assert _criteria(admin, posting_id)[0]["description"] == "인적사항·필수 기술·학력·경력·프로젝트"
+
+
+def test_doc_criteria_round_trip_allows_zero(admin, posting_id):
+    assert _put_ratios(admin, posting_id, [40, 30, 0, 30]).status_code == 200
+    assert [c["ratio"] for c in _criteria(admin, posting_id)] == [40, 30, 0, 30]
+
+
+def test_doc_criteria_next_requires_sum_100(admin, posting_id):
+    r = _put_ratios(admin, posting_id, [30, 30, 25, 10])
+    assert r.status_code == 422 and r.json()["code"] == "POSTING_INVALID"
+    assert "합은 100" in r.json()["message"] and "현재 95" in r.json()["message"]
+    r = _put_ratios(admin, posting_id, [30, 30, 25, 20])
+    assert r.status_code == 422 and "100을 넘을 수 없습니다" in r.json()["message"] and "현재 105" in r.json()["message"]
+
+
+def test_doc_criteria_next_requires_all_items(admin, posting_id):
+    r = _put_ratios(admin, posting_id, [50, 50, None, None])
+    assert r.status_code == 422 and "모든 항목" in r.json()["message"]
+
+
+def test_doc_criteria_draft_allows_partial_and_under_100(admin, posting_id):
+    assert _put_ratios(admin, posting_id, [30, None, None, 60], validate="false").status_code == 200
+    assert [c["ratio"] for c in _criteria(admin, posting_id)] == [30, None, None, 60]
+
+
+def test_doc_criteria_draft_rejects_sum_over_100(admin, posting_id):
+    _put_ratios(admin, posting_id, [10, 20, 30, 40])
+    r = _put_ratios(admin, posting_id, [30, None, None, 90], validate="false")
+    assert r.status_code == 422 and "100을 넘을 수 없습니다" in r.json()["message"] and "현재 120" in r.json()["message"]
+    # 거절된 저장은 이전 값을 바꾸지 않는다
+    assert [c["ratio"] for c in _criteria(admin, posting_id)] == [10, 20, 30, 40]
+
+
+@pytest.mark.parametrize("value", [-1, 101])
+def test_doc_criteria_ratio_out_of_range(admin, posting_id, value):
+    assert _put_ratios(admin, posting_id, [value, 0, 0, 0], validate="false").status_code == 422
+
+
+def test_doc_criteria_rejects_unknown_and_duplicate_items(admin, posting_id):
+    url = f"/api/admin/postings/{posting_id}/doc-criteria?validate=false"
+    # 5번은 면접 항목이다
+    assert admin.put(url, json={"ratios": [{"criteria_id": 5, "ratio": 10}]}).status_code == 422
+    dup = {"ratios": [{"criteria_id": 1, "ratio": 10}, {"criteria_id": 1, "ratio": 20}]}
+    assert admin.put(url, json=dup).status_code == 422
+
+
+def test_doc_criteria_save_keeps_interview_ratios(admin, posting_id):
+    _sql("insert into posting_eval_ratio (posting_id, criteria_id, ratio) values (:p, 5, 60)", p=posting_id)
+    _put_ratios(admin, posting_id, [25, 25, 25, 25])
+    _put_ratios(admin, posting_id, [10, 20, 30, 40])
+    rows = _sql("select criteria_id, ratio from posting_eval_ratio where posting_id = :p order by 1", p=posting_id)
+    assert [tuple(r) for r in rows] == [(1, 10), (2, 20), (3, 30), (4, 40), (5, 60)]
+
+
+def test_doc_criteria_other_admin_gets_404(admin, posting_id):
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    with TestClient(app) as other:
+        _login(other)
+        assert other.get(f"/api/admin/postings/{posting_id}/doc-criteria").status_code == 404
+        assert _put_ratios(other, posting_id, [25, 25, 25, 25]).status_code == 404
+
+
+def test_doc_criteria_not_editable(admin, posting_id):
+    _sql(
+        "update job_posting set write_status = '등록 완료', progress_status = '서류 접수 중' where posting_id = :p",
+        p=posting_id,
+    )
+    r = _put_ratios(admin, posting_id, [25, 25, 25, 25])
+    assert r.status_code == 409 and r.json()["code"] == "POSTING_NOT_EDITABLE"
