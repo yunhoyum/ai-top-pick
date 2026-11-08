@@ -698,3 +698,171 @@ def test_company_questions_not_editable(admin, posting_id):
     )
     r = _put_company(admin, posting_id)
     assert r.status_code == 409 and r.json()["code"] == "POSTING_NOT_EDITABLE"
+
+# ---------- 최종 검토와 등록 (화면 09, ADM-010) ----------
+ALL_STEPS = ["info", "doc-items", "doc-criteria", "interview-criteria", "company-questions"]
+
+
+def _fill_all(admin, pid):
+    """모든 단계를 올바르게 채운다 (프로젝트 문서는 선택 사항이라 올리지 않는다)"""
+    assert admin.put(f"/api/admin/postings/{pid}/info", json=FULL).status_code == 200
+    assert admin.put(f"/api/admin/postings/{pid}/doc-items", json=DOC_ITEMS).status_code == 200
+    assert _put_ratios(admin, pid, [30, 30, 20, 20]).status_code == 200
+    assert _put_interview(admin, pid).status_code == 200
+    assert _put_company(admin, pid, ["Q1", "Q2"], ratio=60).status_code == 200
+
+
+def _review(admin, pid):
+    r = admin.get(f"/api/admin/postings/{pid}/review")
+    assert r.status_code == 200
+    return r.json()
+
+
+def test_review_requires_login(client):
+    assert client.get("/api/admin/postings/1/review").status_code == 401
+    assert client.post("/api/admin/postings/1/publish").status_code == 401
+
+
+def test_review_of_empty_posting_lists_every_step(admin, posting_id):
+    data = _review(admin, posting_id)
+    assert data["incomplete_steps"] == ALL_STEPS
+    assert data["posting"]["write_status"] == "임시 저장"
+    assert [c["criteria_name"] for c in data["doc_criteria"]["criteria"]] == ["이력서", "기술 적용 사례", "포트폴리오", "자기소개"]
+    assert [c["criteria_name"] for c in data["interview_criteria"]["criteria"]] == ["내용", "언어", "비언어"]
+
+
+def test_review_of_complete_posting(admin, posting_id):
+    _fill_all(admin, posting_id)
+    data = _review(admin, posting_id)
+    assert data["incomplete_steps"] == []
+    assert data["posting"]["position_name"] == FULL["position_name"]
+    assert [s["skill_name"] for s in data["doc_items"]["skills"]] == ["Java", "SQL"]
+    assert [c["ratio"] for c in data["doc_criteria"]["criteria"]] == [30, 30, 20, 20]
+    assert data["interview_criteria"]["question_count"] == 6
+    assert data["company_questions"] == {"questions": ["Q1", "Q2"], "job_question_ratio": 60, "question_count": 6}
+
+
+def test_review_includes_documents(admin, posting_id):
+    admin.post(f"/api/admin/postings/{posting_id}/documents", files={"file": ("소개.pdf", PDF, "application/pdf")})
+    docs = _review(admin, posting_id)["posting"]["documents"]
+    assert [d["file_name"] for d in docs] == ["소개.pdf"]
+
+
+@pytest.mark.parametrize(
+    "breaker, step",
+    [
+        ("update job_posting set position_name = null where posting_id = :p", "info"),
+        ("delete from essay_topic where posting_id = :p", "doc-items"),
+        ("delete from required_skill where posting_id = :p", "doc-items"),
+        ("update posting_eval_ratio set ratio = 10 where posting_id = :p and criteria_id = 1", "doc-criteria"),
+        ("delete from posting_eval_ratio where posting_id = :p and criteria_id = 2", "doc-criteria"),
+        ("update posting_eval_ratio set ratio = 0 where posting_id = :p and criteria_id = 7", "interview-criteria"),
+        ("update job_posting set think_time_sec = null where posting_id = :p", "interview-criteria"),
+        ("update job_posting set job_question_ratio = null where posting_id = :p", "company-questions"),
+    ],
+)
+def test_review_detects_the_broken_step(admin, posting_id, breaker, step):
+    _fill_all(admin, posting_id)
+    _sql(breaker, p=posting_id)
+    assert step in _review(admin, posting_id)["incomplete_steps"]
+
+
+def test_review_company_questions_over_count_is_incomplete(admin, posting_id):
+    _fill_all(admin, posting_id)
+    _sql("update job_posting set question_count = 1 where posting_id = :p", p=posting_id)
+    assert _review(admin, posting_id)["incomplete_steps"] == ["company-questions"]
+
+
+def test_review_without_ai_questions_needs_no_ratio(admin, posting_id):
+    _fill_all(admin, posting_id)
+    _put_company(admin, posting_id, ["A", "B", "C", "D", "E", "F"], ratio=None)
+    assert _review(admin, posting_id)["incomplete_steps"] == []
+
+
+def test_review_other_admin_gets_404(admin, posting_id):
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    with TestClient(app) as other:
+        _login(other)
+        assert other.get(f"/api/admin/postings/{posting_id}/review").status_code == 404
+        assert other.post(f"/api/admin/postings/{posting_id}/publish").status_code == 404
+
+
+def test_publish_rejects_incomplete_posting(admin, posting_id):
+    r = admin.post(f"/api/admin/postings/{posting_id}/publish")
+    assert r.status_code == 422 and r.json()["code"] == "POSTING_INVALID"
+    for label in ("공고 정보", "서류 문항", "서류 평가기준", "면접 평가기준", "기업 질문"):
+        assert label in r.json()["message"]
+    assert _review(admin, posting_id)["posting"]["write_status"] == "임시 저장"
+
+
+def test_publish_names_only_the_incomplete_steps(admin, posting_id):
+    _fill_all(admin, posting_id)
+    _sql("update posting_eval_ratio set ratio = 10 where posting_id = :p and criteria_id = 1", p=posting_id)
+    r = admin.post(f"/api/admin/postings/{posting_id}/publish")
+    assert r.status_code == 422 and "서류 평가기준" in r.json()["message"] and "공고 정보" not in r.json()["message"]
+
+
+def test_publish_completes_posting_without_documents(admin, posting_id):
+    _fill_all(admin, posting_id)
+    r = admin.post(f"/api/admin/postings/{posting_id}/publish")
+    assert r.status_code == 200 and r.json() == {"posting_id": posting_id, "write_status": "등록 완료"}
+    detail = admin.get(f"/api/admin/postings/{posting_id}").json()
+    assert detail["write_status"] == "등록 완료" and detail["progress_status"] == "모집 전"
+
+
+def test_publish_twice_is_harmless_and_posting_stays_editable_before_recruiting(admin, posting_id):
+    _fill_all(admin, posting_id)
+    assert admin.post(f"/api/admin/postings/{posting_id}/publish").status_code == 200
+    assert admin.post(f"/api/admin/postings/{posting_id}/publish").status_code == 200
+    # 모집 전에는 등록한 뒤에도 수정할 수 있다
+    assert admin.put(f"/api/admin/postings/{posting_id}/info", json={**FULL, "position_name": "수정됨"}).status_code == 200
+
+
+def test_publish_not_editable_after_recruiting_started(admin, posting_id):
+    _fill_all(admin, posting_id)
+    _sql(
+        "update job_posting set write_status = '등록 완료', progress_status = '서류 접수 중' where posting_id = :p",
+        p=posting_id,
+    )
+    r = admin.post(f"/api/admin/postings/{posting_id}/publish")
+    assert r.status_code == 409 and r.json()["code"] == "POSTING_NOT_EDITABLE"
+
+
+def _upload_pdf(admin, pid, name="소개.pdf"):
+    r = admin.post(f"/api/admin/postings/{pid}/documents", files={"file": (name, PDF, "application/pdf")})
+    assert r.status_code == 201
+    return r.json()["document_id"]
+
+
+def test_document_file_is_served_inline(admin, posting_id):
+    doc_id = _upload_pdf(admin, posting_id)
+    r = admin.get(f"/api/admin/postings/{posting_id}/documents/{doc_id}/file")
+    assert r.status_code == 200 and r.content == PDF
+    assert r.headers["content-type"] == "application/pdf"
+    assert r.headers["content-disposition"].startswith("inline")
+    assert r.headers["x-content-type-options"] == "nosniff"
+
+
+def test_document_file_requires_login(client):
+    assert client.get("/api/admin/postings/1/documents/1/file").status_code == 401
+
+
+def test_document_file_of_other_admin_or_unknown_is_404(admin, posting_id):
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    doc_id = _upload_pdf(admin, posting_id)
+    assert admin.get(f"/api/admin/postings/{posting_id}/documents/{doc_id + 9999}/file").status_code == 404
+    with TestClient(app) as other:
+        _login(other)
+        assert other.get(f"/api/admin/postings/{posting_id}/documents/{doc_id}/file").status_code == 404
+
+
+def test_document_file_missing_on_disk_is_404(admin, posting_id):
+    doc_id = _upload_pdf(admin, posting_id)
+    path = _sql("select file_path from posting_document where document_id = :d", d=doc_id)[0][0]
+    (Path(get_settings().STORAGE_ROOT) / path).unlink()
+    r = admin.get(f"/api/admin/postings/{posting_id}/documents/{doc_id}/file")
+    assert r.status_code == 404 and r.json()["code"] == "DOCUMENT_NOT_FOUND"

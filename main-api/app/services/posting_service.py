@@ -1,10 +1,11 @@
 import os
+from pathlib import Path
 
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ErrorCode
-from app.domain.enums import StageType, UploadStatus
+from app.domain.enums import PostingWriteStatus, StageType, UploadStatus
 from app.domain.rules import can_edit_posting, resume_description, validate_schedule
 from app.models.member import Member
 from app.models.posting import EvalCriteria, JobPosting, PostingDocument
@@ -17,6 +18,7 @@ from app.schemas.doc_criteria import CriteriaOut, DocCriteriaIn, DocCriteriaOut
 from app.schemas.interview_criteria import InterviewCriteriaIn, InterviewCriteriaOut
 from app.schemas.doc_items import BasicItemOut, DocItemsIn, DocItemsOut, SkillOut
 from app.schemas.posting import PostingDetail, PostingInfoIn
+from app.schemas.review import PublishOut, ReviewOut
 from app.services import file_service
 
 # 임시 저장이 아닌 '다음'에서 반드시 입력해야 하는 항목 (ADM-004)
@@ -34,6 +36,21 @@ _REQUIRED = {
     "functional_talent": "기능적 인재상",
     "nonfunctional_talent": "비기능적 인재상",
 }
+
+
+# 공고 등록 전에 완료해야 하는 단계 (화면 주소의 단계 이름 → 화면에 보이는 이름)
+STEP_LABELS = {
+    "info": "공고 정보",
+    "doc-items": "서류 문항",
+    "doc-criteria": "서류 평가기준",
+    "interview-criteria": "면접 평가기준",
+    "company-questions": "기업 질문",
+}
+
+
+def _missing_required(obj) -> list[str]:
+    """필수 항목 중 비어 있는 것의 이름. 저장 요청(PostingInfoIn)과 저장된 공고(JobPosting) 모두 쓴다."""
+    return [label for key, label in _REQUIRED.items() if getattr(obj, key) is None]
 
 
 class PostingService:
@@ -64,7 +81,7 @@ class PostingService:
         self._ensure_editable(posting)
 
         if validate:
-            missing = [label for key, label in _REQUIRED.items() if getattr(req, key) is None]
+            missing = _missing_required(req)
             if missing:
                 raise AppError(
                     422, ErrorCode.POSTING_INVALID, "필수 항목을 입력해 주세요: " + ", ".join(missing)
@@ -312,6 +329,78 @@ class PostingService:
         posting.job_question_ratio = req.job_question_ratio
         await self.db.commit()
         return await self._company_questions_out(posting)
+
+    async def get_review(self, admin: Member, posting_id: int) -> ReviewOut:
+        """ADM-010 최종 검토 화면에 필요한 모든 단계의 내용과, 아직 완료하지 못한 단계"""
+        posting = await self._get_owned(admin, posting_id)
+        return await self._review(posting)
+
+    async def publish(self, admin: Member, posting_id: int) -> PublishOut:
+        """ADM-010 등록. 모든 단계가 완료됐는지 저장된 값으로 다시 확인하고 작성 상태를 '등록 완료'로 바꾼다.
+        이미 등록된 공고는 같은 검사를 하고 그대로 둔다. 진행 상태('모집 전')는 서류 접수 시작 때 별도 작업이 바꾼다."""
+        posting = await self._get_owned(admin, posting_id)
+        self._ensure_editable(posting)
+
+        incomplete = (await self._review(posting)).incomplete_steps
+        if incomplete:
+            labels = ", ".join(STEP_LABELS[step] for step in incomplete)
+            raise AppError(422, ErrorCode.POSTING_INVALID, f"다음 단계를 완료해 주세요: {labels}.")
+
+        posting.write_status = PostingWriteStatus.COMPLETE.value
+        await self.db.commit()
+        return PublishOut(posting_id=posting.posting_id, write_status=posting.write_status)
+
+    async def get_document_file(self, admin: Member, posting_id: int, document_id: int) -> tuple[Path, str]:
+        """ADM-010, ADM-036 프로젝트 문서(PDF) 보기. 본인 공고의 문서만 볼 수 있다."""
+        await self._get_owned(admin, posting_id)
+        document = await self.postings.get_document(posting_id, document_id)
+        if document is None:
+            raise AppError(404, ErrorCode.DOCUMENT_NOT_FOUND, "문서를 찾을 수 없습니다.")
+        path = file_service.resolve(document.file_path)
+        if not path.is_file():
+            raise AppError(404, ErrorCode.DOCUMENT_NOT_FOUND, "문서 파일을 찾을 수 없습니다.")
+        return path, document.file_name
+
+    async def _review(self, posting: JobPosting) -> ReviewOut:
+        detail = await self._detail(posting)
+        doc_items = await self._doc_items_out(posting.posting_id)
+        doc_criteria = await self._doc_criteria_out(posting.posting_id)
+        interview = await self._interview_criteria_out(posting)
+        company = await self._company_questions_out(posting)
+        return ReviewOut(
+            posting=detail,
+            doc_items=doc_items,
+            doc_criteria=doc_criteria,
+            interview_criteria=interview,
+            company_questions=company,
+            incomplete_steps=self._incomplete_steps(posting, doc_items, doc_criteria, interview, company),
+        )
+
+    @staticmethod
+    def _incomplete_steps(posting, doc_items, doc_criteria, interview, company) -> list[str]:
+        """저장된 값만 보고 완료하지 못한 단계를 찾는다. 각 단계의 '다음' 검증과 같은 기준이다."""
+        steps = []
+        if _missing_required(posting) or validate_schedule(posting):
+            steps.append("info")
+        if not doc_items.skills or not doc_items.essay_topics:
+            steps.append("doc-items")
+
+        def ratios_ok(criteria) -> bool:
+            values = [c.ratio for c in criteria]
+            return None not in values and sum(values) == 100
+
+        if not ratios_ok(doc_criteria.criteria):
+            steps.append("doc-criteria")
+        nonverbal_zero = any(c.criteria_name == "비언어" and c.ratio == 0 for c in interview.criteria)
+        settings = (interview.question_count, interview.follow_up_enabled, interview.think_time_sec, interview.answer_time_sec)
+        if not ratios_ok(interview.criteria) or nonverbal_zero or None in settings:
+            steps.append("interview-criteria")
+
+        count = interview.question_count
+        asked = len(company.questions)
+        if count is None or asked > count or (count - asked > 0 and company.job_question_ratio is None):
+            steps.append("company-questions")
+        return steps
 
     async def _company_questions_out(self, posting: JobPosting) -> CompanyQuestionsOut:
         return CompanyQuestionsOut(

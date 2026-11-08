@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, require_admin
@@ -7,6 +8,7 @@ from app.schemas.company_questions import CompanyQuestionsIn, CompanyQuestionsOu
 from app.schemas.doc_criteria import DocCriteriaIn, DocCriteriaOut
 from app.schemas.interview_criteria import InterviewCriteriaIn, InterviewCriteriaOut
 from app.schemas.doc_items import DocItemsIn, DocItemsOut
+from app.schemas.review import PublishOut, ReviewOut
 from app.schemas.posting import DocumentOut, PostingCreated, PostingDetail, PostingInfoIn
 from app.services.posting_service import PostingService
 
@@ -137,3 +139,36 @@ async def save_company_questions(
 ):
     """ADM-009 기업 질문과 AI 질문 비율 저장. 임시 저장은 validate=false"""
     return await PostingService(db).save_company_questions(admin, posting_id, req, validate)
+
+@router.get("/{posting_id}/review", response_model=ReviewOut)
+async def get_review(
+    posting_id: int, admin: Member = Depends(require_admin), db: AsyncSession = Depends(get_db)
+):
+    """ADM-010 작성 내용 최종 검토"""
+    return await PostingService(db).get_review(admin, posting_id)
+
+
+@router.post("/{posting_id}/publish", response_model=PublishOut)
+async def publish_posting(
+    posting_id: int, admin: Member = Depends(require_admin), db: AsyncSession = Depends(get_db)
+):
+    """ADM-010 채용공고 등록"""
+    return await PostingService(db).publish(admin, posting_id)
+
+
+@router.get("/{posting_id}/documents/{document_id}/file")
+async def get_document_file(
+    posting_id: int,
+    document_id: int,
+    admin: Member = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """ADM-010, ADM-036 프로젝트 문서(PDF) 보기. 내려받지 않고 브라우저에서 바로 연다."""
+    path, file_name = await PostingService(db).get_document_file(admin, posting_id, document_id)
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename=file_name,
+        content_disposition_type="inline",
+        headers={"X-Content-Type-Options": "nosniff"},
+    )
