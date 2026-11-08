@@ -60,3 +60,22 @@ export function formatMonthDayTime(iso: string | null): string {
   const p = seoulParts(iso);
   return `${p.month}.${p.day} ${p.hour}:${p.minute}`;
 }
+
+// 상세 화면용: "11.10 (화) 10:00" (Asia/Seoul)
+export function formatMonthDayWeekTime(iso: string | null): string {
+  if (!iso) return "-";
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("ko-KR", {
+      timeZone: "Asia/Seoul",
+      month: "2-digit",
+      day: "2-digit",
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(new Date(iso))
+      .map((x) => [x.type, x.value]),
+  );
+  return `${p.month}.${p.day} (${p.weekday}) ${p.hour}:${p.minute}`;
+}

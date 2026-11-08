@@ -10,7 +10,7 @@ import type { BasicItem, DocItems, PostingDetail } from "@/types/posting";
 import shared from "./PostingInfoForm.module.css";
 import styles from "./DocItemsForm.module.css";
 
-const STEPS = ["공고 정보", "서류 문항", "서류 평가기준", "면접 평가기준", "기업 질문", "검토"];
+const STEPS = ["공고 정보", "서류 문항", "서류 평가기준", "면접 평가기준", "면접 질문", "검토"];
 const CUTOFFS = [1, 2, 3, 4]; // 5점 척도에서 탈락 기준이 될 수 있는 점수
 
 type SkillRow = { key: number; name: string; cutoff: number | null };
@@ -258,9 +258,11 @@ export default function DocItemsForm({ postingId }: { postingId: number }) {
       )}
 
       <div className={shared.actions}>
-        <Button type="button" variant="secondary" inline disabled={saving} onClick={onTempSave}>
-          임시 저장
-        </Button>
+        {writeStatus !== "등록 완료" && (
+          <Button type="button" variant="secondary" inline disabled={saving} onClick={onTempSave}>
+            임시 저장
+          </Button>
+        )}
         <span className={shared.spacer} />
         <Button type="button" variant="secondary" inline disabled={saving} onClick={onPrev}>
           이전

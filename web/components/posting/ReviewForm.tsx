@@ -13,7 +13,7 @@ import shared from "./PostingInfoForm.module.css";
 import RatioBar from "./RatioBar";
 import styles from "./ReviewForm.module.css";
 
-const STEPS = ["공고 정보", "서류 문항", "서류 평가기준", "면접 평가기준", "기업 질문", "검토"];
+const STEPS = ["공고 정보", "서류 문항", "서류 평가기준", "면접 평가기준", "면접 질문", "검토"];
 // Figma 막대 색: 서류 평가기준은 4색, 면접 평가기준은 3색 (언어는 accent-600, 비언어는 accent-300)
 const DOC_COLORS = ["var(--primary-700)", "var(--primary-500)", "var(--accent-600)", "var(--accent-300)"];
 const INTERVIEW_COLORS = ["var(--primary-700)", "var(--accent-600)", "var(--accent-300)"];
@@ -60,7 +60,8 @@ export default function ReviewForm({ postingId }: { postingId: number }) {
     setPublishing(true);
     try {
       await apiFetch(`/api/admin/postings/${postingId}/publish`, { method: "POST" });
-      router.push("/admin/postings");
+      // 처음 등록하면 목록으로, 등록한 공고를 고친 경우에는 그 공고의 상세로 돌아간다
+      router.push(registered ? `/admin/postings/${postingId}` : "/admin/postings");
     } catch (e) {
       setError(errorMessage(e));
       // 미완료 단계 표시를 최신 상태로 맞춘다

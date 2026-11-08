@@ -3,22 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import Badge, { type BadgeTone } from "@/components/common/Badge";
+import Badge from "@/components/common/Badge";
 import Button from "@/components/common/Button";
 import { ApiError, apiFetch } from "@/lib/api";
 import { formatMonthDay } from "@/lib/format";
+import { PROGRESS_TONES } from "@/lib/posting";
 import type { PostingListItem } from "@/types/posting";
 import styles from "./PostingList.module.css";
-
-// 진행 상태 → 배지 색 (Figma: 서류 접수 중 청록, 서류 평가 주황, 면접 진행 남색, 마감 회색)
-const TONES: Record<string, BadgeTone> = {
-  "모집 전": "gray",
-  "서류 접수 중": "teal",
-  "서류 평가": "amber",
-  "면접 진행": "navy",
-  "면접 평가": "amber",
-  마감: "gray",
-};
 
 // 필터 칩. '전형 진행'은 서류 평가부터 면접 평가까지를 묶는다
 const FILTERS = [
@@ -102,7 +93,7 @@ export default function PostingList() {
                 <td className={styles.name}>{p.position_name ?? "(제목 없음)"}</td>
                 <td>{p.employment_type ?? "-"}</td>
                 <td>
-                  {p.progress_status ? <Badge tone={TONES[p.progress_status] ?? "gray"}>{p.progress_status}</Badge> : "-"}
+                  {p.progress_status ? <Badge tone={PROGRESS_TONES[p.progress_status] ?? "gray"}>{p.progress_status}</Badge> : "-"}
                 </td>
                 <td>{period(p)}</td>
                 <td>{p.applicant_count}명</td>

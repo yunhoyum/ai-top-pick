@@ -12,13 +12,13 @@ import type { CompanyQuestions, PostingDetail } from "@/types/posting";
 import styles from "./CompanyQuestionsForm.module.css";
 import shared from "./PostingInfoForm.module.css";
 
-const STEPS = ["공고 정보", "서류 문항", "서류 평가기준", "면접 평가기준", "기업 질문", "검토"];
+const STEPS = ["공고 정보", "서류 문항", "서류 평가기준", "면접 평가기준", "면접 질문", "검토"];
 
 type Row = { key: number; text: string };
 
 const errorMessage = (e: unknown) => (e instanceof ApiError ? e.message : "서버에 연결하지 못했습니다.");
 
-// 화면 08 기업 질문 등록 (ADM-009, ADM-011, ADM-032)
+// 화면 08 면접 질문 등록: 기업 질문과 AI 질문 비율 (ADM-009, ADM-011, ADM-032)
 export default function CompanyQuestionsForm({ postingId }: { postingId: number }) {
   const router = useRouter();
   const nextKey = useRef(0);
@@ -318,9 +318,11 @@ export default function CompanyQuestionsForm({ postingId }: { postingId: number 
       )}
 
       <div className={shared.actions}>
-        <Button type="button" variant="secondary" inline disabled={saving} onClick={onTempSave}>
-          임시 저장
-        </Button>
+        {writeStatus !== "등록 완료" && (
+          <Button type="button" variant="secondary" inline disabled={saving} onClick={onTempSave}>
+            임시 저장
+          </Button>
+        )}
         <span className={shared.spacer} />
         <Button type="button" variant="secondary" inline disabled={saving} onClick={onPrev}>
           이전

@@ -109,3 +109,10 @@ export type Draft = {
   // 이어서 열 단계의 주소 이름 (info, doc-items, ..., review)
   resume_step: string;
 };
+
+// 화면 11 전형별 지원자 수
+export type PostingStats = {
+  submitted_count: number;
+  interview_target_count: number;
+  interview_done_count: number;
+};

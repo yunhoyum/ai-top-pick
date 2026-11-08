@@ -1,0 +1,74 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgb(20 43 71 / 0.45);
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 440px;
+  padding: 28px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.18);
+  line-height: 1.5;
+}
+
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.message {
+  font-size: 14px;
+  color: var(--gray-700);
+}
+
+.error {
+  font-size: 13px;
+  color: var(--danger);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.cancel {
+  height: 44px;
+  padding: 0 20px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--primary-700);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.cancel:focus-visible {
+  outline: 2px solid var(--primary-700);
+  outline-offset: 2px;
+}
+
+/* 되돌릴 수 없는 선택이라 빨간색으로 구분한다 (Button 스타일보다 먼저 적용되게 구체적으로 쓴다) */
+.dialog .confirm {
+  border-color: var(--red-600);
+  color: var(--danger);
+}
+
+.dialog .confirm:hover:not(:disabled) {
+  background: var(--red-50);
+}

@@ -15,7 +15,7 @@ import DraftResumeDialog from "./DraftResumeDialog";
 import DocumentList from "./DocumentList";
 import styles from "./PostingInfoForm.module.css";
 
-const STEPS = ["공고 정보", "서류 문항", "서류 평가기준", "면접 평가기준", "기업 질문", "검토"];
+const STEPS = ["공고 정보", "서류 문항", "서류 평가기준", "면접 평가기준", "면접 질문", "검토"];
 
 type FormState = {
   position_name: string;
@@ -311,9 +311,11 @@ export default function PostingInfoForm({ postingId: initialId }: { postingId?: 
       )}
 
       <div className={styles.actions}>
-        <Button type="button" variant="secondary" inline disabled={saving} onClick={onTempSave}>
-          임시 저장
-        </Button>
+        {writeStatus !== "등록 완료" && (
+          <Button type="button" variant="secondary" inline disabled={saving} onClick={onTempSave}>
+            임시 저장
+          </Button>
+        )}
         <span className={styles.spacer} />
         <Button type="button" variant="ghost" inline onClick={() => router.push("/admin/postings")}>
           취소

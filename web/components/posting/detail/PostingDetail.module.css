@@ -1,0 +1,401 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.back {
+  align-self: flex-start;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--gray-500);
+}
+
+.back:hover {
+  color: var(--primary-700);
+}
+
+.header {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.title {
+  flex: 1 0 0;
+  min-width: 0;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--gray-900);
+  overflow-wrap: anywhere;
+}
+
+/* Button 스타일보다 먼저 적용되도록 구체적으로 쓴다 */
+.header .danger {
+  color: var(--red-600);
+}
+
+.badges {
+  display: flex;
+  gap: 6px;
+  margin-top: -8px;
+}
+
+.notice {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--amber-50);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--amber-600);
+}
+
+.warning {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--red-50);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--danger);
+}
+
+.warning a {
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.grow {
+  flex: 1 0 0;
+}
+
+.schedule {
+  width: 380px;
+  flex-shrink: 0;
+}
+
+.cardHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.5;
+}
+
+.cardTitle {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--gray-900);
+}
+
+.cardDesc {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--gray-500);
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.titleRow .cardTitle {
+  flex: 1 0 0;
+}
+
+/* ---------- 전형 진행 ---------- */
+.stage {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--gray-100);
+  line-height: 1.5;
+}
+
+.stageLast {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.stageName {
+  width: 84px;
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.stagePeriod {
+  font-size: 14px;
+  color: var(--gray-500);
+  white-space: nowrap;
+}
+
+.stageCount {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-700);
+  white-space: nowrap;
+}
+
+.spacer {
+  flex: 1 0 0;
+}
+
+.stageHint {
+  font-size: 12px;
+  color: var(--gray-400);
+  white-space: nowrap;
+}
+
+.evalButton:disabled {
+  opacity: 0.45;
+}
+
+/* ---------- 탭 ---------- */
+.tabs {
+  display: flex;
+  gap: 28px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.tab {
+  margin-bottom: -1px;
+  padding: 10px 2px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--gray-500);
+  cursor: pointer;
+}
+
+.tab:hover {
+  color: var(--primary-700);
+}
+
+.tabActive {
+  border-bottom-color: var(--primary-700);
+  font-weight: 700;
+  color: var(--primary-700);
+}
+
+/* ---------- 키-값 ---------- */
+.kvs {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.kv {
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.kv dt {
+  width: 120px;
+  flex-shrink: 0;
+  color: var(--gray-500);
+}
+
+.kv dt.kvWide {
+  width: 140px;
+}
+
+.schedule .kv dt.kvWide {
+  width: 150px;
+}
+
+.kv dd {
+  flex: 1 0 0;
+  min-width: 0;
+  color: var(--gray-900);
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.settings {
+  gap: 10px;
+  padding-top: 16px;
+}
+
+.settings .kv dd {
+  font-weight: 500;
+}
+
+.empty {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--gray-400);
+}
+
+/* ---------- 문서 ---------- */
+.doc {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+}
+
+.pdf {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--red-50);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--red-600);
+}
+
+.docInfo {
+  display: flex;
+  flex: 1 0 0;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.5;
+}
+
+.docName {
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-900);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.docSize {
+  font-size: 12px;
+  color: var(--gray-400);
+}
+
+.link {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent-600);
+  white-space: nowrap;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+/* ---------- 서류 문항, 평가기준 ---------- */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--gray-50);
+  line-height: 1.5;
+}
+
+.lineText {
+  display: flex;
+  flex: 1 0 0;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.lineName {
+  flex: 1 0 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.lineText .lineName {
+  flex: none;
+}
+
+.lineDesc {
+  font-size: 12px;
+  color: var(--gray-500);
+}
+
+.lineValue {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary-700);
+  white-space: nowrap;
+}
+
+.percent {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--primary-700);
+  white-space: nowrap;
+}
+
+.topicNo {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-600);
+}
+
+.topicName {
+  flex: 1 0 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-900);
+  overflow-wrap: anywhere;
+}
+
+.loadError {
+  font-size: 14px;
+  color: var(--danger);
+}
+
+@media (max-width: 900px) {
+  .row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .schedule {
+    width: auto;
+  }
+
+  .stage {
+    flex-wrap: wrap;
+  }
+}

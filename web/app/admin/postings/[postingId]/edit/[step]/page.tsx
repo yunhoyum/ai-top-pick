@@ -12,7 +12,7 @@ type Props = PageProps<"/admin/postings/[postingId]/edit/[step]">;
 async function EditStep({ params }: { params: Props["params"] }) {
   const { postingId, step } = await params;
   const id = Number(postingId);
-  // 지금은 1~6단계(공고 정보, 서류 문항, 서류 평가기준, 면접 평가기준, 기업 질문, 검토) 있다. 나머지 단계는 화면이 만들어지면 추가한다
+  // 지금은 1~6단계(공고 정보, 서류 문항, 서류 평가기준, 면접 평가기준, 면접 질문, 검토) 있다. 나머지 단계는 화면이 만들어지면 추가한다
   if (!Number.isInteger(id)) notFound();
   if (step === "info") return <PostingInfoForm postingId={id} />;
   if (step === "doc-items") return <DocItemsForm postingId={id} />;

@@ -8,6 +8,10 @@
   background: var(--gray-100);
 }
 
+.thin {
+  height: 10px;
+}
+
 /* 막대 한 칸의 너비는 flex-grow(비율 값)로 정한다. 합이 100보다 작으면 남는 칸은 회색이다 */
 .bar > span {
   flex-basis: 0;
