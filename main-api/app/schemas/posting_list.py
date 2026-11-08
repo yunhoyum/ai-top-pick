@@ -34,3 +34,7 @@ class PostingStats(BaseModel):
     interview_target_count: int
     # 면접을 끝까지 응시한(상태 '완료') 지원서 수
     interview_done_count: int
+    # 서류 제출 때 필수 기술 기준에 걸려 바로 탈락한 지원서 수 (ADM-003)
+    skill_shortfall_count: int
+    # 면접 중 문의에서 AI가 처리하지 못한(미해결) 건수 (ADM-003)
+    ai_unhandled_error_count: int

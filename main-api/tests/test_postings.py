@@ -1053,7 +1053,13 @@ def test_stats_other_admin_gets_404(admin, posting_id):
 
 
 def test_stats_are_zero_without_applications(admin, posting_id):
-    assert _stats(admin, posting_id) == {"submitted_count": 0, "interview_target_count": 0, "interview_done_count": 0}
+    assert _stats(admin, posting_id) == {
+        "submitted_count": 0,
+        "interview_target_count": 0,
+        "interview_done_count": 0,
+        "skill_shortfall_count": 0,
+        "ai_unhandled_error_count": 0,
+    }
 
 
 def test_stats_count_submitted_target_and_done(admin, posting_id):
@@ -1068,7 +1074,8 @@ def test_stats_count_submitted_target_and_done(admin, posting_id):
     _sql("insert into interview_session (application_id, status, attempt_no) values (:a, '완료', 1)", a=first)
     _sql("insert into interview_session (application_id, status, attempt_no) values (:a, '완료', 2)", a=first)
     _sql("insert into interview_session (application_id, status, attempt_no) values (:a, '중단', 1)", a=second)
-    assert _stats(admin, posting_id) == {"submitted_count": 2, "interview_target_count": 1, "interview_done_count": 1}
+    stats = _stats(admin, posting_id)
+    assert (stats["submitted_count"], stats["interview_target_count"], stats["interview_done_count"]) == (2, 1, 1)
 
 
 def test_stats_are_per_posting(admin, posting_id):
@@ -1102,3 +1109,34 @@ def test_registered_posting_can_be_updated_with_valid_values(admin, posting_id):
 
 def test_draft_posting_still_allows_draft_save(admin, posting_id):
     assert admin.put(f"/api/admin/postings/{posting_id}/info?validate=false", json={}).status_code == 200
+
+# ---------- 대시보드: 필수 기술 미달 탈락, AI 미처리 오류 (화면 03, ADM-003) ----------
+def _add_session(application_id, status="완료"):
+    _sql("insert into interview_session (application_id, status, attempt_no) values (:a, :s, 1)", a=application_id, s=status)
+    return _sql("select max(session_id) from interview_session where application_id = :a", a=application_id)[0][0]
+
+
+def test_stats_count_skill_shortfall(admin, posting_id):
+    first, second, third = (_add_application(posting_id) for _ in range(3))
+    for application, result in ((first, "필수 기술 미달"), (second, "필수 기술 미달"), (third, "합격")):
+        _sql("insert into application_stage (application_id, stage_type, result) values (:a, '서류', :r)", a=application, r=result)
+    # 면접 전형의 결과는 세지 않는다
+    _sql("insert into application_stage (application_id, stage_type, result) values (:a, '면접', '불합격')", a=first)
+    stats = _stats(admin, posting_id)
+    assert stats["skill_shortfall_count"] == 2 and stats["interview_target_count"] == 1
+
+
+def test_stats_count_only_unhandled_inquiries(admin, posting_id):
+    session = _add_session(_add_application(posting_id))
+    for code in ("UNRESOLVED_SYSTEM", "UNRESOLVED_APPLICANT", "RESOLVED_SYSTEM", "RESOLVED_APPLICANT"):
+        _sql("insert into inquiry (session_id, judgment_code) values (:s, :c)", s=session, c=code)
+    # 판단 결과가 아직 없는 문의는 미처리로 세지 않는다
+    _sql("insert into inquiry (session_id) values (:s)", s=session)
+    assert _stats(admin, posting_id)["ai_unhandled_error_count"] == 2
+
+
+def test_stats_unhandled_errors_are_per_posting(admin, posting_id):
+    other = admin.post("/api/admin/postings").json()["posting_id"]
+    _sql("insert into inquiry (session_id, judgment_code) values (:s, 'UNRESOLVED_UNKNOWN')", s=_add_session(_add_application(other)))
+    assert _stats(admin, posting_id)["ai_unhandled_error_count"] == 0
+    assert _stats(admin, other)["ai_unhandled_error_count"] == 1

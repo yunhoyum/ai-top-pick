@@ -87,9 +87,13 @@ class PostingService:
     async def get_stats(self, admin: Member, posting_id: int) -> PostingStats:
         """ADM-013 전형별 지원자 수"""
         await self._get_owned(admin, posting_id)
-        submitted, target, done = await self.postings.stats(posting_id)
+        submitted, target, done, shortfall, unhandled = await self.postings.stats(posting_id)
         return PostingStats(
-            submitted_count=submitted, interview_target_count=target, interview_done_count=done
+            submitted_count=submitted,
+            interview_target_count=target,
+            interview_done_count=done,
+            skill_shortfall_count=shortfall,
+            ai_unhandled_error_count=unhandled,
         )
 
     async def get_draft(self, admin: Member) -> DraftOut | None:

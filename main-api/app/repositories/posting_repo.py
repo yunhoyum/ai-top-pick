@@ -10,6 +10,7 @@ from app.domain.enums import (
     StageType,
 )
 from app.models.application import Application, ApplicationStage
+from app.models.inquiry import Inquiry, JudgmentType
 from app.models.interview import InterviewSession
 from app.models.posting import (
     CompanyQuestion,
@@ -60,8 +61,8 @@ class PostingRepo:
         )
         return [(posting, count) for posting, count in rows]
 
-    async def stats(self, posting_id: int) -> tuple[int, int, int]:
-        """전형별 지원자 수: (제출, 면접 대상, 면접 응시 완료)"""
+    async def stats(self, posting_id: int) -> tuple[int, int, int, int, int]:
+        """전형별 지원자 수와 오류 수: (제출, 면접 대상, 면접 응시 완료, 필수 기술 미달 탈락, AI 미처리 오류)"""
         submitted = await self.db.scalar(
             select(func.count())
             .select_from(Application)
@@ -89,7 +90,26 @@ class PostingRepo:
                 InterviewSession.status == SessionStatus.COMPLETED.value,
             )
         )
-        return submitted, target, done
+        shortfall = await self.db.scalar(
+            select(func.count())
+            .select_from(ApplicationStage)
+            .join(Application, Application.application_id == ApplicationStage.application_id)
+            .where(
+                Application.posting_id == posting_id,
+                ApplicationStage.stage_type == StageType.DOCUMENT.value,
+                ApplicationStage.result == StageResult.SKILL_SHORTFALL.value,
+            )
+        )
+        # 문의 중 판단 결과가 'AI가 문의 중에 해결하지 못함'(미해결)인 건
+        unhandled = await self.db.scalar(
+            select(func.count())
+            .select_from(Inquiry)
+            .join(InterviewSession, InterviewSession.session_id == Inquiry.session_id)
+            .join(Application, Application.application_id == InterviewSession.application_id)
+            .join(JudgmentType, JudgmentType.judgment_code == Inquiry.judgment_code)
+            .where(Application.posting_id == posting_id, JudgmentType.ai_handled.is_(False))
+        )
+        return submitted, target, done, shortfall, unhandled
 
     async def latest_draft(self, admin_id: int) -> JobPosting | None:
         """본인이 가장 최근에 임시 저장한(등록하지 않은) 공고"""
