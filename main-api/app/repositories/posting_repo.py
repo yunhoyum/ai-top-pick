@@ -1,8 +1,8 @@
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.enums import ProgressStatus
-from app.models.posting import JobPosting, PostingDocument
+from app.models.posting import CompanyQuestion, JobPosting, PostingDocument
 
 
 class PostingRepo:
@@ -21,6 +21,11 @@ class PostingRepo:
             select(JobPosting).where(
                 JobPosting.posting_id == posting_id, JobPosting.admin_id == admin_id
             )
+        )
+
+    async def count_company_questions(self, posting_id: int) -> int:
+        return await self.db.scalar(
+            select(func.count()).select_from(CompanyQuestion).where(CompanyQuestion.posting_id == posting_id)
         )
 
     async def list_documents(self, posting_id: int) -> list[PostingDocument]:

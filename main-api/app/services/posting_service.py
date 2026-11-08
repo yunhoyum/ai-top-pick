@@ -7,11 +7,12 @@ from app.core.errors import AppError, ErrorCode
 from app.domain.enums import StageType, UploadStatus
 from app.domain.rules import can_edit_posting, resume_description, validate_schedule
 from app.models.member import Member
-from app.models.posting import JobPosting, PostingDocument
+from app.models.posting import EvalCriteria, JobPosting, PostingDocument
 from app.repositories.doc_item_repo import DocItemRepo
 from app.repositories.eval_ratio_repo import EvalRatioRepo
 from app.repositories.posting_repo import PostingRepo
 from app.schemas.doc_criteria import CriteriaOut, DocCriteriaIn, DocCriteriaOut
+from app.schemas.interview_criteria import InterviewCriteriaIn, InterviewCriteriaOut
 from app.schemas.doc_items import BasicItemOut, DocItemsIn, DocItemsOut, SkillOut
 from app.schemas.posting import PostingDetail, PostingInfoIn
 from app.services import file_service
@@ -168,28 +169,109 @@ class PostingService:
         posting = await self._get_owned(admin, posting_id)
         self._ensure_editable(posting)
 
-        criteria_ids = [c.criteria_id for c in await self.eval_ratios.list_criteria(StageType.DOCUMENT.value)]
-        sent = [r.criteria_id for r in req.ratios]
-        if set(sent) - set(criteria_ids) or len(sent) != len(set(sent)):
+        criteria, ratios, problems = await self._checked_ratios(StageType.DOCUMENT.value, req.ratios, validate)
+        if problems:
+            raise AppError(422, ErrorCode.POSTING_INVALID, " ".join(problems))
+
+        criteria_ids = [c.criteria_id for c in criteria]
+        await self.eval_ratios.replace(posting_id, criteria_ids, ratios)
+        await self.db.commit()
+        return await self._doc_criteria_out(posting_id)
+
+    async def get_interview_criteria(self, admin: Member, posting_id: int) -> InterviewCriteriaOut:
+        """ADM-008, ADM-039 면접 평가기준 조회"""
+        posting = await self._get_owned(admin, posting_id)
+        return await self._interview_criteria_out(posting)
+
+    async def save_interview_criteria(
+        self, admin: Member, posting_id: int, req: InterviewCriteriaIn, validate: bool
+    ) -> InterviewCriteriaOut:
+        """ADM-008, ADM-011 면접 평가 요소 비율과 진행 설정 저장. 면접 항목의 비율만 바뀌고 서류 항목은 그대로다.
+        합이 100을 넘거나 비언어가 0%이거나 출제 문제 개수가 등록된 기업 질문 수보다 작으면 임시 저장도 할 수 없다.
+        validate=True('다음')면 모든 값을 입력해야 하고 합이 100이어야 한다."""
+        posting = await self._get_owned(admin, posting_id)
+        self._ensure_editable(posting)
+
+        criteria, ratios, problems = await self._checked_ratios(StageType.INTERVIEW.value, req.ratios, validate)
+        # 비언어는 표정 분석이 실패했을 때만 빼고 계산하는 예외 규칙이 있어, 회사가 정하는 비율은 0%일 수 없다
+        for c in criteria:
+            if c.criteria_name == "비언어" and ratios.get(c.criteria_id) == 0:
+                raise AppError(422, ErrorCode.POSTING_INVALID, "비언어 비율은 1% 이상이어야 합니다.")
+
+        if req.question_count is not None:
+            registered = await self.postings.count_company_questions(posting_id)
+            if req.question_count < registered:
+                raise AppError(
+                    422,
+                    ErrorCode.QUESTION_COUNT_TOO_LOW,
+                    f"기업 질문이 {registered}개 등록되어 있어 출제 문제 개수를 {registered}개 미만으로 줄일 수 없습니다. "
+                    "기업 질문을 먼저 줄여 주세요.",
+                )
+
+        if validate:
+            labels = {
+                "question_count": "출제 문제 개수",
+                "follow_up_enabled": "꼬리질문",
+                "think_time_sec": "생각 시간",
+                "answer_time_sec": "답변 시간",
+            }
+            missing = [label for key, label in labels.items() if getattr(req, key) is None]
+            if missing:
+                problems.append("다음 항목을 입력해 주세요: " + ", ".join(missing) + ".")
+        if problems:
+            raise AppError(422, ErrorCode.POSTING_INVALID, " ".join(problems))
+
+        await self.eval_ratios.replace(posting_id, [c.criteria_id for c in criteria], ratios)
+        posting.question_count = req.question_count
+        posting.follow_up_enabled = req.follow_up_enabled
+        posting.think_time_sec = req.think_time_sec
+        posting.answer_time_sec = req.answer_time_sec
+        await self.db.commit()
+        return await self._interview_criteria_out(posting)
+
+    async def _checked_ratios(
+        self, stage_type: str, sent: list, validate: bool
+    ) -> tuple[list[EvalCriteria], dict[int, int], list[str]]:
+        """전형(서류/면접)의 평가 항목 비율을 검사한다. 항목이 틀렸거나 합이 100을 넘으면 바로 거절하고,
+        '다음'에서만 필요한 검사(모두 입력, 합 100)에 걸린 내용은 메시지 목록으로 돌려준다."""
+        criteria = await self.eval_ratios.list_criteria(stage_type)
+        ids = [c.criteria_id for c in criteria]
+        sent_ids = [r.criteria_id for r in sent]
+        if set(sent_ids) - set(ids) or len(sent_ids) != len(set(sent_ids)):
             raise AppError(422, ErrorCode.POSTING_INVALID, "알 수 없거나 중복된 평가 항목입니다.")
-        ratios = {r.criteria_id: r.ratio for r in req.ratios if r.ratio is not None}
+        ratios = {r.criteria_id: r.ratio for r in sent if r.ratio is not None}
 
         total = sum(ratios.values())
         if total > 100:
             raise AppError(
                 422, ErrorCode.POSTING_INVALID, f"비율의 합은 100을 넘을 수 없습니다. 현재 {total}입니다."
             )
+        problems = []
         if validate:
-            if len(ratios) < len(criteria_ids):
-                raise AppError(422, ErrorCode.POSTING_INVALID, "모든 항목의 비율을 입력해 주세요.")
-            if total != 100:
-                raise AppError(
-                    422, ErrorCode.POSTING_INVALID, f"비율의 합은 100이어야 합니다. 현재 {total}입니다."
-                )
+            if len(ratios) < len(ids):
+                problems.append("모든 항목의 비율을 입력해 주세요.")
+            elif total != 100:
+                problems.append(f"비율의 합은 100이어야 합니다. 현재 {total}입니다.")
+        return criteria, ratios, problems
 
-        await self.eval_ratios.replace(posting_id, criteria_ids, ratios)
-        await self.db.commit()
-        return await self._doc_criteria_out(posting_id)
+    async def _interview_criteria_out(self, posting: JobPosting) -> InterviewCriteriaOut:
+        criteria = await self.eval_ratios.list_criteria(StageType.INTERVIEW.value)
+        ratios = await self.eval_ratios.ratios(posting.posting_id, [c.criteria_id for c in criteria])
+        return InterviewCriteriaOut(
+            criteria=[
+                CriteriaOut(
+                    criteria_id=c.criteria_id,
+                    criteria_name=c.criteria_name,
+                    description=c.description,
+                    ratio=ratios.get(c.criteria_id),
+                )
+                for c in criteria
+            ],
+            question_count=posting.question_count,
+            follow_up_enabled=posting.follow_up_enabled,
+            think_time_sec=posting.think_time_sec,
+            answer_time_sec=posting.answer_time_sec,
+        )
 
     async def _doc_criteria_out(self, posting_id: int) -> DocCriteriaOut:
         criteria = await self.eval_ratios.list_criteria(StageType.DOCUMENT.value)

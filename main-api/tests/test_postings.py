@@ -442,3 +442,143 @@ def test_doc_criteria_not_editable(admin, posting_id):
     )
     r = _put_ratios(admin, posting_id, [25, 25, 25, 25])
     assert r.status_code == 409 and r.json()["code"] == "POSTING_NOT_EDITABLE"
+
+# ---------- 면접 평가기준 (화면 07, ADM-008) ----------
+def _interview(admin, pid):
+    return admin.get(f"/api/admin/postings/{pid}/interview-criteria").json()
+
+
+def _put_interview(admin, pid, ratios=(50, 30, 20), settings=None, validate="true"):
+    """ratios: 면접 항목 5~7의 비율 목록 (None은 미입력)"""
+    body = {"ratios": [{"criteria_id": i, "ratio": v} for i, v in enumerate(ratios, start=5)]}
+    body.update(
+        settings
+        if settings is not None
+        else {"question_count": 6, "follow_up_enabled": True, "think_time_sec": 30, "answer_time_sec": 90}
+    )
+    return admin.put(f"/api/admin/postings/{pid}/interview-criteria?validate={validate}", json=body)
+
+
+def test_interview_criteria_requires_login(client):
+    assert client.get("/api/admin/postings/1/interview-criteria").status_code == 401
+
+
+def test_interview_criteria_initial_is_blank(admin, posting_id):
+    data = _interview(admin, posting_id)
+    assert [c["criteria_name"] for c in data["criteria"]] == ["내용", "언어", "비언어"]
+    assert [c["description"] for c in data["criteria"]] == ["답변 내용", "언어적 측면", "비언어적 측면 (얼굴 표정·감정)"]
+    assert all(c["ratio"] is None for c in data["criteria"])
+    assert [data[k] for k in ("question_count", "follow_up_enabled", "think_time_sec", "answer_time_sec")] == [None] * 4
+
+
+def test_interview_criteria_round_trip(admin, posting_id):
+    assert _put_interview(admin, posting_id).status_code == 200
+    data = _interview(admin, posting_id)
+    assert [c["ratio"] for c in data["criteria"]] == [50, 30, 20]
+    assert (data["question_count"], data["follow_up_enabled"], data["think_time_sec"], data["answer_time_sec"]) == (6, True, 30, 90)
+    # 꼬리질문 '사용 안 함'(false)은 아직 고르지 않은 상태(null)와 다르다
+    _put_interview(admin, posting_id, settings={"question_count": 6, "follow_up_enabled": False, "think_time_sec": 0, "answer_time_sec": 5})
+    data = _interview(admin, posting_id)
+    assert data["follow_up_enabled"] is False and data["think_time_sec"] == 0 and data["answer_time_sec"] == 5
+
+
+def test_interview_settings_have_no_range_limit(admin, posting_id):
+    big = {"question_count": 500, "follow_up_enabled": True, "think_time_sec": 100000, "answer_time_sec": 3}
+    assert _put_interview(admin, posting_id, settings=big).status_code == 200
+    assert _interview(admin, posting_id)["think_time_sec"] == 100000
+
+
+def test_interview_settings_reject_negative(admin, posting_id):
+    r = _put_interview(admin, posting_id, settings={"question_count": -1})
+    assert r.status_code == 422
+
+
+@pytest.mark.parametrize("validate", ["true", "false"])
+def test_interview_nonverbal_cannot_be_zero(admin, posting_id, validate):
+    r = _put_interview(admin, posting_id, ratios=(60, 40, 0), validate=validate)
+    assert r.status_code == 422 and "비언어 비율은 1% 이상" in r.json()["message"]
+
+
+def test_interview_content_and_language_may_be_zero(admin, posting_id):
+    assert _put_interview(admin, posting_id, ratios=(0, 50, 50)).status_code == 200
+    assert _put_interview(admin, posting_id, ratios=(50, 0, 50)).status_code == 200
+
+
+def test_interview_next_requires_sum_100(admin, posting_id):
+    r = _put_interview(admin, posting_id, ratios=(50, 30, 10))
+    assert r.status_code == 422 and "합은 100" in r.json()["message"] and "현재 90" in r.json()["message"]
+
+
+def test_interview_sum_over_100_is_rejected_even_for_draft(admin, posting_id):
+    _put_interview(admin, posting_id)
+    r = _put_interview(admin, posting_id, ratios=(60, 50, 10), validate="false")
+    assert r.status_code == 422 and "100을 넘을 수 없습니다" in r.json()["message"]
+    assert [c["ratio"] for c in _interview(admin, posting_id)["criteria"]] == [50, 30, 20]
+
+
+def test_interview_next_requires_all_values(admin, posting_id):
+    r = _put_interview(admin, posting_id, ratios=(50, 50, None), settings={"question_count": 6})
+    assert r.status_code == 422
+    message = r.json()["message"]
+    assert "모든 항목의 비율" in message
+    for label in ("꼬리질문", "생각 시간", "답변 시간"):
+        assert label in message
+    assert "출제 문제 개수" not in message.split("입력해 주세요:")[1]
+
+
+def test_interview_draft_allows_partial(admin, posting_id):
+    r = _put_interview(admin, posting_id, ratios=(30, None, None), settings={"think_time_sec": 20}, validate="false")
+    assert r.status_code == 200
+    data = _interview(admin, posting_id)
+    assert [c["ratio"] for c in data["criteria"]] == [30, None, None] and data["think_time_sec"] == 20
+
+
+def test_interview_rejects_document_criteria_ids(admin, posting_id):
+    body = {"ratios": [{"criteria_id": 1, "ratio": 10}]}
+    r = admin.put(f"/api/admin/postings/{posting_id}/interview-criteria?validate=false", json=body)
+    assert r.status_code == 422
+
+
+def test_interview_save_keeps_document_ratios(admin, posting_id):
+    _put_ratios(admin, posting_id, [25, 25, 25, 25])
+    _put_interview(admin, posting_id)
+    _put_interview(admin, posting_id, ratios=(40, 40, 20))
+    rows = _sql("select criteria_id, ratio from posting_eval_ratio where posting_id = :p order by 1", p=posting_id)
+    assert [tuple(r) for r in rows] == [(1, 25), (2, 25), (3, 25), (4, 25), (5, 40), (6, 40), (7, 20)]
+
+
+@pytest.mark.parametrize("validate", ["true", "false"])
+def test_interview_question_count_cannot_go_below_company_questions(admin, posting_id, validate):
+    for seq in (1, 2, 3):
+        _sql("insert into company_question (posting_id, seq, content) values (:p, :s, '질문')", p=posting_id, s=seq)
+    settings = {"question_count": 2, "follow_up_enabled": True, "think_time_sec": 30, "answer_time_sec": 90}
+    r = _put_interview(admin, posting_id, settings=settings, validate=validate)
+    assert r.status_code == 422 and r.json()["code"] == "QUESTION_COUNT_TOO_LOW"
+    assert "3개" in r.json()["message"]
+    # 같은 개수는 된다
+    assert _put_interview(admin, posting_id, settings={**settings, "question_count": 3}).status_code == 200
+
+
+def test_interview_empty_question_count_is_allowed_with_company_questions_for_draft(admin, posting_id):
+    _sql("insert into company_question (posting_id, seq, content) values (:p, 1, '질문')", p=posting_id)
+    r = _put_interview(admin, posting_id, settings={"think_time_sec": 10}, validate="false")
+    assert r.status_code == 200
+
+
+def test_interview_other_admin_gets_404(admin, posting_id):
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    with TestClient(app) as other:
+        _login(other)
+        assert other.get(f"/api/admin/postings/{posting_id}/interview-criteria").status_code == 404
+        assert _put_interview(other, posting_id).status_code == 404
+
+
+def test_interview_not_editable(admin, posting_id):
+    _sql(
+        "update job_posting set write_status = '등록 완료', progress_status = '서류 접수 중' where posting_id = :p",
+        p=posting_id,
+    )
+    r = _put_interview(admin, posting_id)
+    assert r.status_code == 409 and r.json()["code"] == "POSTING_NOT_EDITABLE"

@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_db, require_admin
 from app.models.member import Member
 from app.schemas.doc_criteria import DocCriteriaIn, DocCriteriaOut
+from app.schemas.interview_criteria import InterviewCriteriaIn, InterviewCriteriaOut
 from app.schemas.doc_items import DocItemsIn, DocItemsOut
 from app.schemas.posting import DocumentOut, PostingCreated, PostingDetail, PostingInfoIn
 from app.services.posting_service import PostingService
@@ -97,3 +98,22 @@ async def save_doc_criteria(
 ):
     """ADM-007 서류 평가기준 저장. 임시 저장은 validate=false"""
     return await PostingService(db).save_doc_criteria(admin, posting_id, req, validate)
+
+@router.get("/{posting_id}/interview-criteria", response_model=InterviewCriteriaOut)
+async def get_interview_criteria(
+    posting_id: int, admin: Member = Depends(require_admin), db: AsyncSession = Depends(get_db)
+):
+    """ADM-008 면접 평가기준 조회"""
+    return await PostingService(db).get_interview_criteria(admin, posting_id)
+
+
+@router.put("/{posting_id}/interview-criteria", response_model=InterviewCriteriaOut)
+async def save_interview_criteria(
+    posting_id: int,
+    req: InterviewCriteriaIn,
+    validate: bool = True,
+    admin: Member = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """ADM-008 면접 평가기준 저장. 임시 저장은 validate=false"""
+    return await PostingService(db).save_interview_criteria(admin, posting_id, req, validate)
