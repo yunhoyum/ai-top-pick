@@ -89,3 +89,23 @@ export type Review = {
   // 아직 완료하지 못한 단계
   incomplete_steps: ReviewStep[];
 };
+
+// 화면 10 채용공고 목록
+export type PostingListItem = {
+  posting_id: number;
+  position_name: string | null;
+  employment_type: "정규직" | "계약직" | null;
+  progress_status: string | null;
+  doc_start_at: string | null;
+  doc_end_at: string | null;
+  // 제출 완료된 지원서 수
+  applicant_count: number;
+};
+
+// 이어서 작성할 임시 저장 공고
+export type Draft = {
+  posting_id: number;
+  position_name: string | null;
+  // 이어서 열 단계의 주소 이름 (info, doc-items, ..., review)
+  resume_step: string;
+};

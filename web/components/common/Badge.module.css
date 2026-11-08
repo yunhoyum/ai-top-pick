@@ -1,0 +1,29 @@
+.badge {
+  display: inline-flex;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.navy {
+  background: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.teal {
+  background: var(--accent-50);
+  color: var(--accent-600);
+}
+
+.gray {
+  background: var(--gray-100);
+  color: var(--gray-500);
+}
+
+.amber {
+  background: var(--amber-50);
+  color: var(--amber-600);
+}

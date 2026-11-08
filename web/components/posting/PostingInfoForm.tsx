@@ -10,7 +10,8 @@ import TextAreaField from "@/components/common/TextAreaField";
 import { ApiError, apiFetch } from "@/lib/api";
 import { formatPeriod, toInputValue, toIso } from "@/lib/format";
 import { validateSchedule } from "@/lib/schedule";
-import type { PostingDetail, PostingDocument } from "@/types/posting";
+import type { Draft, PostingDetail, PostingDocument } from "@/types/posting";
+import DraftResumeDialog from "./DraftResumeDialog";
 import DocumentList from "./DocumentList";
 import styles from "./PostingInfoForm.module.css";
 
@@ -71,6 +72,8 @@ export default function PostingInfoForm({ postingId: initialId }: { postingId?: 
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [docError, setDocError] = useState<string | null>(null);
+  // 새 공고를 쓰려는데 임시 저장한 공고가 있으면 이어서 쓸지 묻는다 (ADM-011)
+  const [draft, setDraft] = useState<Draft | null>(null);
 
   const idRef = useRef<number | null>(initialId ?? null);
   const creating = useRef<Promise<number> | null>(null);
@@ -98,6 +101,23 @@ export default function PostingInfoForm({ postingId: initialId }: { postingId?: 
       })
       .catch((e) => setLoadError(errorMessage(e)))
       .finally(() => setLoading(false));
+  }, [initialId]);
+
+  useEffect(() => {
+    if (initialId !== undefined) return;
+    // Next는 이동해 나간 화면의 상태를 보존했다가 다시 열 때 그대로 되살린다.
+    // 이전에 쓰던 값이나 이미 지워진 공고를 가리키지 않도록 새 공고는 항상 빈 상태로 시작한다
+    setForm(EMPTY);
+    setDocuments([]);
+    setWriteStatus("임시 저장");
+    setError(null);
+    setNotice(null);
+    setDocError(null);
+    idRef.current = null;
+    creating.current = null;
+    apiFetch<Draft | null>("/api/admin/postings/draft")
+      .then(setDraft)
+      .catch(() => {}); // 확인하지 못해도 새 공고는 작성할 수 있다
   }, [initialId]);
 
   // 값을 고치면 이전 저장 결과(오류·안내)는 더 이상 맞지 않으므로 지운다
@@ -302,6 +322,8 @@ export default function PostingInfoForm({ postingId: initialId }: { postingId?: 
           다음
         </Button>
       </div>
+
+      {draft && <DraftResumeDialog draft={draft} onDiscarded={() => setDraft(null)} />}
     </div>
   );
 }

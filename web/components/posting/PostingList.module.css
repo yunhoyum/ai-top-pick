@@ -1,0 +1,141 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.headText {
+  display: flex;
+  flex: 1 0 0;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  line-height: 1.5;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--gray-500);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  padding: 7px 14px;
+  border: 1px solid var(--gray-200);
+  border-radius: 999px;
+  background: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--gray-500);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--primary-700);
+}
+
+.chipActive {
+  border-color: var(--primary-700);
+  background: var(--primary-700);
+  font-weight: 700;
+  color: #fff;
+}
+
+.tableWrap {
+  overflow: hidden;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.table th,
+.table td {
+  padding: 15px 8px 15px 0;
+  text-align: left;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--gray-900);
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.table th:first-child,
+.table td:first-child {
+  padding-left: 20px;
+}
+
+.table thead tr {
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.table thead th {
+  padding-top: 11px;
+  padding-bottom: 11px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-500);
+}
+
+.table tbody tr {
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.name {
+  font-weight: 500;
+}
+
+.detail {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent-600);
+  white-space: nowrap;
+}
+
+.detail:hover {
+  text-decoration: underline;
+}
+
+.empty {
+  padding: 48px 20px;
+  border-top: 1px solid var(--gray-100);
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--gray-400);
+}
+
+.error {
+  font-size: 14px;
+  color: var(--danger);
+}
