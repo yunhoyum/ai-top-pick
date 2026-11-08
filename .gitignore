@@ -89,3 +89,6 @@ desktop.ini
 scripts/model-tests/*.wav
 # 테스트 영상 (용량이 큼, 직접 녹화해서 쓴다)
 scripts/model-tests/*.webm
+
+# Playwright MCP 실행 산출물 (스크린샷, 스냅샷, 콘솔 로그)
+.playwright-mcp/
