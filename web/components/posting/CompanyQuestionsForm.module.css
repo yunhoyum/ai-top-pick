@@ -1,0 +1,241 @@
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cardHead h2 {
+  flex: 1 0 0;
+}
+
+.badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--primary-50);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--primary-700);
+  white-space: nowrap;
+}
+
+.notice {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--primary-50);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--gray-700);
+}
+
+.noticeWarn {
+  background: var(--amber-50);
+  color: var(--amber-600);
+}
+
+.noticeLink {
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+}
+
+.itemNo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: var(--primary-50);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary-700);
+}
+
+.itemText {
+  flex: 1 0 0;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--gray-900);
+  overflow-wrap: anywhere;
+}
+
+.editWrap {
+  display: flex;
+  flex: 1 0 0;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.action {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-400);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.action:hover {
+  color: var(--primary-700);
+}
+
+.danger:hover {
+  color: var(--danger);
+}
+
+.addRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.addRow > div {
+  flex: 1 0 0;
+  min-width: 0;
+}
+
+/* 입력칸 라벨 높이만큼 내려서 버튼을 입력칸 옆에 맞춘다 */
+.addButton {
+  margin-top: 25px;
+}
+
+.hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--gray-500);
+}
+
+.slider {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.side {
+  display: flex;
+  flex-direction: column;
+  min-width: 56px;
+  line-height: 1.5;
+}
+
+.sideEnd {
+  align-items: flex-end;
+}
+
+.sideLabel {
+  font-size: 13px;
+  color: var(--gray-500);
+}
+
+.sideValue {
+  font-size: 20px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.job {
+  color: var(--primary-700);
+}
+
+.personality {
+  color: var(--accent-600);
+}
+
+.summary {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--gray-700);
+}
+
+/* Figma Slider: 얇은 막대(primary-100) 위에 직무 비율만큼 primary-700으로 채우고, 흰 원 핸들을 둔다 */
+.range {
+  flex: 1 0 0;
+  min-width: 0;
+  height: 24px;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.range::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, var(--primary-700) var(--fill), var(--primary-100) var(--fill));
+}
+
+.range::-moz-range-track {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--primary-100);
+}
+
+.range::-moz-range-progress {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--primary-700);
+}
+
+.range::-webkit-slider-thumb {
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  margin-top: -8px;
+  border: 3px solid var(--primary-700);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+}
+
+.range::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--primary-700);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.2);
+}
+
+/* 키보드로 조작할 때의 포커스 표시는 막대 전체가 아니라 핸들에만 둔다 */
+.range:focus-visible {
+  outline: none;
+}
+
+.range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgb(30 58 95 / 0.2);
+}
+
+.range:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 4px rgb(30 58 95 / 0.2);
+}
+
+/* 아직 설정하지 않았을 때: 채움 없이 회색 핸들 */
+.unset::-webkit-slider-thumb {
+  border-color: var(--gray-400);
+}
+
+.unset::-moz-range-thumb {
+  border-color: var(--gray-400);
+}
+
+.range:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

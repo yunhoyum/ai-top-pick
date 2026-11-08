@@ -67,3 +67,12 @@ export type InterviewCriteria = {
   think_time_sec: number | null;
   answer_time_sec: number | null;
 };
+
+// 화면 08 기업 질문
+export type CompanyQuestions = {
+  questions: string[];
+  // AI 질문 중 직무 질문 비율(%). 아직 정하지 않았으면 null
+  job_question_ratio: number | null;
+  // 화면 07에서 정한 출제 문제 개수. 아직 입력하지 않았으면 null
+  question_count: number | null;
+};
