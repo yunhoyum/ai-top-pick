@@ -76,3 +76,16 @@ export type CompanyQuestions = {
   // 화면 07에서 정한 출제 문제 개수. 아직 입력하지 않았으면 null
   question_count: number | null;
 };
+
+// 화면 09 최종 검토
+export type ReviewStep = "info" | "doc-items" | "doc-criteria" | "interview-criteria" | "company-questions";
+
+export type Review = {
+  posting: PostingDetail;
+  doc_items: DocItems;
+  doc_criteria: DocCriteria;
+  interview_criteria: InterviewCriteria;
+  company_questions: CompanyQuestions;
+  // 아직 완료하지 못한 단계
+  incomplete_steps: ReviewStep[];
+};

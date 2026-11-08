@@ -1,5 +1,5 @@
 // main-api 호출. 브라우저는 main-api 하나만 호출한다 (아키텍처 4.1-1)
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 // 로그인이 필요하거나 만료되었음을 뜻하는 오류 코드. 이 경우 로그인 화면으로 보낸다
 // (LOGIN_FAILED는 로그인 화면 자신의 오류라서 포함하지 않는다)

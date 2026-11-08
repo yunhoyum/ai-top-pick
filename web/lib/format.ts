@@ -35,3 +35,28 @@ export function formatFileSize(bytes: number | null): string {
     ? `${(bytes / 1024 / 1024).toFixed(1)} MB`
     : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
+
+// 검토 화면용 짧은 표기: "11.05", "11.10 10:00" (Asia/Seoul)
+function seoulParts(iso: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(iso));
+  return Object.fromEntries(parts.map((x) => [x.type, x.value]));
+}
+
+export function formatMonthDay(iso: string | null): string {
+  if (!iso) return "미정";
+  const p = seoulParts(iso);
+  return `${p.month}.${p.day}`;
+}
+
+export function formatMonthDayTime(iso: string | null): string {
+  if (!iso) return "미정";
+  const p = seoulParts(iso);
+  return `${p.month}.${p.day} ${p.hour}:${p.minute}`;
+}
