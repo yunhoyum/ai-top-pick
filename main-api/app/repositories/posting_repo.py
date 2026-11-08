@@ -61,6 +61,15 @@ class PostingRepo:
         )
         return [(posting, count) for posting, count in rows]
 
+    async def list_public(self) -> list[JobPosting]:
+        """등록을 마친 모든 공고. 최근에 만든 공고가 먼저 나온다."""
+        rows = await self.db.scalars(
+            select(JobPosting)
+            .where(JobPosting.write_status == PostingWriteStatus.COMPLETE.value)
+            .order_by(JobPosting.posting_id.desc())
+        )
+        return list(rows)
+
     async def stats(self, posting_id: int) -> tuple[int, int, int, int, int]:
         """전형별 지원자 수와 오류 수: (제출, 면접 대상, 면접 응시 완료, 필수 기술 미달 탈락, AI 미처리 오류)"""
         submitted = await self.db.scalar(

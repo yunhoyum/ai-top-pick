@@ -18,7 +18,7 @@ from app.schemas.doc_criteria import CriteriaOut, DocCriteriaIn, DocCriteriaOut
 from app.schemas.interview_criteria import InterviewCriteriaIn, InterviewCriteriaOut
 from app.schemas.doc_items import BasicItemOut, DocItemsIn, DocItemsOut, SkillOut
 from app.schemas.posting import PostingDetail, PostingInfoIn
-from app.schemas.posting_list import DraftOut, PostingListItem, PostingStats
+from app.schemas.posting_list import DraftOut, PostingListItem, PostingStats, PublicPostingItem
 from app.schemas.review import PublishOut, ReviewOut
 from app.services import file_service
 
@@ -82,6 +82,20 @@ class PostingService:
                 applicant_count=count,
             )
             for p, count in rows
+        ]
+
+    async def list_public(self) -> list[PublicPostingItem]:
+        """APP-003 지원자에게 보이는 채용공고 목록 (등록 완료된 공고 전체)"""
+        return [
+            PublicPostingItem(
+                posting_id=p.posting_id,
+                position_name=p.position_name,
+                employment_type=p.employment_type,
+                progress_status=p.progress_status,
+                doc_start_at=p.doc_start_at,
+                doc_end_at=p.doc_end_at,
+            )
+            for p in await self.postings.list_public()
         ]
 
     async def get_stats(self, admin: Member, posting_id: int) -> PostingStats:

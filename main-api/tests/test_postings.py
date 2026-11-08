@@ -1140,3 +1140,38 @@ def test_stats_unhandled_errors_are_per_posting(admin, posting_id):
     _sql("insert into inquiry (session_id, judgment_code) values (:s, 'UNRESOLVED_UNKNOWN')", s=_add_session(_add_application(other)))
     assert _stats(admin, posting_id)["ai_unhandled_error_count"] == 0
     assert _stats(admin, other)["ai_unhandled_error_count"] == 1
+
+
+# ---------- 지원자 채용공고 목록 (APP-003) ----------
+def _public(client):
+    r = client.get("/api/postings")
+    assert r.status_code == 200
+    return r.json()
+
+
+def test_public_list_needs_no_login(client):
+    assert isinstance(_public(client), list)
+
+
+def test_public_list_shows_registered_including_before_recruit_and_hides_drafts(admin, client):
+    draft_id = admin.post("/api/admin/postings").json()["posting_id"]
+    pid = _register(admin)  # 등록 직후 진행 상태는 '모집 전'
+    items = {i["posting_id"]: i for i in _public(client)}
+    assert pid in items and draft_id not in items
+    assert items[pid]["progress_status"] == "모집 전"
+    assert items[pid]["position_name"] == FULL["position_name"]
+
+
+def test_public_list_is_newest_first_and_hides_applicant_count(admin, client):
+    first, second = _register(admin), _register(admin)
+    items = _public(client)
+    ids = [i["posting_id"] for i in items]
+    assert ids.index(second) < ids.index(first)
+    assert all("applicant_count" not in i for i in items)
+
+
+def test_public_list_is_open_to_admin_and_applicant(admin, client):
+    pid = _register(admin)
+    applicant = _login(TestClient(client.app), "지원자")
+    assert pid in [i["posting_id"] for i in _public(applicant)]
+    assert pid in [i["posting_id"] for i in _public(admin)]

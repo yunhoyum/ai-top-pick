@@ -16,6 +16,17 @@ class PostingListItem(BaseModel):
     applicant_count: int
 
 
+class PublicPostingItem(BaseModel):
+    """지원자 화면 10-1 채용공고 목록의 한 줄 (지원자 수는 공개하지 않는다)"""
+
+    posting_id: int
+    position_name: str | None
+    employment_type: str | None
+    progress_status: str | None
+    doc_start_at: datetime | None
+    doc_end_at: datetime | None
+
+
 class DraftOut(BaseModel):
     """이어서 작성할 수 있는 임시 저장 공고"""
 
