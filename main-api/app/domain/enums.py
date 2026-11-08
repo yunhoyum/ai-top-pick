@@ -127,3 +127,7 @@ class SourceType(str, Enum):
     FUNCTIONAL_TALENT = "기능적 인재상"
     NONFUNCTIONAL_TALENT = "비기능적 인재상"
     PROJECT_DOC = "프로젝트 문서"
+
+
+class UploadStatus(str, Enum):
+    DONE = "등록 완료"

@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     # ---------- 파일 저장 ----------
     STORAGE_ROOT: str = "/data/storage"
+    MAX_PDF_MB: int = 20
 
     # ---------- CORS: 쉼표로 구분. 쿠키 인증이라 와일드카드는 쓸 수 없다 ----------
     CORS_ORIGINS: str = ""
