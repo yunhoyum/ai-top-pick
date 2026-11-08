@@ -10,7 +10,7 @@ from app.schemas.interview_criteria import InterviewCriteriaIn, InterviewCriteri
 from app.schemas.doc_items import DocItemsIn, DocItemsOut
 from app.schemas.review import PublishOut, ReviewOut
 from app.schemas.posting import DocumentOut, PostingCreated, PostingDetail, PostingInfoIn
-from app.schemas.posting_list import DraftOut, PostingListItem
+from app.schemas.posting_list import DraftOut, PostingListItem, PostingStats
 from app.services.posting_service import PostingService
 
 router = APIRouter(prefix="/api/admin/postings", tags=["admin-postings"])
@@ -193,3 +193,10 @@ async def delete_posting(
 ):
     """ADM-020 채용공고 삭제 ('모집 전' 공고만)"""
     await PostingService(db).delete_posting(admin, posting_id)
+
+@router.get("/{posting_id}/stats", response_model=PostingStats)
+async def get_stats(
+    posting_id: int, admin: Member = Depends(require_admin), db: AsyncSession = Depends(get_db)
+):
+    """ADM-013 전형별 지원자 수 (제출, 면접 대상, 응시 완료)"""
+    return await PostingService(db).get_stats(admin, posting_id)

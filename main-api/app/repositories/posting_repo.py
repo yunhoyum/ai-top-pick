@@ -1,8 +1,16 @@
 from sqlalchemy import and_, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.enums import ApplicationWriteStatus, PostingWriteStatus, ProgressStatus
-from app.models.application import Application
+from app.domain.enums import (
+    ApplicationWriteStatus,
+    PostingWriteStatus,
+    ProgressStatus,
+    SessionStatus,
+    StageResult,
+    StageType,
+)
+from app.models.application import Application, ApplicationStage
+from app.models.interview import InterviewSession
 from app.models.posting import (
     CompanyQuestion,
     EssayTopic,
@@ -51,6 +59,37 @@ class PostingRepo:
             .order_by(JobPosting.posting_id.desc())
         )
         return [(posting, count) for posting, count in rows]
+
+    async def stats(self, posting_id: int) -> tuple[int, int, int]:
+        """전형별 지원자 수: (제출, 면접 대상, 면접 응시 완료)"""
+        submitted = await self.db.scalar(
+            select(func.count())
+            .select_from(Application)
+            .where(
+                Application.posting_id == posting_id,
+                Application.write_status == ApplicationWriteStatus.SUBMITTED.value,
+            )
+        )
+        target = await self.db.scalar(
+            select(func.count())
+            .select_from(ApplicationStage)
+            .join(Application, Application.application_id == ApplicationStage.application_id)
+            .where(
+                Application.posting_id == posting_id,
+                ApplicationStage.stage_type == StageType.DOCUMENT.value,
+                ApplicationStage.result == StageResult.PASS.value,
+            )
+        )
+        done = await self.db.scalar(
+            select(func.count(func.distinct(InterviewSession.application_id)))
+            .select_from(InterviewSession)
+            .join(Application, Application.application_id == InterviewSession.application_id)
+            .where(
+                Application.posting_id == posting_id,
+                InterviewSession.status == SessionStatus.COMPLETED.value,
+            )
+        )
+        return submitted, target, done
 
     async def latest_draft(self, admin_id: int) -> JobPosting | None:
         """본인이 가장 최근에 임시 저장한(등록하지 않은) 공고"""

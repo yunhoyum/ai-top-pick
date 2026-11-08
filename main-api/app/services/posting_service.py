@@ -18,7 +18,7 @@ from app.schemas.doc_criteria import CriteriaOut, DocCriteriaIn, DocCriteriaOut
 from app.schemas.interview_criteria import InterviewCriteriaIn, InterviewCriteriaOut
 from app.schemas.doc_items import BasicItemOut, DocItemsIn, DocItemsOut, SkillOut
 from app.schemas.posting import PostingDetail, PostingInfoIn
-from app.schemas.posting_list import DraftOut, PostingListItem
+from app.schemas.posting_list import DraftOut, PostingListItem, PostingStats
 from app.schemas.review import PublishOut, ReviewOut
 from app.services import file_service
 
@@ -45,7 +45,7 @@ STEP_LABELS = {
     "doc-items": "서류 문항",
     "doc-criteria": "서류 평가기준",
     "interview-criteria": "면접 평가기준",
-    "company-questions": "기업 질문",
+    "company-questions": "면접 질문",
 }
 
 
@@ -84,6 +84,14 @@ class PostingService:
             for p, count in rows
         ]
 
+    async def get_stats(self, admin: Member, posting_id: int) -> PostingStats:
+        """ADM-013 전형별 지원자 수"""
+        await self._get_owned(admin, posting_id)
+        submitted, target, done = await self.postings.stats(posting_id)
+        return PostingStats(
+            submitted_count=submitted, interview_target_count=target, interview_done_count=done
+        )
+
     async def get_draft(self, admin: Member) -> DraftOut | None:
         """ADM-011 이어서 작성할 임시 저장 공고. 없으면 None"""
         posting = await self.postings.latest_draft(admin.member_id)
@@ -118,6 +126,8 @@ class PostingService:
         validate=True면 필수 항목을 검사한다. 일정 순서는 DB 제약이 있어 임시 저장에도 항상 검사한다."""
         posting = await self._get_owned(admin, posting_id)
         self._ensure_editable(posting)
+        # 등록된 공고는 임시 저장 요청이어도 필수 검사를 한다 (수정하다가 불완전한 값이 남지 않게)
+        validate = validate or posting.write_status == PostingWriteStatus.COMPLETE.value
 
         if validate:
             missing = _missing_required(req)
@@ -184,6 +194,8 @@ class PostingService:
         validate=True('다음')면 필수 기술과 자소서 주제가 각각 1개 이상이어야 한다."""
         posting = await self._get_owned(admin, posting_id)
         self._ensure_editable(posting)
+        # 등록된 공고는 임시 저장 요청이어도 필수 검사를 한다 (수정하다가 불완전한 값이 남지 않게)
+        validate = validate or posting.write_status == PostingWriteStatus.COMPLETE.value
 
         catalog = await self.doc_items.list_basic_items()
         known = {item.item_id for item in catalog}
@@ -227,6 +239,8 @@ class PostingService:
         합이 100을 넘으면 임시 저장도 할 수 없다. validate=True('다음')면 모든 항목을 입력해야 하고 합이 100이어야 한다."""
         posting = await self._get_owned(admin, posting_id)
         self._ensure_editable(posting)
+        # 등록된 공고는 임시 저장 요청이어도 필수 검사를 한다 (수정하다가 불완전한 값이 남지 않게)
+        validate = validate or posting.write_status == PostingWriteStatus.COMPLETE.value
 
         criteria, ratios, problems = await self._checked_ratios(StageType.DOCUMENT.value, req.ratios, validate)
         if problems:
@@ -250,6 +264,8 @@ class PostingService:
         validate=True('다음')면 모든 값을 입력해야 하고 합이 100이어야 한다."""
         posting = await self._get_owned(admin, posting_id)
         self._ensure_editable(posting)
+        # 등록된 공고는 임시 저장 요청이어도 필수 검사를 한다 (수정하다가 불완전한 값이 남지 않게)
+        validate = validate or posting.write_status == PostingWriteStatus.COMPLETE.value
 
         criteria, ratios, problems = await self._checked_ratios(StageType.INTERVIEW.value, req.ratios, validate)
         # 비언어는 표정 분석이 실패했을 때만 빼고 계산하는 예외 규칙이 있어, 회사가 정하는 비율은 0%일 수 없다
@@ -345,6 +361,8 @@ class PostingService:
         validate=True('다음')면 출제 문제 개수가 입력돼 있어야 하고, AI 질문이 있으면 비율을 정해야 한다."""
         posting = await self._get_owned(admin, posting_id)
         self._ensure_editable(posting)
+        # 등록된 공고는 임시 저장 요청이어도 필수 검사를 한다 (수정하다가 불완전한 값이 남지 않게)
+        validate = validate or posting.write_status == PostingWriteStatus.COMPLETE.value
 
         questions = [q for q in req.questions if q]
         count = posting.question_count

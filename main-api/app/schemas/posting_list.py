@@ -23,3 +23,14 @@ class DraftOut(BaseModel):
     position_name: str | None
     # 이어서 작성할 때 열 단계: 아직 완료하지 못한 첫 단계. 모두 완료했으면 review
     resume_step: str
+
+
+class PostingStats(BaseModel):
+    """화면 11 전형 진행: 전형별 지원자 수 (ADM-013)"""
+
+    # 제출 완료된 지원서 수
+    submitted_count: int
+    # 서류 전형에서 합격한 지원서 수 (면접 대상)
+    interview_target_count: int
+    # 면접을 끝까지 응시한(상태 '완료') 지원서 수
+    interview_done_count: int

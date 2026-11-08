@@ -792,7 +792,7 @@ def test_review_other_admin_gets_404(admin, posting_id):
 def test_publish_rejects_incomplete_posting(admin, posting_id):
     r = admin.post(f"/api/admin/postings/{posting_id}/publish")
     assert r.status_code == 422 and r.json()["code"] == "POSTING_INVALID"
-    for label in ("공고 정보", "서류 문항", "서류 평가기준", "면접 평가기준", "기업 질문"):
+    for label in ("공고 정보", "서류 문항", "서류 평가기준", "면접 평가기준", "면접 질문"):
         assert label in r.json()["message"]
     assert _review(admin, posting_id)["posting"]["write_status"] == "임시 저장"
 
@@ -1020,3 +1020,85 @@ def test_delete_other_admins_posting_gets_404(admin, posting_id):
         _login(other)
         assert other.delete(f"/api/admin/postings/{posting_id}").status_code == 404
     assert admin.get(f"/api/admin/postings/{posting_id}").status_code == 200
+
+# ---------- 공고 상세: 전형별 지원자 수, 등록된 공고 수정 (화면 11, ADM-013, ADM-014~019) ----------
+def _stats(admin, pid):
+    r = admin.get(f"/api/admin/postings/{pid}/stats")
+    assert r.status_code == 200
+    return r.json()
+
+
+def _add_application(pid, status="제출"):
+    applicant = _applicant_id()
+    _sql(
+        "insert into application (posting_id, applicant_id, write_status) values (:p, :a, :s)",
+        p=pid, a=applicant, s=status,
+    )
+    return _sql(
+        "select application_id from application where posting_id = :p and applicant_id = :a", p=pid, a=applicant
+    )[0][0]
+
+
+def test_stats_requires_login(client):
+    assert client.get("/api/admin/postings/1/stats").status_code == 401
+
+
+def test_stats_other_admin_gets_404(admin, posting_id):
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    with TestClient(app) as other:
+        _login(other)
+        assert other.get(f"/api/admin/postings/{posting_id}/stats").status_code == 404
+
+
+def test_stats_are_zero_without_applications(admin, posting_id):
+    assert _stats(admin, posting_id) == {"submitted_count": 0, "interview_target_count": 0, "interview_done_count": 0}
+
+
+def test_stats_count_submitted_target_and_done(admin, posting_id):
+    first = _add_application(posting_id)
+    second = _add_application(posting_id)
+    _add_application(posting_id, "임시 저장")  # 제출하지 않은 지원서는 세지 않는다
+    # 서류 전형: 첫째만 합격
+    _sql("insert into application_stage (application_id, stage_type, result) values (:a, '서류', '합격')", a=first)
+    _sql("insert into application_stage (application_id, stage_type, result) values (:a, '서류', '불합격')", a=second)
+    _sql("insert into application_stage (application_id, stage_type, result) values (:a, '면접', '합격')", a=first)  # 면접 결과는 대상이 아니다
+    # 면접: 첫째는 두 번 완료(한 명으로 센다), 둘째는 중단
+    _sql("insert into interview_session (application_id, status, attempt_no) values (:a, '완료', 1)", a=first)
+    _sql("insert into interview_session (application_id, status, attempt_no) values (:a, '완료', 2)", a=first)
+    _sql("insert into interview_session (application_id, status, attempt_no) values (:a, '중단', 1)", a=second)
+    assert _stats(admin, posting_id) == {"submitted_count": 2, "interview_target_count": 1, "interview_done_count": 1}
+
+
+def test_stats_are_per_posting(admin, posting_id):
+    other_posting = admin.post("/api/admin/postings").json()["posting_id"]
+    _add_application(other_posting)
+    assert _stats(admin, posting_id)["submitted_count"] == 0
+    assert _stats(admin, other_posting)["submitted_count"] == 1
+
+
+def test_registered_posting_is_validated_even_for_draft_save(admin, posting_id):
+    _fill_all(admin, posting_id)
+    assert admin.post(f"/api/admin/postings/{posting_id}/publish").status_code == 200
+    base = f"/api/admin/postings/{posting_id}"
+    assert admin.put(f"{base}/info?validate=false", json={**FULL, "position_name": None}).status_code == 422
+    assert admin.put(f"{base}/doc-items?validate=false", json={}).status_code == 422
+    assert _put_ratios(admin, posting_id, [30, None, None, None], validate="false").status_code == 422
+    assert _put_interview(admin, posting_id, ratios=(50, None, None), settings={"think_time_sec": 5}, validate="false").status_code == 422
+    assert _put_company(admin, posting_id, ["Q1"], ratio=None, validate="false").status_code == 422
+    # 거절된 요청은 저장된 값을 바꾸지 않는다
+    assert _review(admin, posting_id)["incomplete_steps"] == []
+    assert _review(admin, posting_id)["posting"]["position_name"] == FULL["position_name"]
+
+
+def test_registered_posting_can_be_updated_with_valid_values(admin, posting_id):
+    _fill_all(admin, posting_id)
+    admin.post(f"/api/admin/postings/{posting_id}/publish")
+    r = admin.put(f"/api/admin/postings/{posting_id}/info?validate=false", json={**FULL, "position_name": "수정된 공고명"})
+    assert r.status_code == 200 and r.json()["position_name"] == "수정된 공고명"
+    assert _review(admin, posting_id)["posting"]["write_status"] == "등록 완료"
+
+
+def test_draft_posting_still_allows_draft_save(admin, posting_id):
+    assert admin.put(f"/api/admin/postings/{posting_id}/info?validate=false", json={}).status_code == 200
