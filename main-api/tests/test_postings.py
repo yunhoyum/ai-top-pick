@@ -1175,3 +1175,27 @@ def test_public_list_is_open_to_admin_and_applicant(admin, client):
     applicant = _login(TestClient(client.app), "지원자")
     assert pid in [i["posting_id"] for i in _public(applicant)]
     assert pid in [i["posting_id"] for i in _public(admin)]
+
+
+# ---------- 지원자 채용공고 상세 (APP-004) ----------
+def test_public_detail_needs_no_login_and_shows_basic_info_and_schedule(admin, client):
+    pid = _register(admin)
+    r = client.get(f"/api/postings/{pid}")
+    assert r.status_code == 200
+    d = r.json()
+    assert d["position_name"] == FULL["position_name"] and d["job_category"] == FULL["job_category"]
+    assert d["employment_type"] == "정규직" and d["job_description"] == FULL["job_description"]
+    assert d["progress_status"] == "모집 전"
+    assert d["doc_end_at"].startswith("2026-11-05T14:59") and d["interview_result_at"].startswith("2026-11-20T01:00")
+
+
+def test_public_detail_hides_internal_info(admin, client):
+    d = client.get(f"/api/postings/{_register(admin)}").json()
+    for key in ("functional_talent", "nonfunctional_talent", "documents", "write_status"):
+        assert key not in d
+
+
+def test_public_detail_of_draft_or_missing_is_404(admin, client):
+    draft_id = admin.post("/api/admin/postings").json()["posting_id"]
+    assert client.get(f"/api/postings/{draft_id}").status_code == 404
+    assert client.get("/api/postings/999999999").status_code == 404

@@ -18,7 +18,7 @@ from app.schemas.doc_criteria import CriteriaOut, DocCriteriaIn, DocCriteriaOut
 from app.schemas.interview_criteria import InterviewCriteriaIn, InterviewCriteriaOut
 from app.schemas.doc_items import BasicItemOut, DocItemsIn, DocItemsOut, SkillOut
 from app.schemas.posting import PostingDetail, PostingInfoIn
-from app.schemas.posting_list import DraftOut, PostingListItem, PostingStats, PublicPostingItem
+from app.schemas.posting_list import DraftOut, PostingListItem, PostingStats, PublicPostingDetail, PublicPostingItem
 from app.schemas.review import PublishOut, ReviewOut
 from app.services import file_service
 
@@ -97,6 +97,13 @@ class PostingService:
             )
             for p in await self.postings.list_public()
         ]
+
+    async def get_public(self, posting_id: int) -> PublicPostingDetail:
+        """APP-004 지원자에게 보이는 채용공고 상세. 등록 완료된 공고만"""
+        posting = await self.postings.get_registered(posting_id)
+        if posting is None:
+            raise AppError(404, ErrorCode.POSTING_NOT_FOUND, "채용공고를 찾을 수 없습니다.")
+        return PublicPostingDetail.model_validate(posting, from_attributes=True)
 
     async def get_stats(self, admin: Member, posting_id: int) -> PostingStats:
         """ADM-013 전형별 지원자 수"""

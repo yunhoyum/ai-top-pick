@@ -61,6 +61,15 @@ class PostingRepo:
         )
         return [(posting, count) for posting, count in rows]
 
+    async def get_registered(self, posting_id: int) -> JobPosting | None:
+        """등록을 마친 공고 한 건 (임시 저장 공고는 없는 것으로 본다)"""
+        return await self.db.scalar(
+            select(JobPosting).where(
+                JobPosting.posting_id == posting_id,
+                JobPosting.write_status == PostingWriteStatus.COMPLETE.value,
+            )
+        )
+
     async def list_public(self) -> list[JobPosting]:
         """등록을 마친 모든 공고. 최근에 만든 공고가 먼저 나온다."""
         rows = await self.db.scalars(

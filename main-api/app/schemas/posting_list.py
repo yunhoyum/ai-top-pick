@@ -27,6 +27,23 @@ class PublicPostingItem(BaseModel):
     doc_end_at: datetime | None
 
 
+class PublicPostingDetail(BaseModel):
+    """지원자 화면 11-1 채용공고 상세: 기본 정보와 전형 일정만 (인재상, 평가기준 등은 공개하지 않는다)"""
+
+    posting_id: int
+    position_name: str | None
+    job_category: str | None
+    employment_type: str | None
+    job_description: str | None
+    progress_status: str | None
+    doc_start_at: datetime | None
+    doc_end_at: datetime | None
+    doc_result_at: datetime | None
+    interview_start_at: datetime | None
+    interview_end_at: datetime | None
+    interview_result_at: datetime | None
+
+
 class DraftOut(BaseModel):
     """이어서 작성할 수 있는 임시 저장 공고"""
 
