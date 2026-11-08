@@ -1,0 +1,112 @@
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--gray-700);
+  cursor: pointer;
+}
+
+.check input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--primary-700);
+}
+
+.notice {
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--amber-50);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--amber-600);
+}
+
+.skillRow {
+  display: grid;
+  grid-template-columns: 300px 1fr 40px;
+  align-items: center;
+  gap: 16px;
+}
+
+.skillHead {
+  padding: 0 4px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--gray-500);
+}
+
+/* 카드는 세로 flex라 그대로 두면 버튼이 카드 너비로 늘어난다 */
+.add {
+  align-self: flex-start;
+}
+
+.remove {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-400);
+  cursor: pointer;
+}
+
+.remove:hover {
+  color: var(--danger);
+}
+
+.topicRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 16px;
+  border-radius: 8px;
+  background: var(--gray-50);
+}
+
+.topicNo {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-600);
+}
+
+.topicInput {
+  flex: 1 0 0;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--gray-900);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.topicInput::placeholder {
+  color: var(--gray-400);
+  font-weight: 400;
+}
+
+.topicInput:focus {
+  outline: 2px solid var(--primary-700);
+  outline-offset: -1px;
+  background: #fff;
+}
+
+@media (max-width: 900px) {
+  .skillRow {
+    grid-template-columns: 1fr 1fr 40px;
+  }
+}

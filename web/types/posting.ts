@@ -24,3 +24,23 @@ export type PostingDetail = {
   nonfunctional_talent: string | null;
   documents: PostingDocument[];
 };
+
+// 화면 05 서류 작성 문항
+export type BasicItem = {
+  item_id: number;
+  item_name: string;
+  is_required: boolean;
+  selected: boolean;
+};
+
+export type RequiredSkill = {
+  skill_name: string;
+  // 이 점수 이하면 탈락. null이면 탈락 기준 없음
+  cutoff_score: number | null;
+};
+
+export type DocItems = {
+  basic_items: BasicItem[];
+  skills: RequiredSkill[];
+  essay_topics: string[];
+};
