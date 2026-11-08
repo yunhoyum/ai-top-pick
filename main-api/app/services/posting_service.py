@@ -18,6 +18,7 @@ from app.schemas.doc_criteria import CriteriaOut, DocCriteriaIn, DocCriteriaOut
 from app.schemas.interview_criteria import InterviewCriteriaIn, InterviewCriteriaOut
 from app.schemas.doc_items import BasicItemOut, DocItemsIn, DocItemsOut, SkillOut
 from app.schemas.posting import PostingDetail, PostingInfoIn
+from app.schemas.posting_list import DraftOut, PostingListItem
 from app.schemas.review import PublishOut, ReviewOut
 from app.services import file_service
 
@@ -66,6 +67,44 @@ class PostingService:
         posting = await self.postings.create(admin.member_id)
         await self.db.commit()
         return posting.posting_id
+
+    async def list_postings(self, admin: Member) -> list[PostingListItem]:
+        """ADM-012 본인이 등록한 채용공고 목록"""
+        rows = await self.postings.list_registered(admin.member_id)
+        return [
+            PostingListItem(
+                posting_id=p.posting_id,
+                position_name=p.position_name,
+                employment_type=p.employment_type,
+                progress_status=p.progress_status,
+                doc_start_at=p.doc_start_at,
+                doc_end_at=p.doc_end_at,
+                applicant_count=count,
+            )
+            for p, count in rows
+        ]
+
+    async def get_draft(self, admin: Member) -> DraftOut | None:
+        """ADM-011 이어서 작성할 임시 저장 공고. 없으면 None"""
+        posting = await self.postings.latest_draft(admin.member_id)
+        if posting is None:
+            return None
+        incomplete = (await self._review(posting)).incomplete_steps
+        return DraftOut(
+            posting_id=posting.posting_id,
+            position_name=posting.position_name,
+            resume_step=incomplete[0] if incomplete else "review",
+        )
+
+    async def delete_posting(self, admin: Member, posting_id: int) -> None:
+        """ADM-020 채용공고 삭제 ('모집 전' 공고만). 올린 문서 파일도 함께 지운다."""
+        posting = await self._get_owned(admin, posting_id)
+        self._ensure_editable(posting, "삭제")
+        paths = [d.file_path for d in await self.postings.list_documents(posting_id)]
+        await self.postings.delete_posting(posting)
+        await self.db.commit()
+        for path in paths:
+            file_service.delete(path)
 
     async def get_detail(self, admin: Member, posting_id: int) -> PostingDetail:
         """ADM-013 공고 정보와 첨부 문서 조회 (지금은 화면 04에 필요한 부분만)"""
@@ -454,10 +493,10 @@ class PostingService:
         return posting
 
     @staticmethod
-    def _ensure_editable(posting: JobPosting) -> None:
+    def _ensure_editable(posting: JobPosting, action: str = "수정") -> None:
         if not can_edit_posting(posting):
             raise AppError(
-                409, ErrorCode.POSTING_NOT_EDITABLE, "모집 전 공고만 수정할 수 있습니다."
+                409, ErrorCode.POSTING_NOT_EDITABLE, f"모집 전 공고만 {action}할 수 있습니다."
             )
 
     async def _detail(self, posting: JobPosting) -> PostingDetail:

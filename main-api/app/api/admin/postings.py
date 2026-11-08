@@ -10,6 +10,7 @@ from app.schemas.interview_criteria import InterviewCriteriaIn, InterviewCriteri
 from app.schemas.doc_items import DocItemsIn, DocItemsOut
 from app.schemas.review import PublishOut, ReviewOut
 from app.schemas.posting import DocumentOut, PostingCreated, PostingDetail, PostingInfoIn
+from app.schemas.posting_list import DraftOut, PostingListItem
 from app.services.posting_service import PostingService
 
 router = APIRouter(prefix="/api/admin/postings", tags=["admin-postings"])
@@ -19,6 +20,19 @@ router = APIRouter(prefix="/api/admin/postings", tags=["admin-postings"])
 async def create_posting(admin: Member = Depends(require_admin), db: AsyncSession = Depends(get_db)):
     """ADM-004 채용공고 임시 생성"""
     return {"posting_id": await PostingService(db).create_draft(admin)}
+
+
+@router.get("", response_model=list[PostingListItem])
+async def list_postings(admin: Member = Depends(require_admin), db: AsyncSession = Depends(get_db)):
+    """ADM-012 채용공고 목록 (본인이 등록한 공고)"""
+    return await PostingService(db).list_postings(admin)
+
+
+# 주소가 겹치지 않도록 '/{posting_id}'보다 먼저 둔다
+@router.get("/draft", response_model=DraftOut | None)
+async def get_draft(admin: Member = Depends(require_admin), db: AsyncSession = Depends(get_db)):
+    """ADM-011 이어서 작성할 임시 저장 공고 (없으면 null)"""
+    return await PostingService(db).get_draft(admin)
 
 
 @router.get("/{posting_id}", response_model=PostingDetail)
@@ -172,3 +186,10 @@ async def get_document_file(
         content_disposition_type="inline",
         headers={"X-Content-Type-Options": "nosniff"},
     )
+
+@router.delete("/{posting_id}", status_code=204)
+async def delete_posting(
+    posting_id: int, admin: Member = Depends(require_admin), db: AsyncSession = Depends(get_db)
+):
+    """ADM-020 채용공고 삭제 ('모집 전' 공고만)"""
+    await PostingService(db).delete_posting(admin, posting_id)

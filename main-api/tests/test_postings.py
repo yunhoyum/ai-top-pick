@@ -866,3 +866,157 @@ def test_document_file_missing_on_disk_is_404(admin, posting_id):
     (Path(get_settings().STORAGE_ROOT) / path).unlink()
     r = admin.get(f"/api/admin/postings/{posting_id}/documents/{doc_id}/file")
     assert r.status_code == 404 and r.json()["code"] == "DOCUMENT_NOT_FOUND"
+
+# ---------- 공고 목록, 이어서 작성, 삭제 (화면 10, ADM-012, ADM-011, ADM-020) ----------
+def _list(admin):
+    r = admin.get("/api/admin/postings")
+    assert r.status_code == 200
+    return r.json()
+
+
+def _draft(admin):
+    r = admin.get("/api/admin/postings/draft")
+    assert r.status_code == 200
+    return r.json()
+
+
+def _register(admin):
+    pid = admin.post("/api/admin/postings").json()["posting_id"]
+    _fill_all(admin, pid)
+    assert admin.post(f"/api/admin/postings/{pid}/publish").status_code == 200
+    return pid
+
+
+def _applicant_id():
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    email = f"{uuid.uuid4().hex}@example.com"
+    with TestClient(app) as c:
+        c.post(
+            "/api/auth/signup",
+            json={"role": "지원자", "name": "지원자", "email": email, "password": PASSWORD, "password_confirm": PASSWORD},
+        )
+    return _sql("select member_id from member where email = :e", e=email)[0][0]
+
+
+def test_list_requires_login(client):
+    assert client.get("/api/admin/postings").status_code == 401
+    assert client.get("/api/admin/postings/draft").status_code == 401
+    assert client.delete("/api/admin/postings/1").status_code == 401
+
+
+def test_list_is_empty_for_new_admin(admin):
+    assert _list(admin) == []
+
+
+def test_list_shows_only_registered_postings_newest_first(admin):
+    draft_id = admin.post("/api/admin/postings").json()["posting_id"]
+    first = _register(admin)
+    second = _register(admin)
+    items = _list(admin)
+    assert [i["posting_id"] for i in items] == [second, first]
+    assert draft_id not in [i["posting_id"] for i in items]
+
+
+def test_list_item_fields(admin):
+    pid = _register(admin)
+    item = _list(admin)[0]
+    assert item["posting_id"] == pid
+    assert item["position_name"] == FULL["position_name"] and item["employment_type"] == "정규직"
+    assert item["progress_status"] == "모집 전" and item["applicant_count"] == 0
+    assert item["doc_start_at"].startswith("2026-10-26T15:00:00")  # 2026-10-27 00:00 +09:00
+
+
+def test_list_hides_other_admins_postings(admin):
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    _register(admin)
+    with TestClient(app) as other:
+        _login(other)
+        assert _list(other) == []
+
+
+def test_list_counts_only_submitted_applications(admin):
+    pid = _register(admin)
+    for status in ("제출", "제출", "임시 저장"):
+        _sql(
+            "insert into application (posting_id, applicant_id, write_status) values (:p, :a, :s)",
+            p=pid, a=_applicant_id(), s=status,
+        )
+    assert _list(admin)[0]["applicant_count"] == 2
+
+
+def test_draft_is_null_without_draft(admin):
+    assert _draft(admin) is None
+    _register(admin)
+    assert _draft(admin) is None  # 등록한 공고는 이어서 작성 대상이 아니다
+
+
+def test_draft_returns_latest_draft_of_own(admin):
+    admin.post("/api/admin/postings")
+    latest = admin.post("/api/admin/postings").json()["posting_id"]
+    assert _draft(admin)["posting_id"] == latest
+
+
+def test_draft_is_not_shared_between_admins(admin, posting_id):
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    with TestClient(app) as other:
+        _login(other)
+        assert _draft(other) is None
+
+
+def test_draft_resume_step_is_first_incomplete_step(admin, posting_id):
+    assert _draft(admin)["resume_step"] == "info"
+    admin.put(f"/api/admin/postings/{posting_id}/info", json=FULL)
+    assert _draft(admin)["resume_step"] == "doc-items"
+    admin.put(f"/api/admin/postings/{posting_id}/doc-items", json=DOC_ITEMS)
+    assert _draft(admin)["resume_step"] == "doc-criteria"
+    _put_ratios(admin, posting_id, [30, 30, 20, 20])
+    assert _draft(admin)["resume_step"] == "interview-criteria"
+    _put_interview(admin, posting_id)
+    assert _draft(admin)["resume_step"] == "company-questions"
+    _put_company(admin, posting_id, ["Q1"], ratio=60)
+    draft = _draft(admin)
+    assert draft["resume_step"] == "review" and draft["position_name"] == FULL["position_name"]
+
+
+def test_delete_draft_removes_everything(admin, posting_id):
+    _fill_all(admin, posting_id)
+    doc_id = _upload_pdf(admin, posting_id)
+    path = _sql("select file_path from posting_document where document_id = :d", d=doc_id)[0][0]
+    assert (Path(get_settings().STORAGE_ROOT) / path).exists()
+
+    assert admin.delete(f"/api/admin/postings/{posting_id}").status_code == 204
+    assert admin.get(f"/api/admin/postings/{posting_id}").status_code == 404
+    for table in ("posting_document", "posting_basic_item", "posting_eval_ratio", "required_skill", "essay_topic", "company_question"):
+        assert _sql(f"select count(*) from {table} where posting_id = :p", p=posting_id)[0][0] == 0
+    assert not (Path(get_settings().STORAGE_ROOT) / path).exists()
+    assert _draft(admin) is None
+
+
+def test_delete_registered_posting_before_recruiting(admin):
+    pid = _register(admin)
+    assert admin.delete(f"/api/admin/postings/{pid}").status_code == 204
+    assert _list(admin) == []
+
+
+def test_delete_not_allowed_after_recruiting_started(admin, posting_id):
+    _fill_all(admin, posting_id)
+    _sql("update job_posting set write_status = '등록 완료', progress_status = '서류 접수 중' where posting_id = :p", p=posting_id)
+    r = admin.delete(f"/api/admin/postings/{posting_id}")
+    assert r.status_code == 409 and r.json()["code"] == "POSTING_NOT_EDITABLE" and "삭제" in r.json()["message"]
+    assert admin.get(f"/api/admin/postings/{posting_id}").status_code == 200
+
+
+def test_delete_other_admins_posting_gets_404(admin, posting_id):
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    with TestClient(app) as other:
+        _login(other)
+        assert other.delete(f"/api/admin/postings/{posting_id}").status_code == 404
+    assert admin.get(f"/api/admin/postings/{posting_id}").status_code == 200
