@@ -53,7 +53,7 @@ class DocItemRepo:
 
         self.db.add_all(PostingBasicItem(posting_id=posting_id, item_id=i) for i in item_ids)
         for name, cutoff in skills:
-            skill_id = await self._get_or_create_skill(name)
+            skill_id = await self.get_or_create_skill(name)
             self.db.add(RequiredSkill(posting_id=posting_id, skill_id=skill_id, cutoff_score=cutoff))
         self.db.add_all(
             EssayTopic(posting_id=posting_id, seq=seq, topic_name=name)
@@ -61,7 +61,7 @@ class DocItemRepo:
         )
         await self.db.flush()
 
-    async def _get_or_create_skill(self, name: str) -> int:
+    async def get_or_create_skill(self, name: str) -> int:
         """대소문자를 구분하지 않고 같은 이름의 기술을 재사용한다. 동시에 만들어도 한 행만 남는다."""
         found = await self._find_skill(name)
         if found is not None:

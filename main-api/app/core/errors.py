@@ -20,6 +20,11 @@ class ErrorCode(str, Enum):
     DOCUMENT_NOT_FOUND = "DOCUMENT_NOT_FOUND"
     FILE_INVALID = "FILE_INVALID"
     FILE_TOO_LARGE = "FILE_TOO_LARGE"
+    # 서류 접수 중이 아닌 공고에는 지원서를 만들거나 저장할 수 없다 (APP-004)
+    APPLICATION_CLOSED = "APPLICATION_CLOSED"
+    # 이미 제출한 지원서는 고칠 수 없다
+    APPLICATION_SUBMITTED = "APPLICATION_SUBMITTED"
+    APPLICATION_INVALID = "APPLICATION_INVALID"
 
 
 class AppError(Exception):
