@@ -1,0 +1,6 @@
+/* 한 쪽에 공고 10개가 스크롤 없이 보이도록 행 높이를 조금 줄인다 (Figma는 위아래 15px).
+   표 스타일(PostingList.module.css)보다 먼저 적용되도록 클래스를 겹쳐 쓴다 */
+.compact.compact tbody td {
+  padding-top: 11px;
+  padding-bottom: 11px;
+}

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import Badge from "@/components/common/Badge";
+import Pagination from "@/components/common/Pagination";
 import styles from "@/components/posting/PostingList.module.css";
 import { ApiError, apiFetch } from "@/lib/api";
 import { fetchMeIfLoggedIn } from "@/lib/auth";
@@ -10,6 +11,7 @@ import { formatMonthDay } from "@/lib/format";
 import { PROGRESS_TONES } from "@/lib/posting";
 import type { PublicPostingItem } from "@/types/posting";
 import AdminPreviewNotice from "./AdminPreviewNotice";
+import own from "./PublicPostingList.module.css";
 
 // 필터 칩. '전형 진행'은 서류 평가부터 면접 평가까지를 묶는다
 const FILTERS = [
@@ -20,6 +22,8 @@ const FILTERS = [
   { key: "closed", label: "마감", match: (s: string | null) => s === "마감" },
 ] as const;
 
+const PAGE_SIZE = 10;
+
 const period = (p: PublicPostingItem) =>
   p.doc_start_at && p.doc_end_at ? `${formatMonthDay(p.doc_start_at)} ~ ${formatMonthDay(p.doc_end_at)}` : "-";
 
@@ -29,6 +33,7 @@ export default function PublicPostingList() {
   const [error, setError] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["key"]>("all");
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     apiFetch<PublicPostingItem[]>("/api/postings")
@@ -41,7 +46,9 @@ export default function PublicPostingList() {
   if (!items) return null;
 
   const current = FILTERS.find((f) => f.key === filter)!;
-  const shown = items.filter((p) => current.match(p.progress_status));
+  const matched = items.filter((p) => current.match(p.progress_status));
+  const pageCount = Math.max(1, Math.ceil(matched.length / PAGE_SIZE));
+  const shown = matched.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className={styles.page}>
@@ -60,7 +67,10 @@ export default function PublicPostingList() {
             type="button"
             className={`${styles.chip} ${filter === f.key ? styles.chipActive : ""}`}
             aria-pressed={filter === f.key}
-            onClick={() => setFilter(f.key)}
+            onClick={() => {
+              setFilter(f.key);
+              setPage(1); // 필터를 바꾸면 첫 쪽부터 본다
+            }}
           >
             {f.label} {items.filter((p) => f.match(p.progress_status)).length}
           </button>
@@ -68,7 +78,7 @@ export default function PublicPostingList() {
       </div>
 
       <div className={styles.tableWrap}>
-        <table className={styles.table}>
+        <table className={`${styles.table} ${own.compact}`}>
           <colgroup>
             <col />
             <col style={{ width: 110 }} />
@@ -107,6 +117,8 @@ export default function PublicPostingList() {
           <p className={styles.empty}>{items.length === 0 ? "등록된 채용공고가 없습니다." : "해당하는 채용공고가 없습니다."}</p>
         )}
       </div>
+
+      <Pagination page={page} pageCount={pageCount} onChange={setPage} />
     </div>
   );
 }
