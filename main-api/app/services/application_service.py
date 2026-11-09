@@ -6,7 +6,8 @@ from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ErrorCode
-from app.domain.enums import ApplicationWriteStatus, ItemName, ProgressStatus, Role
+from app.domain.enums import ApplicationWriteStatus, ItemName, Role
+from app.domain.rules import is_accepting_applications
 from app.models.application import ApplicantProject, Application, Career, Education
 from app.models.member import Member
 from app.models.posting import JobPosting
@@ -251,7 +252,8 @@ class ApplicationService:
 
     @staticmethod
     def _ensure_open(posting: JobPosting) -> None:
-        if posting.progress_status != ProgressStatus.DOC_RECEIVING.value:
+        # 진행 상태가 아니라 접수 시각으로 판단한다: 마감 일시 정각부터는 받지 않는다
+        if not is_accepting_applications(posting, datetime.now(timezone.utc)):
             raise AppError(409, ErrorCode.APPLICATION_CLOSED, "서류 접수 중인 공고만 지원할 수 있습니다.")
 
     async def _editable(self, member: Member, posting_id: int) -> tuple[JobPosting, Application]:

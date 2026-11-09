@@ -3,7 +3,8 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.enums import ApplicationWriteStatus, ProgressStatus, SessionStatus, StageResult, StageType
+from app.domain.enums import ApplicationWriteStatus, SessionStatus, StageResult, StageType
+from app.domain.rules import is_accepting_applications
 from app.models.application import Application, ApplicationStage
 from app.models.interview import InterviewSession
 from app.models.member import Member
@@ -57,8 +58,8 @@ class ApplicationStatusService:
         items = []
         for application, posting in rows:
             if application.write_status == ApplicationWriteStatus.DRAFT.value:
-                # 작성 중인 지원서는 서류 접수 중일 때만 보여 준다 (접수가 끝나면 전형에 들어가지 않는다)
-                if posting.progress_status != ProgressStatus.DOC_RECEIVING.value:
+                # 작성 중인 지원서는 접수 기간일 때만 보여 준다 (접수가 끝나면 전형에 들어가지 않는다)
+                if not is_accepting_applications(posting, now):
                     continue
                 doc_result = interview_result = None
             else:

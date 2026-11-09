@@ -9,10 +9,23 @@ URL = "/api/postings/{pid}/application"
 PROFILE = {"name": "김지원", "phone": "010-1234-5678", "email": "applicant@example.com"}
 
 
+def _schedule(pid, start="-1 day", end="1 day"):
+    """서류 접수 시작·마감을 지금 기준으로 바꾼다 ('-1 day' 같은 interval). 나머지 일정은 마감 뒤로 이어서 맞춘다."""
+    _sql(
+        "update job_posting set doc_start_at = now() + CAST(:s AS interval), doc_end_at = now() + CAST(:e AS interval), "
+        "doc_result_at = now() + CAST(:e AS interval) + interval '1 day', "
+        "interview_start_at = now() + CAST(:e AS interval) + interval '3 days', "
+        "interview_end_at = now() + CAST(:e AS interval) + interval '5 days', "
+        "interview_result_at = now() + CAST(:e AS interval) + interval '7 days' where posting_id = :p",
+        p=pid, s=start, e=end,
+    )
+
+
 def _open_posting(admin):
-    """서류 접수 중인 공고 (필수 기술 Java 기준 2점 이하 탈락, SQL 기준 없음, 학력 문항 포함, 자소서 주제 2개)"""
+    """접수 기간 중인 공고 (필수 기술 Java 기준 2점 이하 탈락, SQL 기준 없음, 학력 문항 포함, 자소서 주제 2개)"""
     pid = _register(admin)
     _sql("update job_posting set progress_status = '서류 접수 중' where posting_id = :p", p=pid)
+    _schedule(pid)
     return pid
 
 
@@ -122,9 +135,31 @@ def test_closed_posting_cannot_be_applied_to(admin, applicant):
 
 def test_saving_after_posting_closes_is_rejected(applicant, pid):
     _get(applicant, pid)
-    _sql("update job_posting set progress_status = '서류 평가' where posting_id = :p", p=pid)
+    _schedule(pid, start="-3 days", end="-1 hour")
     r = _resume(applicant, pid)
     assert r.status_code == 409 and r.json()["code"] == "APPLICATION_CLOSED"
+
+
+def test_deadline_is_enforced_by_time_even_if_status_is_stale(applicant, pid):
+    """배치가 아직 상태를 바꾸지 않았어도(진행 상태는 '서류 접수 중') 마감 시각이 지나면 받지 않는다."""
+    _get(applicant, pid)
+    assert _sql("select progress_status from job_posting where posting_id = :p", p=pid)[0][0] == "서류 접수 중"
+    _schedule(pid, start="-3 days", end="-1 second")  # 마감 1초 뒤
+    for resp in (_resume(applicant, pid), _skills(applicant, pid), _essays(applicant, pid), _portfolio(applicant, pid), _submit(applicant, pid)):
+        assert resp.status_code == 409 and resp.json()["code"] == "APPLICATION_CLOSED"
+
+
+def test_accepts_until_just_before_the_deadline(applicant, pid):
+    _get(applicant, pid)
+    _schedule(pid, start="-3 days", end="1 minute")  # 마감 1분 전
+    assert _resume(applicant, pid).status_code == 200
+
+
+def test_not_accepted_before_the_start_time_even_if_status_is_open(applicant, pid):
+    _schedule(pid, start="1 hour", end="2 days")
+    r = applicant.get(URL.format(pid=pid))
+    assert r.status_code == 409 and r.json()["code"] == "APPLICATION_CLOSED"
+    assert _sql("select count(*) from application where posting_id = :p", p=pid)[0][0] == 0
 
 
 # ---------- 이력서 ----------
@@ -283,6 +318,7 @@ def test_submit_completes_application_and_locks_it(applicant, pid):
         assert resp.status_code == 409 and resp.json()["code"] == "APPLICATION_SUBMITTED"
     assert applicant.delete(URL.format(pid=pid) + "/portfolio").status_code == 409
     # 접수가 끝난 뒤에도 제출한 지원서는 다시 볼 수 있다
+    _schedule(pid, start="-3 days", end="-1 hour")
     _sql("update job_posting set progress_status = '서류 평가' where posting_id = :p", p=pid)
     assert _get(applicant, pid)["write_status"] == "제출"
 

@@ -3,7 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from test_applications import URL, _fill_all, _get, _open_posting, _submit, applicant, pid  # noqa: F401
+from test_applications import URL, _fill_all, _get, _open_posting, _schedule, _submit, applicant, pid  # noqa: F401
 from test_postings import _login, _sql, admin  # noqa: F401  (fixture)
 
 
@@ -57,7 +57,7 @@ def test_draft_is_listed_only_while_posting_receives_applications(applicant, pid
     item = _one(applicant, pid)
     assert item["status"] == "작성 중" and item["write_status"] == "임시 저장"
     assert item["doc_result"] is None and item["can_view_interview_guide"] is False
-    _sql("update job_posting set progress_status = '서류 평가' where posting_id = :p", p=pid)
+    _schedule(pid, start="-3 days", end="-1 hour")  # 접수 기간이 끝났다
     assert all(i["posting_id"] != pid for i in _mine(applicant))
 
 
