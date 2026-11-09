@@ -20,7 +20,9 @@ export default function ApplicantHeader() {
 
   async function onLogout() {
     await logout();
-    setMe(null);
+    // 지원서 작성 같은 로그인 전용 화면에 남지 않게 채용공고 목록으로 보낸다.
+    // 화면을 새로 불러와서 이전 로그인 상태로 남아 있던 값(관리자 안내 문구, 작성 중이던 지원서)도 함께 지운다
+    window.location.assign("/postings");
   }
 
   return (

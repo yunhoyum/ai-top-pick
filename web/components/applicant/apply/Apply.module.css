@@ -1,0 +1,375 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: min(1173px, 100%);
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.headText {
+  display: flex;
+  flex: 1 0 0;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  line-height: 1.5;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--gray-900);
+  overflow-wrap: anywhere;
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--gray-500);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.cardHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.5;
+}
+
+.cardTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.cardDesc {
+  font-size: 13px;
+  color: var(--gray-500);
+}
+
+.grid {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.grid > * {
+  flex: 1 0 0;
+  min-width: 0;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rowTools {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.link {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--gray-400);
+  cursor: pointer;
+}
+
+.link:hover {
+  color: var(--danger);
+}
+
+/* ---------- 사용기술 ---------- */
+.skillRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.skillMain {
+  display: flex;
+  flex: 1 0 0;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.skillName {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--gray-900);
+  overflow-wrap: anywhere;
+}
+
+.scale {
+  display: flex;
+  gap: 6px;
+}
+
+.scaleButton {
+  width: 40px;
+  height: 36px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-500);
+  cursor: pointer;
+}
+
+.scaleButton:hover {
+  border-color: var(--primary-700);
+}
+
+.scaleOn {
+  border-color: var(--primary-700);
+  background: var(--primary-700);
+  font-weight: 700;
+  color: #fff;
+}
+
+.addSkill {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding-top: 16px;
+}
+
+.addSkillButtons {
+  display: flex;
+  gap: 8px;
+  padding-top: 25px;
+}
+
+.addSkillInput {
+  width: 280px;
+}
+
+.skillError {
+  font-size: 12px;
+  color: var(--danger);
+}
+
+/* ---------- 기술 적용 사례 ---------- */
+.caseBox {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--gray-50);
+}
+
+.caseHead {
+  display: flex;
+  align-items: center;
+}
+
+.caseLabel {
+  flex: 1 0 0;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--accent-600);
+}
+
+.caseSelect {
+  width: 280px;
+}
+
+/* ---------- 제출 전 확인 ---------- */
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1.5;
+}
+
+.checkIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  background: var(--accent-50);
+  color: var(--accent-600);
+}
+
+.checkIconPending {
+  background: var(--gray-100);
+  color: var(--gray-400);
+}
+
+.checkLabel {
+  flex: 1 0 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--gray-700);
+}
+
+.checkState {
+  font-size: 13px;
+  color: var(--accent-600);
+}
+
+.checkStatePending {
+  color: var(--gray-400);
+}
+
+/* ---------- 하단 버튼 ---------- */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.spacer {
+  flex: 1 0 0;
+}
+
+.notice {
+  font-size: 13px;
+  color: var(--accent-600);
+}
+
+.error {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--danger);
+}
+
+.loadError {
+  font-size: 14px;
+  color: var(--danger);
+}
+
+/* ---------- 접수 완료 ---------- */
+.done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  width: min(747px, 100%);
+  margin: 56px auto 0;
+  padding: 40px;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.doneIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 36px;
+  background: var(--accent-50);
+  color: var(--accent-600);
+}
+
+.doneText {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  text-align: center;
+  line-height: 1.5;
+}
+
+.doneTitle {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.doneDesc {
+  font-size: 14px;
+  color: var(--gray-500);
+}
+
+.doneInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding: 20px;
+  border-radius: 10px;
+  background: var(--gray-50);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.doneKv {
+  display: flex;
+  gap: 16px;
+}
+
+.doneKey {
+  width: 120px;
+  flex-shrink: 0;
+  color: var(--gray-500);
+}
+
+.doneValue {
+  flex: 1 0 0;
+  min-width: 0;
+  font-weight: 500;
+  color: var(--gray-900);
+  overflow-wrap: anywhere;
+}
+
+.doneActions {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.doneActions > * {
+  flex: 1 0 0;
+}
+
+@media (max-width: 900px) {
+  .grid,
+  .skillRow,
+  .addSkill {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .addSkillInput,
+  .caseSelect {
+    width: 100%;
+  }
+}
+
+.addButton {
+  align-self: flex-start;
+}

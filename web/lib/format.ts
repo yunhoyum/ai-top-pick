@@ -91,6 +91,27 @@ export function formatMonthDayWeek(iso: string | null): string {
   return `${p.month}.${p.day} (${p.weekday})`;
 }
 
+// 접수 완료 화면용: "2026.10.29 15:42", "2026.11.05" (Asia/Seoul)
+export function formatFullDateTime(iso: string | null): string {
+  if (!iso) return "-";
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("ko-KR", {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(new Date(iso))
+      .map((x) => [x.type, x.value]),
+  );
+  return `${p.year}.${p.month}.${p.day} ${p.hour}:${p.minute}`;
+}
+
+export const formatFullDate = (iso: string | null) => formatFullDateTime(iso).slice(0, 10);
+
 // 지원 바용: "2026.11.05 (목)" (Asia/Seoul)
 export function formatFullDateWeek(iso: string | null): string {
   if (!iso) return "-";
