@@ -16,7 +16,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, in_check
-from app.domain.enums import JobStatus, JobType, SourceType
+from app.domain.enums import ChunkSourceType, JobStatus, JobType
 
 # KURE-v1 출력 차원
 EMBEDDING_DIM = 1024
@@ -57,14 +57,16 @@ class DocChunk(Base):
             "posting_id", "source_type", "source_id", "seq", postgresql_nulls_not_distinct=True
         ),
         Index("ix_doc_chunk_posting_id", "posting_id"),
-        in_check("source_type", SourceType),
+        in_check("source_type", ChunkSourceType),
     )
 
     chunk_id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     posting_id: Mapped[int] = mapped_column(ForeignKey("job_posting.posting_id", ondelete="CASCADE"))
     source_type: Mapped[str] = mapped_column(String(255))
-    # 프로젝트 문서는 posting_document.document_id, 인재상은 NULL
-    source_id: Mapped[int | None] = mapped_column(BigInteger)
+    # 프로젝트 문서를 지우면 그 문서의 청크도 함께 지워진다
+    source_id: Mapped[int] = mapped_column(
+        ForeignKey("posting_document.document_id", ondelete="CASCADE")
+    )
     seq: Mapped[int] = mapped_column(Integer)
     content: Mapped[str] = mapped_column(Text)
     embedding = mapped_column(Vector(EMBEDDING_DIM), nullable=False)

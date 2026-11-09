@@ -77,6 +77,9 @@ class InterviewAnswer(Base):
         CheckConstraint("response_delay_sec >= 0", name="response_delay_range"),
         CheckConstraint("silence_sec >= 0", name="silence_range"),
         CheckConstraint("filler_count >= 0", name="filler_count_range"),
+        CheckConstraint("content_score BETWEEN 0 AND 100", name="content_score_range"),
+        CheckConstraint("speech_score BETWEEN 0 AND 100", name="speech_score_range"),
+        CheckConstraint("expression_score BETWEEN 0 AND 100", name="expression_score_range"),
         CheckConstraint("answer_score BETWEEN 0 AND 100", name="answer_score_range"),
     )
 
@@ -91,6 +94,13 @@ class InterviewAnswer(Base):
     response_delay_sec: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
     silence_sec: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
     filler_count: Mapped[int | None] = mapped_column(Integer)
+    # 답변별 점수 (루브릭 설계서 3~5). 면접 보고서 항목 점수는 이 값들의 평균이다
+    content_score: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    speech_score: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    # 표정 재분석도 실패하면 NULL
+    expression_score: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    # LLM이 낸 내용 점수 이유. ㉠·㉡이면 코드가 처리 사실을 덧붙인다
+    content_reason: Mapped[str | None] = mapped_column(Text)
     answer_score: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
     answer_status: Mapped[str] = mapped_column(String(255), server_default=ValidStatus.VALID.value)
 

@@ -124,8 +124,17 @@ class JobStatus(str, Enum):
 
 
 class SourceType(str, Enum):
+    """근거 문장(evidence_sentence)의 원본 종류."""
+
     FUNCTIONAL_TALENT = "기능적 인재상"
     NONFUNCTIONAL_TALENT = "비기능적 인재상"
+    JOB_DESCRIPTION = "직무 설명"
+    PROJECT_DOC = "프로젝트 문서"
+
+
+class ChunkSourceType(str, Enum):
+    """벡터로 저장하는 청크(doc_chunk)의 원본 종류. 인재상·직무 설명은 저장하지 않는다."""
+
     PROJECT_DOC = "프로젝트 문서"
 
 
