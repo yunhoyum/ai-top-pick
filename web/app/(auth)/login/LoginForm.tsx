@@ -20,9 +20,9 @@ const HOME: Record<Role, string> = {
 export default function LoginForm() {
   const router = useRouter();
   // 지원자 화면(공고 상세 등)에서 로그인하러 온 경우 로그인 뒤 그 화면으로 돌아간다.
-  // 같은 사이트의 /postings 아래 주소만 허용한다 (다른 사이트로 보내는 주소는 무시)
+  // 같은 사이트의 /postings, /applications 아래 주소만 허용한다 (다른 사이트로 보내는 주소는 무시)
   const next = useSearchParams().get("next");
-  const returnTo = next && /^\/postings(\/|$)/.test(next) ? next : null;
+  const returnTo = next && /^\/(postings|applications)(\/|$)/.test(next) ? next : null;
   const [role, setRole] = useState<Role>(returnTo ? "지원자" : "관리자");
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});

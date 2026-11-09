@@ -34,8 +34,11 @@ export default function ApplicantHeader() {
         <Link href="/postings" className={styles.item}>
           채용공고
         </Link>
-        {/* 내 지원 현황 화면은 아직 없어서 이동하지 않는다 */}
-        {me?.role === "지원자" && <span className={styles.item}>내 지원 현황</span>}
+        {me?.role === "지원자" && (
+          <Link href="/applications" className={styles.item}>
+            내 지원 현황
+          </Link>
+        )}
         {checked && <div className={styles.divider} />}
         {checked && me && (
           <>

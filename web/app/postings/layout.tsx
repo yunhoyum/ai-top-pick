@@ -1,12 +1,5 @@
-import ApplicantHeader from "@/components/layout/ApplicantHeader";
-import styles from "./layout.module.css";
+import ApplicantShell from "@/components/layout/ApplicantShell";
 
-// 지원자 화면 틀. 비로그인도 볼 수 있다
 export default function PostingsLayout({ children }: LayoutProps<"/postings">) {
-  return (
-    <div className={styles.shell}>
-      <ApplicantHeader />
-      <main className={styles.main}>{children}</main>
-    </div>
-  );
+  return <ApplicantShell>{children}</ApplicantShell>;
 }
