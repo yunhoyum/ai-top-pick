@@ -9,13 +9,16 @@ v7: v4 + 답변 요지·비교를 먼저 쓴다. 비교 문장이 답변에 없�
 v8: 두 번 부른다. 1번은 회사 문서 없이 답변만 읽고, 2번은 1번이 뽑은 주장만 회사 문서와 비교한다 (P8)
 v9: v8의 2번을 나눈다. 질문 주제 판정 한 번, 주장마다 한 번. 비교 호출은 시스템 메시지를 같게 둬
     Ollama가 앞부분 계산을 다시 쓰게 한다 (P9)
+v10: 주장 비교의 '같음'을 엄격하게 정의했다. 판정이 바뀌지 않아 되돌렸다 (P10)
+v11: 시스템 메시지를 질문 검색 문장만으로 만들고, 답변으로만 찾은 문장은 주장 비교 요청 앞에 붙인다.
+     질문을 낼 때 질문 주제를 판정해 앞부분 계산을 미리 남겨 두기 위해서다 (P12)
 """
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
 from app.rag.evidence import NumberedSentence
 
-VERSION = "v9"
+VERSION = "v11"
 
 SYSTEM = """너는 채용 면접에서 지원자의 답변 내용을 채점하는 평가자다.
 - 주어진 자료만 보고 판단한다. 자료에 없는 사실을 지어내지 않는다.
@@ -54,14 +57,18 @@ def read_answer(question: str, answer: str, job_description: str) -> list[BaseMe
     ]
 
 
+def _numbered(sentences: list[NumberedSentence]) -> str:
+    return "\n".join(f"[{s.id}] {s.text}" for s in sentences)
+
+
 def comparison_system(question: str, sentences: list[NumberedSentence]) -> SystemMessage:
-    """비교 호출들이 함께 쓰는 앞부분. 매번 글자 하나 다르지 않게 같은 객체를 쓴다."""
-    numbered = "\n".join(f"[{s.id}] {s.text}" for s in sentences)
+    """비교 호출들이 함께 쓰는 앞부분. 질문을 낼 때와 답변 뒤에 글자 하나 다르지 않게 만든다.
+    sentences는 질문 검색 문장만이다. 답변 검색은 답변이 나와야 하므로 앞부분에 넣지 않는다."""
     return SystemMessage(
         content=f"""{SYSTEM}
 
 [회사 문서 문장]
-{numbered}
+{_numbered(sentences)}
 
 [면접 질문]
 {question}"""
@@ -80,11 +87,15 @@ def judge_topic(system: SystemMessage) -> list[BaseMessage]:
     ]
 
 
-def judge_claim(system: SystemMessage, claim: str) -> list[BaseMessage]:
+def judge_claim(
+    system: SystemMessage, claim: str, answer_sentences: list[NumberedSentence] | None = None
+) -> list[BaseMessage]:
+    """answer_sentences: 답변으로만 찾은 회사 문서 문장. 앞부분 뒤에 붙여 앞부분 계산을 다시 쓰게 한다."""
+    more = f"[회사 문서 문장 (답변으로 더 찾음)]\n{_numbered(answer_sentences)}\n\n" if answer_sentences else ""
     return [
         system,
         HumanMessage(
-            content=f"""[지원자가 말한 것]
+            content=f"""{more}[지원자가 말한 것]
 {claim}
 
 이것을 위 회사 문서 문장과 비교해 JSON으로 출력하라.

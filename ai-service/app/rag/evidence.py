@@ -41,11 +41,14 @@ def split_sentences(text: str) -> list[str]:
     return sentences
 
 
-def number_sentences(chunks: list[Chunk]) -> list[NumberedSentence]:
-    """청크의 문장을 원래 순서대로 번호를 붙인다. 청크 겹침으로 이미 나온 문장은 다시 넣지 않는다."""
-    seen: set[str] = set()
+def number_sentences(
+    chunks: list[Chunk], start: int = 1, already: list[NumberedSentence] | None = None
+) -> list[NumberedSentence]:
+    """청크의 문장을 원래 순서대로 번호를 붙인다. 청크 겹침으로 이미 나온 문장은 다시 넣지 않는다.
+    start, already: 앞 목록에 이어 붙일 때 후보 순번을 이어 매기고 앞 목록에 있는 문장은 건너뛴다."""
+    seen: set[str] = {s.text for s in already or []}
     numbered: list[NumberedSentence] = []
-    for i, chunk in enumerate(chunks, start=1):
+    for i, chunk in enumerate(chunks, start=start):
         for j, sentence in enumerate(split_sentences(chunk.content), start=1):
             if sentence in seen:
                 continue

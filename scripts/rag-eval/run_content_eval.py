@@ -22,7 +22,7 @@ from pathlib import Path
 
 sys.path[:0] = ["/src"]
 
-from app.chains.answer_content import EvidenceStatus, score_content
+from app.chains.answer_content import EvidenceStatus, judge_question_topic, score_content
 from app.chains.structured import StructuredOutputError
 from app.core.config import get_settings
 from app.core.llm import get_chat_model
@@ -98,9 +98,18 @@ def evaluate(posting_id: int) -> list[dict]:
         question_context = search_company_docs(posting_id, [q["query"]])
         answer_context = search_company_docs(posting_id, [a["query"]])
         model = TimedModel(get_chat_model())
+        prepare_seconds = 0.0
         started = time.perf_counter()
         try:
-            result = score_content(q["query"], a["query"], question_context, answer_context, JOB_DESCRIPTION, model=model)
+            # 실제 면접처럼 질문을 낼 때 질문 주제를 판정해 둔다. 지원자가 기다리는 시간이 아니므로 채점 시간에서 뺀다
+            topic = judge_question_topic(q["query"], question_context, model=model)
+            for c in model.calls:
+                c["kind"] = "출제 때 " + c["kind"]
+            prepare_seconds = round(time.perf_counter() - started, 1)
+            started = time.perf_counter()
+            result = score_content(
+                q["query"], a["query"], question_context, answer_context, JOB_DESCRIPTION, model=model, topic=topic
+            )
         except StructuredOutputError as e:
             # 재시도해도 형식 검증에 실패했다. 이 답변은 틀린 것으로 세고 다음으로 넘어간다 (검증 실패율)
             seconds = time.perf_counter() - started
@@ -126,6 +135,7 @@ def evaluate(posting_id: int) -> list[dict]:
                 "question_context": len(question_context),
                 "answer_context": len(answer_context),
                 "seconds": round(seconds, 1),
+                "prepare_seconds": prepare_seconds,
                 "calls": model.calls,
             }
         )
@@ -133,7 +143,7 @@ def evaluate(posting_id: int) -> list[dict]:
         mark = "O" if r["status_ok"] else "X"
         read, topic, judged = r["llm"]["read"], r["llm"]["topic"], r["llm"]["claims"]
         print(f"{r['id']:<3} {mark} 기대={r['expect']:<14} 결과={r['status']:<8} 점수={r['score']:>6} "
-              f"근거 {sum(r['evidence_gold'])}/{len(r['evidence'])} 정답 ({r['seconds']}s)\n"
+              f"근거 {sum(r['evidence_gold'])}/{len(r['evidence'])} 정답 (답변 뒤 {r['seconds']}s, 출제 때 {prepare_seconds}s)\n"
               f"      읽기: 적합 {read['relevance']} 구체 {read['specificity']} | "
               f"주제: {topic['question_in_docs'] if topic else '문서 없음'}", flush=True)
         for i, claim in enumerate(read["claims"]):
@@ -151,10 +161,10 @@ def report(rows: list[dict]) -> dict:
     print(f"근거 문장 정밀도 {precision:.1%} ({sum(picked)}/{len(picked)})" if picked else "근거 문장 없음")
     failed = sum(r.get("format_failed", False) for r in rows)
     print(f"검증 실패율 {failed / len(rows):.1%} ({failed}/{len(rows)}, 재시도해도 형식이 맞지 않은 답변)")
-    print(f"채점 시간 중앙 {statistics.median(r['seconds'] for r in rows):.1f}s")
+    print(f"채점 시간(답변 뒤 대기) 중앙 {statistics.median(r['seconds'] for r in rows):.1f}s")
     calls = [c for r in rows for c in r.get("calls", [])]
     by_kind = {}
-    for kind in ("읽기", "주제", "주장", "재시도"):
+    for kind in ("출제 때 주제", "읽기", "주제", "주장", "재시도"):
         seconds = [c["seconds"] for c in calls if c["kind"] == kind]
         if seconds:
             cached = [c["cached_tokens"] or 0 for c in calls if c["kind"] == kind]

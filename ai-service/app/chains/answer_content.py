@@ -66,6 +66,17 @@ class ContentScore:
     llm_output: dict
 
 
+def judge_question_topic(
+    question: str, question_context: list[Chunk], model: Runnable | None = None
+) -> TopicOutput | None:
+    """질문을 낼 때 부른다. 질문 주제 판정과 함께, 답변 뒤 주장 비교가 다시 쓸 앞부분 계산을 Ollama에 남긴다.
+    질문 검색 결과가 비면(㉠) 회사 문서와 비교하지 않으므로 부르지 않는다."""
+    if not question_context:
+        return None
+    system = prompts.comparison_system(question, _question_sentences(question_context))
+    return invoke_structured(model or get_chat_model(), prompts.judge_topic(system), TopicOutput)
+
+
 def score_content(
     question: str,
     answer: str,
@@ -74,7 +85,9 @@ def score_content(
     job_description: str,
     model: Runnable | None = None,
     embed: EmbedClient | None = None,
+    topic: TopicOutput | None = None,
 ) -> ContentScore:
+    """topic: 질문을 낼 때 judge_question_topic으로 받아 둔 결과. 없으면 여기서 부른다."""
     model = model or get_chat_model()
     read = _read_answer(model, question, answer, job_description)
 
@@ -82,10 +95,18 @@ def score_content(
     if not question_context:
         return _without_doc_axis(read, {"read": read.model_dump(), "topic": None, "claims": []})
 
-    sentences = number_sentences(merge_contexts(question_context, answer_context))
-    system = prompts.comparison_system(question, sentences)
-    topic = invoke_structured(model, prompts.judge_topic(system), TopicOutput)
-    judgments = [invoke_structured(model, prompts.judge_claim(system, c), ClaimJudgment) for c in read.claims]
+    # 앞부분(시스템 메시지)은 질문 검색 문장만으로 만든다. 질문을 낼 때와 글자 하나 다르지 않아야 캐시를 다시 쓴다.
+    # 답변으로만 찾은 문장은 번호를 이어 매겨 주장마다 뒤에 붙인다
+    question_sentences = _question_sentences(question_context)
+    answer_sentences = number_sentences(
+        _answer_only(question_context, answer_context), start=len(question_context) + 1, already=question_sentences
+    )
+    sentences = question_sentences + answer_sentences
+    system = prompts.comparison_system(question, question_sentences)
+    topic = topic or invoke_structured(model, prompts.judge_topic(system), TopicOutput)
+    judgments = [
+        invoke_structured(model, prompts.judge_claim(system, c, answer_sentences), ClaimJudgment) for c in read.claims
+    ]
     llm_output = {
         "read": read.model_dump(),
         "topic": topic.model_dump(),
@@ -108,6 +129,16 @@ def score_content(
     # ㉡: 비교할 내용이 문서에 없다
     score = _weighted(read.relevance, read.specificity, NO_ANSWER_DOC_MATCH)
     return ContentScore(score, f"{read.reason} {NO_ANSWER_DOC_NOTE}", EvidenceStatus.NO_ANSWER_DOC, [], llm_output)
+
+
+def _question_sentences(question_context: list[Chunk]) -> list[NumberedSentence]:
+    return number_sentences(merge_contexts(question_context))
+
+
+def _answer_only(question_context: list[Chunk], answer_context: list[Chunk]) -> list[Chunk]:
+    """답변 검색 결과 중 질문 검색에 없던 청크 (유사도 순)."""
+    seen = {c.chunk_id for c in question_context}
+    return [c for c in merge_contexts(answer_context) if c.chunk_id not in seen]
 
 
 def _read_answer(model: Runnable, question: str, answer: str, job_description: str) -> AnswerReadOutput:

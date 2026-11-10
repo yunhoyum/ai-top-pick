@@ -14,6 +14,7 @@ from app.chains.answer_content import (
     NO_ANSWER_DOC_NOTE,
     NO_QUESTION_DOC_NOTE,
     EvidenceStatus,
+    judge_question_topic,
     score_content,
 )
 from app.chains.structured import StructuredOutputError, invoke_structured
@@ -124,12 +125,41 @@ def test_read_call_sees_no_documents_and_comparison_calls_see_no_raw_answer():
 
 def test_comparison_calls_share_the_same_front_part():
     model = _model(("같음", ["1-1"]), ("같음", ["1-2"]))
-    _score(model, question_context=(DEPLOY,), answer_context=(PG,))
+    _score(model, question_context=(PG, DEPLOY))
     systems = [call[0].content for call in model.calls[1:]]
     # 앞부분이 글자 하나까지 같아야 Ollama가 계산을 다시 쓴다
     assert len(set(systems)) == 1
     # 회사 문서와 질문은 앞부분에 있다. 유사도가 높은 PG가 1번 후보다
     assert "[1-1] PG 승인 응답이" in systems[0] and "[2-1] 배포는 Docker로 한다." in systems[0] and QUESTION in systems[0]
+
+
+def test_front_part_has_only_question_search_and_answer_only_chunks_follow():
+    # 질문 검색은 DEPLOY만, 답변 검색은 PG와 DEPLOY를 찾았다
+    model = _model(("같음", ["2-1"]), ("같음", ["1-1"]))
+    result = _score(model, question_context=(DEPLOY,), answer_context=(PG, DEPLOY))
+    system = model.calls[1][0].content
+    claim = model.calls[2][-1].content
+    # 앞부분은 질문 검색 문장만이다. 답변으로만 찾은 PG는 번호를 이어 2번 후보로 주장 요청에 붙는다
+    assert "[1-1] 배포는 Docker로 한다." in system and PG.content not in system
+    assert "[2-1] PG 승인 응답이" in claim and "[1-1] 배포는" not in claim
+    # 이어 붙인 번호도 근거로 쓸 수 있다
+    assert "PG 승인 응답이 5초 안에 오지 않으면 결제 상태를 확인 중으로 둔다." in [e.sentence for e in result.evidence]
+
+
+def test_topic_judged_at_question_time_is_reused():
+    question_context = [PG, DEPLOY]
+    early = FakeModel(_topic(True))
+    topic = judge_question_topic(QUESTION, question_context, model=early)
+    # 답변 뒤에는 질문 주제를 다시 묻지 않는다: 읽기 → 주장 1 → 주장 2
+    model = FakeModel(_read(), _claim("같음", ["1-1"]), _claim("같음", ["1-2"]))
+    result = score_content(QUESTION, ANSWER, question_context, [], JOB, model=model, embed=FakeEmbed(), topic=topic)
+    assert len(model.calls) == 3 and result.status == EvidenceStatus.FOUND
+    # 질문을 낼 때의 앞부분과 답변 뒤 주장 비교의 앞부분이 같다 (캐시를 다시 쓰는 조건)
+    assert early.calls[0][0].content == model.calls[1][0].content
+
+
+def test_no_question_search_needs_no_topic_at_question_time():
+    assert judge_question_topic(QUESTION, [], model=FakeModel()) is None
 
 
 # ---------- 근거 상태와 점수 ----------
