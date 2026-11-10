@@ -6,28 +6,28 @@ from pydantic import BaseModel, Field
 
 Score = Annotated[int, Field(ge=0, le=100)]
 
-# 회사 문서 일치 단계 (루브릭 설계서 3.2). 점수는 코드가 넣는다
-DocMatchLevel = Literal["같음", "대부분 같음", "문서에 없음", "일부만 같음", "반대"]
+
+class AnswerReadOutput(BaseModel):
+    """면접 답변 읽기 (1번 호출, 회사 문서 없이). 회사 문서와 상관없는 두 축과 지원자가 말한 것을 낸다."""
+
+    claims: list[str]
+    relevance: Score
+    specificity: Score
+    reason: str = Field(min_length=1)
 
 
-class AnswerContentOutput(BaseModel):
-    """면접 답변 내용 채점 (루브릭 설계서 3.4).
-    출력 순서: 질문 주제 판정 → 답변 요지 → 근거 번호 → 문서와 비교 → 두 축 → 일치 단계 → 이유.
-    요지와 비교를 판단보다 먼저 쓰게 해 비교한 뒤에 판단하게 한다 (실험 P7)."""
+# 주장 하나와 회사 문서의 관계. 다섯 단계 중 무엇인지는 코드가 주장들을 모아 정한다 (루브릭 설계서 3.2)
+ClaimLevel = Literal["같음", "반대", "문서에 없음"]
+
+
+class ClaimMatch(BaseModel):
+    claim: int  # 1번 호출의 claims 순번 (1부터)
+    evidence_ids: list[str]
+    level: ClaimLevel
+
+
+class DocMatchOutput(BaseModel):
+    """회사 문서 비교 (2번 호출). 원래 답변이 아니라 1번 호출이 뽑은 주장만 받는다."""
 
     question_in_docs: bool
-    answer_summary: str = Field(min_length=1)
-    evidence_ids: list[str]
-    doc_comparison: str = Field(min_length=1)
-    doc_match_level: DocMatchLevel
-    relevance: Score
-    specificity: Score
-    reason: str = Field(min_length=1)
-
-
-class AnswerContentNoDocOutput(BaseModel):
-    """질문 검색 결과가 비었을 때(㉠). 회사 문서 없이 두 축만 매긴다."""
-
-    relevance: Score
-    specificity: Score
-    reason: str = Field(min_length=1)
+    matches: list[ClaimMatch]

@@ -73,8 +73,8 @@ def evaluate(posting_id: int) -> list[dict]:
                 "evidence": [e.sentence for e in result.evidence],
                 "evidence_gold": [_is_gold(e.sentence, a["gold"]) for e in result.evidence],
                 "reason": result.reason,
-                # LLM이 낸 값 그대로 (질문 주제 판정, 고른 번호, 축 점수). 점수 계산 전 값이다
-                "llm": result.llm_output.model_dump(),
+                # LLM이 낸 값 그대로 {"read": 1번 호출, "match": 2번 호출}. 점수 계산 전 값이다
+                "llm": result.llm_output,
                 "question_context": len(question_context),
                 "answer_context": len(answer_context),
                 "seconds": round(seconds, 1),
@@ -82,14 +82,17 @@ def evaluate(posting_id: int) -> list[dict]:
         )
         r = rows[-1]
         mark = "O" if r["status_ok"] else "X"
-        llm = r["llm"]
-        axes = f"적합 {llm['relevance']} 구체 {llm['specificity']} 일치 {llm.get('doc_match_level', '-')}"
-        topic = f"주제 {llm['question_in_docs']} 번호 {llm['evidence_ids']}" if "question_in_docs" in llm else "문서 없음"
+        read, match = r["llm"]["read"], r["llm"]["match"]
         print(f"{r['id']:<3} {mark} 기대={r['expect']:<14} 결과={r['status']:<8} 점수={r['score']:>6} "
               f"근거 {sum(r['evidence_gold'])}/{len(r['evidence'])} 정답 ({r['seconds']}s)\n"
-              f"      LLM: {topic} | {axes}", flush=True)
-        if "doc_comparison" in llm:
-            print(f"      비교: {llm['doc_comparison'][:90]}", flush=True)
+              f"      1번: 적합 {read['relevance']} 구체 {read['specificity']}", flush=True)
+        matches = {m["claim"]: m for m in match["matches"]} if match else {}
+        for i, claim in enumerate(read["claims"], start=1):
+            m = matches.get(i)
+            judged = f"{m['level']} {m['evidence_ids']}" if m else "-"
+            print(f"         {i}. {claim[:60]} → {judged}", flush=True)
+        if match:
+            print(f"      2번: 주제 {match['question_in_docs']}", flush=True)
     return rows
 
 

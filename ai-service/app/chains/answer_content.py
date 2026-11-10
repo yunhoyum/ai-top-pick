@@ -1,7 +1,10 @@
 """면접 답변 내용 점수 (루브릭 설계서 3장, 벡터 DB 설계서 8.4).
 
-LLM을 한 번 불러 질문 주제 판정, 근거 문장 번호, 세 축 점수를 받는다.
-번호 검증, 근거 상태 결정, 점수 계산은 코드가 한다.
+LLM을 두 번 부른다.
+1. 회사 문서 없이 답변을 읽어 지원자가 말한 것(주장), 질문 적합성, 구체성을 받는다.
+2. 그 주장만 회사 문서와 비교해 질문 주제 판정과 주장별 같음·반대·문서에 없음을 받는다.
+번호 검증, 일치 단계, 근거 상태, 점수 계산은 코드가 한다.
+1번에 문서를 넣지 않는 이유: 문서를 같이 보면 답변에 없는 문서 내용을 답변에 섞어 읽었다 (RAG 설계서 5.5 P7).
 """
 
 from dataclasses import dataclass
@@ -13,13 +16,12 @@ from langchain_core.runnables import Runnable
 from app.chains.structured import invoke_structured
 from app.core.llm import get_chat_model
 from app.prompts import answer_content as prompts
-from app.rag.evidence import merge_contexts, number_sentences
+from app.rag.evidence import NumberedSentence, merge_contexts, number_sentences
 from app.rag.retriever import Chunk
-from app.schemas.llm_outputs import AnswerContentNoDocOutput, AnswerContentOutput
+from app.schemas.llm_outputs import AnswerReadOutput, DocMatchOutput
 
 # 일치 단계별 점수 (루브릭 설계서 3.2). '문서에 없음'은 ㉡이고 50을 넣는다
 DOC_MATCH_SCORES = {"같음": 100, "대부분 같음": 75, "일부만 같음": 25, "반대": 0}
-NO_ANSWER_DOC_LEVEL = "문서에 없음"
 NO_ANSWER_DOC_MATCH = 50
 
 # 근거 상태를 저장하지 않으므로 점수 이유 끝에 처리 사실을 붙인다 (루브릭 설계서 3.3)
@@ -49,8 +51,9 @@ class ContentScore:
     reason: str  # interview_answer.content_reason
     status: EvidenceStatus
     evidence: list[EvidenceSentence]
-    # 검증을 통과한 LLM 출력 그대로. 평가·디버깅용이다. 축 점수는 DB에 저장하지 않는다 (루브릭 설계서 3.6)
-    llm_output: AnswerContentOutput | AnswerContentNoDocOutput
+    # 검증을 통과한 LLM 출력 그대로 {"read": 1번, "match": 2번 또는 None}. 평가·디버깅용이다.
+    # 축 점수는 DB에 저장하지 않는다 (루브릭 설계서 3.6)
+    llm_output: dict
 
 
 def score_content(
@@ -62,34 +65,64 @@ def score_content(
     model: Runnable | None = None,
 ) -> ContentScore:
     model = model or get_chat_model()
+    read = invoke_structured(model, prompts.read_answer(question, answer, job_description), AnswerReadOutput)
 
-    # ㉠: 질문으로 찾은 문서가 없다. 회사 문서 없이 두 축만 채점한다
+    # ㉠: 질문으로 찾은 문서가 없다. 회사 문서와 비교하지 않는다
     if not question_context:
-        out = invoke_structured(
-            model, prompts.without_documents(question, answer, job_description), AnswerContentNoDocOutput
-        )
-        return _without_doc_axis(out)
+        return _without_doc_axis(read, {"read": read.model_dump(), "match": None})
 
     sentences = number_sentences(merge_contexts(question_context, answer_context))
-    out = invoke_structured(
-        model, prompts.with_documents(question, answer, job_description, sentences), AnswerContentOutput
-    )
+    match = invoke_structured(model, prompts.match_documents(question, read.claims, sentences), DocMatchOutput)
+    llm_output = {"read": read.model_dump(), "match": match.model_dump()}
 
-    # 목록에 없는 번호는 버린다. 같은 번호가 여러 번 나오면 한 번만 쓴다
-    by_id = {s.id: s for s in sentences}
-    picked = [by_id[i] for i in dict.fromkeys(out.evidence_ids) if i in by_id]
+    same, compared, picked = _compare(read.claims, match, sentences)
 
-    # 판정 순서 (루브릭 설계서 3.3): 통과한 번호가 있고 일치 단계가 '문서에 없음'이 아니면
-    # 질문 주제 판정과 상관없이 근거 있음
-    if picked and out.doc_match_level != NO_ANSWER_DOC_LEVEL:
+    # 판정 순서 (루브릭 설계서 3.3): 근거 번호가 검증된 같음·반대 주장이 있으면 질문 주제 판정과 상관없이 근거 있음
+    if compared:
+        level = _level(same, compared)
         evidence = [EvidenceSentence(s.chunk.source_type, s.chunk.source_id, s.chunk.chunk_id, s.text) for s in picked]
-        score = _weighted(out.relevance, out.specificity, DOC_MATCH_SCORES[out.doc_match_level])
-        return ContentScore(score, out.reason, EvidenceStatus.FOUND, evidence, out)
-    if not out.question_in_docs:
-        return _without_doc_axis(out)
-    # ㉡: LLM이 낸 일치 점수는 쓰지 않는다
-    score = _weighted(out.relevance, out.specificity, NO_ANSWER_DOC_MATCH)
-    return ContentScore(score, f"{out.reason} {NO_ANSWER_DOC_NOTE}", EvidenceStatus.NO_ANSWER_DOC, [], out)
+        score = _weighted(read.relevance, read.specificity, DOC_MATCH_SCORES[level])
+        reason = f"{read.reason} 회사 문서와 비교한 주장 {compared}개 중 {same}개가 문서와 같다 (일치 단계: {level})."
+        return ContentScore(score, reason, EvidenceStatus.FOUND, evidence, llm_output)
+    if not match.question_in_docs:
+        return _without_doc_axis(read, llm_output)
+    # ㉡: 비교할 내용이 문서에 없다
+    score = _weighted(read.relevance, read.specificity, NO_ANSWER_DOC_MATCH)
+    return ContentScore(score, f"{read.reason} {NO_ANSWER_DOC_NOTE}", EvidenceStatus.NO_ANSWER_DOC, [], llm_output)
+
+
+def _compare(
+    claims: list[str], match: DocMatchOutput, sentences: list[NumberedSentence]
+) -> tuple[int, int, list[NumberedSentence]]:
+    """(같음 수, 비교된 주장 수, 근거 문장). 목록에 없는 주장 번호와 문장 번호는 버린다.
+    같음·반대인데 남은 문장 번호가 없으면 근거를 확인할 수 없으므로 '문서에 없음'과 같이 센다."""
+    by_id = {s.id: s for s in sentences}
+    seen_claims: set[int] = set()
+    same = compared = 0
+    picked: dict[str, NumberedSentence] = {}
+    for m in match.matches:
+        if not 1 <= m.claim <= len(claims) or m.claim in seen_claims:
+            continue
+        seen_claims.add(m.claim)
+        ids = [i for i in m.evidence_ids if i in by_id]
+        if m.level == "문서에 없음" or not ids:
+            continue
+        compared += 1
+        same += m.level == "같음"
+        for i in ids:
+            picked.setdefault(i, by_id[i])
+    return same, compared, list(picked.values())
+
+
+def _level(same: int, compared: int) -> str:
+    """주장별 결과를 루브릭 설계서 3.2의 일치 단계로 모은다. '문서에 없음' 주장은 세지 않는다."""
+    if same == compared:
+        return "같음"
+    if same * 2 >= compared:
+        return "대부분 같음"
+    if same > 0:
+        return "일부만 같음"
+    return "반대"
 
 
 def _weighted(relevance: int, specificity: int, doc_match: int) -> Decimal:
@@ -97,10 +130,10 @@ def _weighted(relevance: int, specificity: int, doc_match: int) -> Decimal:
     return _round((Decimal(relevance) * 4 + Decimal(specificity) * 3 + Decimal(doc_match) * 3) / 10)
 
 
-def _without_doc_axis(out: AnswerContentOutput | AnswerContentNoDocOutput) -> ContentScore:
+def _without_doc_axis(read: AnswerReadOutput, llm_output: dict) -> ContentScore:
     """㉠: 일치 축을 빼고 40:30 비율을 유지한다 (4/7, 3/7)."""
-    score = _round((Decimal(out.relevance) * 4 + Decimal(out.specificity) * 3) / 7)
-    return ContentScore(score, f"{out.reason} {NO_QUESTION_DOC_NOTE}", EvidenceStatus.NO_QUESTION_DOC, [], out)
+    score = _round((Decimal(read.relevance) * 4 + Decimal(read.specificity) * 3) / 7)
+    return ContentScore(score, f"{read.reason} {NO_QUESTION_DOC_NOTE}", EvidenceStatus.NO_QUESTION_DOC, [], llm_output)
 
 
 def _round(value: Decimal) -> Decimal:
