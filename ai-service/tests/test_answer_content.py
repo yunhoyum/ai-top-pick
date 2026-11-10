@@ -12,6 +12,7 @@ from langchain_core.messages import AIMessage
 
 from app.chains.answer_content import (
     NO_ANSWER_DOC_NOTE,
+    NO_CLAIM_NOTE,
     NO_QUESTION_DOC_NOTE,
     EvidenceStatus,
     judge_question_topic,
@@ -261,11 +262,18 @@ def test_empty_claims_are_asked_once_more():
     assert model.calls[1][-1].content == EMPTY_CLAIMS_RETRY
 
 
-def test_still_empty_claims_skip_claim_calls():
-    model = FakeModel(_read(claims=()), _read(claims=()), _topic(True))
+def test_still_empty_claims_score_zero_without_comparing():
+    model = FakeModel(_read(claims=()), _read(claims=()))
     result = _score(model)
-    # 비교할 것이 없고 질문 주제는 문서에 있다 → ㉡
-    assert result.status == EvidenceStatus.NO_ANSWER_DOC and len(model.calls) == 3
+    # 다시 물어도 주장이 없으면 무응답이다. 0점이고 회사 문서와 비교하지 않는다 (읽기 2번뿐)
+    assert result.status == EvidenceStatus.NO_CLAIM and result.score == Decimal("0.00")
+    assert result.reason.endswith(NO_CLAIM_NOTE) and len(model.calls) == 2
+
+
+def test_empty_claims_score_zero_even_without_question_search():
+    # ㉠보다 먼저 본다. 질문이 문서에 없어도 아무 말도 안 했으면 0점이다
+    result = _score(FakeModel(_read(claims=()), _read(claims=())), question_context=())
+    assert result.status == EvidenceStatus.NO_CLAIM and result.score == Decimal("0.00")
 
 
 # ---------- 출력 형식 검증 ----------

@@ -35,6 +35,7 @@ NO_ANSWER_DOC_MATCH = 50
 # 근거 상태를 저장하지 않으므로 점수 이유 끝에 처리 사실을 붙인다 (루브릭 설계서 3.3)
 NO_QUESTION_DOC_NOTE = "회사 문서에 관련 내용이 없는 질문이라 회사 문서 일치 축을 빼고 채점했다."
 NO_ANSWER_DOC_NOTE = "답변과 비교할 내용이 회사 문서에 없어 회사 문서 일치 축을 50점으로 채점했다."
+NO_CLAIM_NOTE = "답변에서 방법이나 사실을 찾지 못해 내용 점수를 0점으로 채점했다."
 
 _SENTENCE_ID = re.compile(r"\d+-\d+")
 
@@ -43,6 +44,7 @@ class EvidenceStatus(StrEnum):
     FOUND = "근거 있음"
     NO_QUESTION_DOC = "질문 근거 없음"  # ㉠
     NO_ANSWER_DOC = "답변 근거 없음"  # ㉡
+    NO_CLAIM = "답변 내용 없음"  # 주장이 하나도 없다. 내용 점수 0점 (루브릭 설계서 3.3)
 
 
 @dataclass(frozen=True)
@@ -90,6 +92,12 @@ def score_content(
     """topic: 질문을 낼 때 judge_question_topic으로 받아 둔 결과. 없으면 여기서 부른다."""
     model = model or get_chat_model()
     read = _read_answer(model, question, answer, job_description)
+
+    # 다시 물어도 주장이 없으면 무응답으로 보고 0점이다. ㉡(50점)으로 두면 아무 말도 안 한 답변이
+    # 문서와 반대인 답변보다 높은 점수를 받는다 (루브릭 설계서 3.3)
+    if not read.claims:
+        llm_output = {"read": read.model_dump(), "topic": None, "claims": []}
+        return ContentScore(Decimal("0.00"), f"{read.reason} {NO_CLAIM_NOTE}", EvidenceStatus.NO_CLAIM, [], llm_output)
 
     # ㉠: 질문으로 찾은 문서가 없다. 회사 문서와 비교하지 않는다
     if not question_context:
