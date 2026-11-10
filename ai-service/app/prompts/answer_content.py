@@ -5,7 +5,9 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from app.rag.evidence import NumberedSentence
 
 # v2: 근거로 고를 문장과 ㉡(문서에 없는 다른 방법)을 예시로 구분한다
-VERSION = "v2"
+# v3: 5단계 + 점수 구간 + 순서 변경을 한 번에 넣었다가 나빠져 되돌렸다 (RAG 설계서 5.5 P3-exaone)
+# v4: v2에서 일치 축만 숫자 대신 5단계로 고른다 (실험 P4)
+VERSION = "v4"
 
 SYSTEM = """너는 채용 면접에서 지원자의 답변 내용을 채점하는 평가자다.
 - 주어진 자료만 보고 판단한다. 자료에 없는 사실을 지어내지 않는다.
@@ -47,15 +49,20 @@ def with_documents(
   - 답변이 문서에 아예 나오지 않는 다른 방법을 말한다 → 고르지 않는다. 문서가 같은 문제를 다른 방법으로 푼다는 것만으로는 근거가 아니다.
   - 위 목록에 있는 번호만 쓴다. 판단에 직접 쓴 문장만 고르고, 제목이나 용어 정의처럼 답변을 판단할 수 없는 문장은 고르지 않는다. 애매하면 빈 목록으로 둔다.
 {_AXES}
-- doc_match (0~100): evidence_ids의 문장과 비교한다. 답변이 문서 내용과 같으면 100, 다른 값이거나 반대이면 0에 가깝다. evidence_ids가 비면 0.
+- doc_match_level: evidence_ids의 문장과 비교해 아래 다섯 가지 중 하나를 그대로 쓴다.
+  - "같음": 답변의 핵심이 문서와 같다.
+  - "대부분 같음": 핵심은 같지만 일부가 다르거나 빠졌다.
+  - "일부만 같음": 일부는 맞지만 핵심이 문서와 다르다.
+  - "반대": 문서와 반대이거나 틀렸다. 문서가 채택하지 않은 방법을 답한 경우도 여기에 든다.
+  - "문서에 없음": evidence_ids가 비었다. 답변의 방법이 문서에 나오지 않는다.
 - reason: 점수를 준 이유를 한국어 2~3문장으로 쓴다.
 
 예시. 회사 문서 문장이 "[1-1] PG 승인 응답이 5초 안에 오지 않으면 결제 상태를 확인 중으로 둔다."이고, 질문이 "결제 승인이 늦을 때 중복 결제를 어떻게 막나요?"일 때:
-- 답변 "타임아웃이 나면 확인 중으로 두고 나중에 PG에 조회합니다" → evidence_ids ["1-1"], doc_match 높음 (같은 방법)
-- 답변 "5초를 기다리지 않고 바로 실패로 처리합니다" → evidence_ids ["1-1"], doc_match 낮음 (같은 대상, 반대 판단)
-- 답변 "결제 버튼을 한 번 누르면 비활성화합니다" → evidence_ids [] (문서에 없는 다른 방법). question_in_docs는 true다
+- 답변 "타임아웃이 나면 확인 중으로 두고 나중에 PG에 조회합니다" → evidence_ids ["1-1"], doc_match_level "같음"
+- 답변 "5초를 기다리지 않고 바로 실패로 처리합니다" → evidence_ids ["1-1"], doc_match_level "반대"
+- 답변 "결제 버튼을 한 번 누르면 비활성화합니다" → evidence_ids [], doc_match_level "문서에 없음". question_in_docs는 true다
 
-형식: {{"question_in_docs": true, "evidence_ids": ["1-1"], "relevance": 0, "specificity": 0, "doc_match": 0, "reason": "..."}}"""
+형식: {{"question_in_docs": true, "evidence_ids": ["1-1"], "relevance": 0, "specificity": 0, "doc_match_level": "같음", "reason": "..."}}"""
         ),
     ]
 
