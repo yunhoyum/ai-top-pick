@@ -22,7 +22,7 @@ from pathlib import Path
 
 sys.path[:0] = ["/src"]
 
-from app.chains.answer_content import EvidenceStatus, _claim_index, score_content
+from app.chains.answer_content import EvidenceStatus, score_content
 from app.chains.structured import StructuredOutputError
 from app.core.config import get_settings
 from app.prompts import answer_content as prompts
@@ -83,7 +83,7 @@ def evaluate(posting_id: int) -> list[dict]:
                 "evidence": [e.sentence for e in result.evidence],
                 "evidence_gold": [_is_gold(e.sentence, a["gold"]) for e in result.evidence],
                 "reason": result.reason,
-                # LLM이 낸 값 그대로 {"read": 1번 호출, "match": 2번 호출}. 점수 계산 전 값이다
+                # LLM이 낸 값 그대로 {"read": 답변 읽기, "topic": 질문 주제, "claims": 주장별 비교}. 점수 계산 전 값이다
                 "llm": result.llm_output,
                 "question_context": len(question_context),
                 "answer_context": len(answer_context),
@@ -92,19 +92,14 @@ def evaluate(posting_id: int) -> list[dict]:
         )
         r = rows[-1]
         mark = "O" if r["status_ok"] else "X"
-        read, match = r["llm"]["read"], r["llm"]["match"]
+        read, topic, judged = r["llm"]["read"], r["llm"]["topic"], r["llm"]["claims"]
         print(f"{r['id']:<3} {mark} 기대={r['expect']:<14} 결과={r['status']:<8} 점수={r['score']:>6} "
               f"근거 {sum(r['evidence_gold'])}/{len(r['evidence'])} 정답 ({r['seconds']}s)\n"
-              f"      1번: 적합 {read['relevance']} 구체 {read['specificity']}", flush=True)
-        matches = {}
-        for m in match["matches"] if match else []:
-            matches.setdefault(_claim_index(m["claim"], read["claims"]), m)
-        for i, claim in enumerate(read["claims"], start=1):
-            m = matches.get(i)
-            judged = f"{m['level']} {m['evidence_ids']}" if m else "-"
-            print(f"         {i}. {claim[:60]} → {judged}", flush=True)
-        if match:
-            print(f"      2번: 주제 {match['question_in_docs']}", flush=True)
+              f"      읽기: 적합 {read['relevance']} 구체 {read['specificity']} | "
+              f"주제: {topic['question_in_docs'] if topic else '문서 없음'}", flush=True)
+        for i, claim in enumerate(read["claims"]):
+            j = judged[i] if i < len(judged) else None
+            print(f"         {i + 1}. {claim[:60]} → {j['level'] + ' ' + str(j['evidence_ids']) if j else '-'}", flush=True)
     return rows
 
 

@@ -1,6 +1,6 @@
 """면접 답변 내용 점수 테스트. LLM은 정해 둔 JSON을 차례로 돌려주는 가짜로 바꾼다.
 
-첫 출력은 1번 호출(답변 읽기), 둘째 출력은 2번 호출(회사 문서 비교)의 답이다.
+호출 순서: 답변 읽기 → 질문 주제 판정 → 주장마다 비교.
 기대 점수는 루브릭 설계서 3.5 예시와 같다 (적합성 90, 구체성 80).
 """
 
@@ -17,6 +17,7 @@ from app.chains.answer_content import (
     score_content,
 )
 from app.chains.structured import StructuredOutputError, invoke_structured
+from app.prompts.answer_content import EMPTY_CLAIMS_RETRY
 from app.rag.evidence import merge_contexts, number_sentences, split_sentences
 from app.rag.retriever import Chunk
 from app.schemas.llm_outputs import AnswerReadOutput
@@ -24,6 +25,7 @@ from app.schemas.llm_outputs import AnswerReadOutput
 QUESTION = "결제 승인이 늦을 때 중복 결제를 어떻게 막나요?"
 ANSWER = "음 타임아웃 후 확인 중으로 두고 배치로 PG에 조회해 확정합니다."
 JOB = "주문·결제 백엔드를 개발한다."
+CLAIMS = ["타임아웃 후 확인 중으로 둔다", "배치로 PG에 조회해 확정한다"]
 
 
 class FakeModel:
@@ -46,16 +48,20 @@ PG = _chunk(1, "PG 승인 응답이 5초 안에 오지 않으면 결제 상태�
 DEPLOY = _chunk(2, "배포는 Docker로 한다.", similarity=0.6)
 
 
-def _read(claims=("타임아웃 후 확인 중으로 둔다", "배치로 PG에 조회해 확정한다")):
+def _read(claims=tuple(CLAIMS)):
     return {"claims": list(claims), "relevance": 90, "specificity": 80, "reason": "질문에 맞게 순서대로 답했다."}
 
 
-def _match(*matches, question_in_docs=True):
-    """matches: (주장 번호, 단계, 근거 번호 목록)."""
-    return {
-        "question_in_docs": question_in_docs,
-        "matches": [{"claim": c, "level": lv, "evidence_ids": ids} for c, lv, ids in matches],
-    }
+def _topic(in_docs=True):
+    return {"question_in_docs": in_docs}
+
+
+def _claim(level, ids):
+    return {"level": level, "evidence_ids": ids}
+
+
+def _model(*judgments, claims=tuple(CLAIMS), in_docs=True):
+    return FakeModel(_read(claims), _topic(in_docs), *[_claim(lv, ids) for lv, ids in judgments])
 
 
 def _score(model, question_context=(PG, DEPLOY), answer_context=()):
@@ -84,33 +90,35 @@ def test_numbers_are_candidate_then_sentence_and_overlap_is_not_repeated():
     ]
 
 
-# ---------- 두 번 호출 ----------
+# ---------- 호출 구성 ----------
 
 
-def test_first_call_sees_no_documents_and_second_call_sees_no_raw_answer():
-    model = FakeModel(_read(), _match((1, "같음", ["1-1"])))
+def test_read_call_sees_no_documents_and_comparison_calls_see_no_raw_answer():
+    model = _model(("같음", ["1-1"]), ("같음", ["1-2"]))
     _score(model)
-    first, second = model.calls[0][-1].content, model.calls[1][-1].content
-    # 1번은 회사 문서 없이 답변만 읽는다
-    assert ANSWER in first and PG.content not in first and "[1-1]" not in first
-    # 2번은 원래 답변 대신 1번이 뽑은 주장을 문서와 비교한다
-    assert ANSWER not in second
-    assert "1. 타임아웃 후 확인 중으로 둔다" in second and "[1-1] PG 승인 응답이" in second
+    read, topic, claim1, claim2 = (call[-1].content for call in model.calls)
+    # 답변 읽기는 회사 문서 없이 답변만 본다
+    assert ANSWER in read and PG.content not in read and "[1-1]" not in read
+    # 비교 호출은 원래 답변 대신 주장 하나만 본다
+    assert all(ANSWER not in c for c in (topic, claim1, claim2))
+    assert CLAIMS[0] in claim1 and CLAIMS[1] not in claim1 and CLAIMS[1] in claim2
 
 
-def test_documents_are_numbered_from_both_contexts():
-    model = FakeModel(_read(), _match((1, "같음", ["1-1"])))
+def test_comparison_calls_share_the_same_front_part():
+    model = _model(("같음", ["1-1"]), ("같음", ["1-2"]))
     _score(model, question_context=(DEPLOY,), answer_context=(PG,))
-    second = model.calls[1][-1].content
-    # 유사도가 높은 PG가 1번 후보다
-    assert "[1-1] PG 승인 응답이" in second and "[2-1] 배포는 Docker로 한다." in second
+    systems = [call[0].content for call in model.calls[1:]]
+    # 앞부분이 글자 하나까지 같아야 Ollama가 계산을 다시 쓴다
+    assert len(set(systems)) == 1
+    # 회사 문서와 질문은 앞부분에 있다. 유사도가 높은 PG가 1번 후보다
+    assert "[1-1] PG 승인 응답이" in systems[0] and "[2-1] 배포는 Docker로 한다." in systems[0] and QUESTION in systems[0]
 
 
 # ---------- 근거 상태와 점수 ----------
 
 
 def test_all_claims_same_uses_three_axes_and_copies_sentences():
-    result = _score(FakeModel(_read(), _match((1, "같음", ["1-1"]), (2, "같음", ["1-2"]))))
+    result = _score(_model(("같음", ["1-1"]), ("같음", ["1-2"])))
     assert result.status == EvidenceStatus.FOUND
     assert result.score == Decimal("90.00")  # 36 + 24 + 30 (같음 = 100)
     assert [e.sentence for e in result.evidence] == [
@@ -119,6 +127,7 @@ def test_all_claims_same_uses_three_axes_and_copies_sentences():
     ]
     assert (result.evidence[0].source_type, result.evidence[0].source_id, result.evidence[0].chunk_id) == ("프로젝트 문서", 101, 1)
     assert result.reason.startswith("질문에 맞게 순서대로 답했다.")
+    assert result.llm_output["topic"] == {"question_in_docs": True} and len(result.llm_output["claims"]) == 2
 
 
 @pytest.mark.parametrize(
@@ -132,67 +141,63 @@ def test_all_claims_same_uses_three_axes_and_copies_sentences():
 )
 def test_claim_levels_are_gathered_into_doc_match_level(levels, expected):
     claims = [f"주장 {i}" for i in range(1, len(levels) + 1)]
-    matches = [(i, lv, ["1-1"]) for i, lv in enumerate(levels, start=1)]
-    assert _score(FakeModel(_read(claims), _match(*matches))).score == Decimal(expected)
+    model = _model(*[(lv, ["1-1"]) for lv in levels], claims=claims)
+    assert _score(model).score == Decimal(expected)
 
 
 def test_claims_not_in_docs_are_not_counted():
     # 문서에 없는 다른 방법은 점수를 올리지도 내리지도 않는다
-    result = _score(FakeModel(_read(), _match((1, "같음", ["1-1"]), (2, "문서에 없음", []))))
+    result = _score(_model(("같음", ["1-1"]), ("문서에 없음", [])))
     assert result.status == EvidenceStatus.FOUND and result.score == Decimal("90.00")
 
 
 def test_claim_without_valid_ids_counts_as_not_in_docs():
-    result = _score(FakeModel(_read(), _match((1, "같음", ["9-9"]), (2, "반대", []))))
+    result = _score(_model(("같음", ["9-9"]), ("반대", [])))
     assert result.status == EvidenceStatus.NO_ANSWER_DOC
     assert result.score == Decimal("75.00")  # 36 + 24 + 15
     assert result.reason.endswith(NO_ANSWER_DOC_NOTE) and result.evidence == []
 
 
-def test_unknown_and_repeated_claim_numbers_are_ignored():
-    matches = _match((7, "반대", ["1-1"]), (1, "같음", ["1-1"]), (1, "반대", ["1-2"]))
-    result = _score(FakeModel(_read(), matches))
-    # 7번 주장은 없고, 1번의 두 번째 판정은 무시한다
-    assert result.score == Decimal("90.00") and [e.sentence for e in result.evidence] == [
-        "PG 승인 응답이 5초 안에 오지 않으면 결제 상태를 확인 중으로 둔다."
-    ]
-
-
-def test_claim_given_as_text_is_matched_to_the_claim_list():
-    # EXAONE이 번호 대신 주장 문장을 쓰기도 한다. 띄어쓰기가 달라도 같은 주장으로 본다
-    matches = _match(("타임아웃 후  확인 중으로 둔다", "같음", ["1-1"]), ("목록에 없는 주장", "반대", ["1-2"]), ("2", "같음", ["1-2"]))
-    result = _score(FakeModel(_read(), matches))
-    assert result.status == EvidenceStatus.FOUND and result.score == Decimal("90.00")
-    assert len(result.evidence) == 2
-
-
-def test_list_number_before_claim_text_and_sentence_after_evidence_id_are_accepted():
-    # P8에서 EXAONE이 실제로 쓴 형식: '1. 주장 문장', '[1-2] 문장'
-    matches = _match(("1. 타임아웃 후 확인 중으로 둔다", "같음", ["[1-1] PG 승인 응답이 5초 안에…"]),
-                     ("2.배치로 PG에 조회해 확정한다", "같음", ["1-2"]))
-    result = _score(FakeModel(_read(), matches))
+def test_sentence_after_evidence_id_is_accepted():
+    # P8에서 EXAONE이 실제로 쓴 형식: '[1-1] 문장'
+    result = _score(_model(("같음", ["[1-1] PG 승인 응답이 5초 안에…"]), ("같음", ["1-2"])))
     assert result.status == EvidenceStatus.FOUND and len(result.evidence) == 2
 
 
 def test_nothing_compared_and_topic_not_in_docs_is_no_question_doc():
-    result = _score(FakeModel(_read(), _match((1, "문서에 없음", []), question_in_docs=False)))
+    result = _score(_model(("문서에 없음", []), ("문서에 없음", []), in_docs=False))
     assert result.status == EvidenceStatus.NO_QUESTION_DOC
     assert result.score == Decimal("85.71")  # 90 × 4/7 + 80 × 3/7
     assert result.reason.endswith(NO_QUESTION_DOC_NOTE)
 
 
 def test_compared_claim_wins_over_topic_judgment():
-    result = _score(FakeModel(_read(), _match((1, "같음", ["1-1"]), question_in_docs=False)))
+    result = _score(_model(("같음", ["1-1"]), ("문서에 없음", []), in_docs=False))
     assert result.status == EvidenceStatus.FOUND and result.score == Decimal("90.00")
 
 
-def test_empty_question_context_needs_only_the_first_call():
+def test_empty_question_context_needs_only_the_read_call():
     model = FakeModel(_read())
     # 답변 검색 결과가 있어도 채점에는 쓰지 않는다 (루브릭 설계서 3.3)
     result = _score(model, question_context=(), answer_context=(PG,))
     assert result.status == EvidenceStatus.NO_QUESTION_DOC and result.score == Decimal("85.71")
     assert len(model.calls) == 1
-    assert result.llm_output["match"] is None and result.llm_output["read"]["relevance"] == 90
+    assert result.llm_output["topic"] is None and result.llm_output["read"]["relevance"] == 90
+
+
+def test_empty_claims_are_asked_once_more():
+    model = FakeModel(_read(claims=()), _read(claims=["타임아웃 후 확인 중으로 둔다"]), _topic(), _claim("같음", ["1-1"]))
+    result = _score(model)
+    assert result.status == EvidenceStatus.FOUND
+    # 두 번째 읽기 요청에는 앞 출력과 다시 묻는 말이 붙는다
+    assert model.calls[1][-1].content == EMPTY_CLAIMS_RETRY
+
+
+def test_still_empty_claims_skip_claim_calls():
+    model = FakeModel(_read(claims=()), _read(claims=()), _topic(True))
+    result = _score(model)
+    # 비교할 것이 없고 질문 주제는 문서에 있다 → ㉡
+    assert result.status == EvidenceStatus.NO_ANSWER_DOC and len(model.calls) == 3
 
 
 # ---------- 출력 형식 검증 ----------
