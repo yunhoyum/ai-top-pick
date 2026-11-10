@@ -23,6 +23,16 @@ def client():
         yield c
 
 
+@pytest.fixture(autouse=True)
+def sent_jobs(monkeypatch):
+    """테스트가 실제 Celery로 작업을 보내지 않게 막고, 보낸 작업을 (작업 종류, job_id)로 모은다."""
+    from app.services import job_queue
+
+    sent = []
+    monkeypatch.setattr(job_queue, "send", lambda job_type, job_id: sent.append((job_type, job_id)))
+    return sent
+
+
 @pytest.fixture(scope="session", autouse=True)
 def seed_reference_data():
     # 기본 문항 같은 기준 데이터가 있어야 하는 테스트가 있다. 이미 있으면 건너뛴다

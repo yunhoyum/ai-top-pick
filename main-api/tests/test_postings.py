@@ -1199,3 +1199,164 @@ def test_public_detail_of_draft_or_missing_is_404(admin, client):
     draft_id = admin.post("/api/admin/postings").json()["posting_id"]
     assert client.get(f"/api/postings/{draft_id}").status_code == 404
     assert client.get("/api/postings/999999999").status_code == 404
+
+
+# ---------- 회사 문서 임베딩 (Celery 4장, 벡터 DB 설계서 10장) ----------
+EMBED = "회사 문서 임베딩"
+
+
+def _embed_job(pid):
+    rows = _sql(
+        "select job_id, status, error_message, retry_count from batch_job where posting_id = :p and job_type = :t",
+        p=pid, t=EMBED,
+    )
+    return rows[0] if rows else None
+
+
+def _text_pdf(*paragraphs):
+    """글이 들어 있는 PDF. 문단마다 쪽을 나눈다."""
+    import pymupdf
+
+    doc = pymupdf.open()
+    for paragraph in paragraphs:
+        doc.new_page().insert_text((72, 72), paragraph)
+    data = doc.tobytes()
+    doc.close()
+    return data
+
+
+class FakeEmbedClient:
+    """embed-server 대신. 단어 하나를 토큰 하나로 보고, 벡터는 모두 같은 값을 준다."""
+
+    def __init__(self):
+        self.embedded = []
+
+    def tokenize(self, texts):
+        import re
+
+        return [[(m.start(), m.end()) for m in re.finditer(r"\S+", t)] for t in texts]
+
+    def embed(self, texts):
+        self.embedded += texts
+        return [[1.0] + [0.0] * 1023 for _ in texts]
+
+
+def _chunks(pid):
+    return _sql("select source_type, source_id, seq, content from doc_chunk where posting_id = :p order by source_id, seq", p=pid)
+
+
+def test_publish_requests_embedding_once(admin, posting_id, sent_jobs):
+    _fill_all(admin, posting_id)
+    assert admin.post(f"/api/admin/postings/{posting_id}/publish").status_code == 200
+    job_id, status, _, _ = _embed_job(posting_id)
+    assert status == "대기" and sent_jobs == [(EMBED, job_id)]
+    # 이미 등록된 공고를 다시 등록해도 임베딩을 다시 요청하지 않는다
+    assert admin.post(f"/api/admin/postings/{posting_id}/publish").status_code == 200
+    assert sent_jobs == [(EMBED, job_id)]
+
+
+def test_draft_document_change_does_not_request_embedding(admin, posting_id, sent_jobs):
+    doc_id = _upload_pdf(admin, posting_id)
+    admin.delete(f"/api/admin/postings/{posting_id}/documents/{doc_id}")
+    assert _embed_job(posting_id) is None and sent_jobs == []
+
+
+def test_registered_document_change_requests_embedding_again(admin, posting_id, sent_jobs):
+    _fill_all(admin, posting_id)
+    admin.post(f"/api/admin/postings/{posting_id}/publish")
+    job_id = _embed_job(posting_id)[0]
+    _sql("update batch_job set status = '완료' where job_id = :j", j=job_id)
+
+    doc_id = _upload_pdf(admin, posting_id)
+    assert _embed_job(posting_id)[1] == "대기"
+    _sql("update batch_job set status = '실패', error_message = 'x' where job_id = :j", j=job_id)
+    admin.delete(f"/api/admin/postings/{posting_id}/documents/{doc_id}")
+    # 같은 행을 '대기'로 되돌려 다시 보낸다 (새 행을 만들지 않는다)
+    assert _embed_job(posting_id)[:3] == (job_id, "대기", None)
+    assert sent_jobs == [(EMBED, job_id)] * 3
+
+
+def test_info_change_of_registered_posting_does_not_request_embedding(admin, posting_id, sent_jobs):
+    _fill_all(admin, posting_id)
+    admin.post(f"/api/admin/postings/{posting_id}/publish")
+    admin.put(f"/api/admin/postings/{posting_id}/info", json={**FULL, "functional_talent": "바뀐 인재상"})
+    assert len(sent_jobs) == 1
+
+
+def _published_with_documents(admin, pid, *pdfs):
+    _fill_all(admin, pid)
+    ids = [_upload(admin, pid, f"문서{i}.pdf", data).json()["document_id"] for i, data in enumerate(pdfs)]
+    admin.post(f"/api/admin/postings/{pid}/publish")
+    return ids, _embed_job(pid)[0]
+
+
+def test_embedding_job_saves_chunks_per_document(admin, posting_id):
+    from app.services.embedding_batch import embed_company_documents
+
+    first, second = _published_with_documents(
+        admin, posting_id, _text_pdf("Payment timeout is 5 seconds", "Retry with idempotency key"), _text_pdf("Deploy with Docker")
+    )[0]
+    job_id = _embed_job(posting_id)[0]
+    fake = FakeEmbedClient()
+    assert embed_company_documents(job_id, client=fake) == 2
+    assert _chunks(posting_id) == [
+        ("프로젝트 문서", first, 0, "Payment timeout is 5 seconds\n\nRetry with idempotency key"),
+        ("프로젝트 문서", second, 0, "Deploy with Docker"),
+    ]
+    assert _embed_job(posting_id)[1] == "완료"
+    # 완료된 작업을 다시 받으면 아무것도 하지 않는다
+    assert embed_company_documents(job_id, client=fake) == 0 and len(fake.embedded) == 2
+
+
+def test_embedding_job_replaces_old_chunks(admin, posting_id):
+    from app.services.embedding_batch import embed_company_documents
+
+    (doc_id,), job_id = _published_with_documents(admin, posting_id, _text_pdf("old text"))
+    embed_company_documents(job_id, client=FakeEmbedClient())
+    admin.delete(f"/api/admin/postings/{posting_id}/documents/{doc_id}")
+    new_id = _upload(admin, posting_id, "새.pdf", _text_pdf("new text")).json()["document_id"]
+    embed_company_documents(job_id, client=FakeEmbedClient())
+    assert _chunks(posting_id) == [("프로젝트 문서", new_id, 0, "new text")]
+
+
+def test_embedding_job_skips_pdf_without_text(admin, posting_id):
+    from app.services.embedding_batch import embed_company_documents
+
+    _, job_id = _published_with_documents(admin, posting_id, PDF)  # 쪽도 글도 없는 PDF
+    assert embed_company_documents(job_id, client=FakeEmbedClient()) == 0
+    assert _embed_job(posting_id)[1] == "완료" and _chunks(posting_id) == []
+
+
+def test_embedding_failure_keeps_previous_chunks(admin, posting_id):
+    from app.services.embedding_batch import embed_company_documents
+
+    (doc_id,), job_id = _published_with_documents(admin, posting_id, _text_pdf("kept text"))
+    embed_company_documents(job_id, client=FakeEmbedClient())
+
+    class BrokenClient(FakeEmbedClient):
+        def embed(self, texts):
+            raise RuntimeError("embed-server down")
+
+    _sql("update batch_job set status = '대기' where job_id = :j", j=job_id)
+    with pytest.raises(RuntimeError):
+        embed_company_documents(job_id, client=BrokenClient())
+    _, status, error, retry_count = _embed_job(posting_id)
+    assert status == "실패" and "embed-server down" in error and retry_count == 1
+    assert _chunks(posting_id) == [("프로젝트 문서", doc_id, 0, "kept text")]
+
+
+def test_embedding_result_is_dropped_when_requested_again_while_running(admin, posting_id, sent_jobs):
+    from app.services.embedding_batch import embed_company_documents
+
+    _, job_id = _published_with_documents(admin, posting_id, _text_pdf("first text"))
+
+    class ReRequestedClient(FakeEmbedClient):
+        def embed(self, texts):
+            # 임베딩하는 동안 관리자가 문서를 하나 더 올린다
+            _upload(admin, posting_id, "추가.pdf", _text_pdf("added text"))
+            return super().embed(texts)
+
+    assert embed_company_documents(job_id, client=ReRequestedClient()) == 0
+    assert _chunks(posting_id) == [] and _embed_job(posting_id)[1] == "대기"
+    # 다시 보낸 작업이 두 문서를 모두 임베딩한다
+    assert embed_company_documents(job_id, client=FakeEmbedClient()) == 2

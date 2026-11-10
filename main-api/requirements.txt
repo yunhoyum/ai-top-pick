@@ -14,3 +14,5 @@ pyjwt==2.15.1
 bcrypt==5.0.0
 httpx
 python-multipart
+# 프로젝트 문서 PDF 텍스트 추출 (벡터 DB 설계서 12)
+pymupdf==1.26.7

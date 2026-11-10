@@ -21,6 +21,13 @@ class Settings(BaseSettings):
     STORAGE_ROOT: str = "/data/storage"
     MAX_PDF_MB: int = 20
 
+    # ---------- 회사 문서 임베딩 (벡터 DB 설계서 4장) ----------
+    EMBED_URL: str = "http://embed-server:8000"
+    INTERNAL_TOKEN: str = ""
+    # 임베딩 입력 한도(embed-server EMBED_MAX_SEQ_LEN)와 같게 둔다
+    CHUNK_MAX_TOKENS: int = 512
+    CHUNK_OVERLAP_TOKENS: int = 64
+
     # ---------- CORS: 쉼표로 구분. 쿠키 인증이라 와일드카드는 쓸 수 없다 ----------
     CORS_ORIGINS: str = ""
 

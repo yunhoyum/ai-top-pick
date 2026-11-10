@@ -46,5 +46,16 @@ def encode(texts: list[str]) -> list[list[float]]:
     return vecs.astype("float32").tolist()
 
 
+def tokenize(texts: list[str]) -> list[list[tuple[int, int]]]:
+    """토큰별 글자 위치. 길이 제한 없이 전부 센다 (청크를 나누는 쪽이 길이를 정한다)."""
+    if _model is None:
+        raise RuntimeError("모델이 로드되지 않았습니다")
+    with _lock:
+        encoded = _model.tokenizer(
+            texts, add_special_tokens=False, return_offsets_mapping=True, verbose=False
+        )
+    return [[tuple(o) for o in offsets] for offsets in encoded["offset_mapping"]]
+
+
 def dim() -> int:
     return EXPECTED_DIM

@@ -5,7 +5,7 @@ from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ErrorCode
-from app.domain.enums import PostingWriteStatus, StageType, UploadStatus
+from app.domain.enums import JobType, PostingWriteStatus, StageType, UploadStatus
 from app.domain.rules import can_edit_posting, resume_description, validate_schedule
 from app.models.member import Member
 from app.models.posting import EvalCriteria, JobPosting, PostingDocument
@@ -20,7 +20,7 @@ from app.schemas.doc_items import BasicItemOut, DocItemsIn, DocItemsOut, SkillOu
 from app.schemas.posting import PostingDetail, PostingInfoIn
 from app.schemas.posting_list import DraftOut, PostingListItem, PostingStats, PublicPostingDetail, PublicPostingItem
 from app.schemas.review import PublishOut, ReviewOut
-from app.services import file_service
+from app.services import file_service, job_queue
 
 # 임시 저장이 아닌 '다음'에서 반드시 입력해야 하는 항목 (ADM-004)
 _REQUIRED = {
@@ -189,10 +189,12 @@ class PostingService:
         document.file_path = f"postings/{posting_id}/documents/{document.document_id}.pdf"
         try:
             file_service.save(document.file_path, data)
+            job_id = await self._request_reembed(posting)
             await self.db.commit()
         except Exception:
             await self.db.rollback()
             raise
+        self._send_embed(job_id)
         return document
 
     async def delete_document(self, admin: Member, posting_id: int, document_id: int) -> None:
@@ -203,9 +205,12 @@ class PostingService:
         if document is None:
             raise AppError(404, ErrorCode.DOCUMENT_NOT_FOUND, "문서를 찾을 수 없습니다.")
         path = document.file_path
+        # 그 문서의 청크는 ON DELETE CASCADE로 함께 지워진다. 그래도 다시 임베딩해 공고 전체를 문서 목록과 맞춘다
         await self.postings.delete_document(document)
+        job_id = await self._request_reembed(posting)
         await self.db.commit()
         file_service.delete(path)
+        self._send_embed(job_id)
 
     async def get_doc_items(self, admin: Member, posting_id: int) -> DocItemsOut:
         """ADM-006, ADM-037 서류 작성 문항 조회. 기본 문항 전체 목록에 선택 여부를 붙여 돌려준다."""
@@ -428,9 +433,26 @@ class PostingService:
             labels = ", ".join(STEP_LABELS[step] for step in incomplete)
             raise AppError(422, ErrorCode.POSTING_INVALID, f"다음 단계를 완료해 주세요: {labels}.")
 
-        posting.write_status = PostingWriteStatus.COMPLETE.value
+        # 처음 등록할 때만 임베딩한다. 이미 등록된 공고는 문서가 바뀔 때 다시 임베딩한다 (add/delete_document)
+        job_id = None
+        if posting.write_status != PostingWriteStatus.COMPLETE.value:
+            posting.write_status = PostingWriteStatus.COMPLETE.value
+            job_id = await job_queue.request(self.db, JobType.COMPANY_DOC_EMBED.value, posting_id)
         await self.db.commit()
+        self._send_embed(job_id)
         return PublishOut(posting_id=posting.posting_id, write_status=posting.write_status)
+
+    async def _request_reembed(self, posting: JobPosting) -> int | None:
+        """등록된 공고의 프로젝트 문서가 바뀌면 회사 문서 임베딩을 다시 요청한다. 임시 저장 공고는 등록 때 한 번 한다.
+        인재상·직무 설명은 벡터로 저장하지 않으므로 바뀌어도 부르지 않는다 (벡터 DB 설계서 2.3)."""
+        if posting.write_status != PostingWriteStatus.COMPLETE.value:
+            return None
+        return await job_queue.request(self.db, JobType.COMPANY_DOC_EMBED.value, posting.posting_id)
+
+    @staticmethod
+    def _send_embed(job_id: int | None) -> None:
+        if job_id is not None:
+            job_queue.send(JobType.COMPANY_DOC_EMBED.value, job_id)
 
     async def get_document_file(self, admin: Member, posting_id: int, document_id: int) -> tuple[Path, str]:
         """ADM-010, ADM-036 프로젝트 문서(PDF) 보기. 본인 공고의 문서만 볼 수 있다."""
