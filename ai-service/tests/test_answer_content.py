@@ -180,18 +180,18 @@ def test_all_claims_same_uses_three_axes_and_copies_sentences():
 
 
 @pytest.mark.parametrize(
-    ("levels", "expected"),
+    ("levels", "expected", "gathered"),
     [
-        (["같음", "같음"], "90.00"),  # 같음
-        (["같음", "반대"], "82.50"),  # 절반 이상 같음 → 대부분 같음(75)
-        (["같음", "반대", "반대"], "67.50"),  # 절반 미만 → 일부만 같음(25)
-        (["반대"], "60.00"),  # 반대(0)
+        (["같음", "같음"], "90.00", "같음"),
+        (["같음", "반대"], "82.50", "대부분 같음"),  # 절반 이상 같음 (75)
+        (["같음", "반대", "반대"], "67.50", "일부만 같음"),  # 절반 미만 (25)
+        (["반대"], "60.00", "반대"),  # (0)
     ],
 )
-def test_claim_levels_are_gathered_into_doc_match_level(levels, expected):
+def test_claim_levels_are_gathered_into_doc_match_level(levels, expected, gathered):
     claims = [f"주장 {i}" for i in range(1, len(levels) + 1)]
-    model = _model(*[(lv, ["1-1"]) for lv in levels], claims=claims)
-    assert _score(model).score == Decimal(expected)
+    result = _score(_model(*[(lv, ["1-1"]) for lv in levels], claims=claims))
+    assert result.score == Decimal(expected) and result.doc_match_level == gathered
 
 
 def test_claims_not_in_docs_are_not_counted():
@@ -202,7 +202,7 @@ def test_claims_not_in_docs_are_not_counted():
 
 def test_claim_without_valid_ids_counts_as_not_in_docs():
     result = _score(_model(("같음", ["9-9"]), ("반대", [])))
-    assert result.status == EvidenceStatus.NO_ANSWER_DOC
+    assert result.status == EvidenceStatus.NO_ANSWER_DOC and result.doc_match_level == "문서에 없음"
     assert result.score == Decimal("75.00")  # 36 + 24 + 15
     assert result.reason.endswith(NO_ANSWER_DOC_NOTE) and result.evidence == []
 

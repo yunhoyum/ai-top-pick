@@ -66,6 +66,8 @@ class ContentScore:
     # 검증을 통과한 LLM 출력 그대로 {"read", "topic", "claims"}. 평가·디버깅용이다.
     # 축 점수는 DB에 저장하지 않는다 (루브릭 설계서 3.6)
     llm_output: dict
+    # 코드가 정한 일치 단계 (근거 있음이면 다섯 단계 중 하나, ㉡이면 '문서에 없음', ㉠·무응답이면 None). 평가용이다
+    doc_match_level: str | None = None
 
 
 def judge_question_topic(
@@ -131,12 +133,15 @@ def score_content(
         evidence = [EvidenceSentence(s.chunk.source_type, s.chunk.source_id, s.chunk.chunk_id, s.text) for s in picked]
         score = _weighted(read.relevance, read.specificity, DOC_MATCH_SCORES[level])
         reason = f"{read.reason} 회사 문서와 비교한 주장 {len(compared)}개 중 {same}개가 문서와 같다 (일치 단계: {level})."
-        return ContentScore(score, reason, EvidenceStatus.FOUND, evidence, llm_output)
+        return ContentScore(score, reason, EvidenceStatus.FOUND, evidence, llm_output, doc_match_level=level)
     if not topic.question_in_docs:
         return _without_doc_axis(read, llm_output)
     # ㉡: 비교할 내용이 문서에 없다
     score = _weighted(read.relevance, read.specificity, NO_ANSWER_DOC_MATCH)
-    return ContentScore(score, f"{read.reason} {NO_ANSWER_DOC_NOTE}", EvidenceStatus.NO_ANSWER_DOC, [], llm_output)
+    return ContentScore(
+        score, f"{read.reason} {NO_ANSWER_DOC_NOTE}", EvidenceStatus.NO_ANSWER_DOC, [], llm_output,
+        doc_match_level="문서에 없음",
+    )
 
 
 def _question_sentences(question_context: list[Chunk]) -> list[NumberedSentence]:

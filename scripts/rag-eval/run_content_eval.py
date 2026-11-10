@@ -35,7 +35,37 @@ EXPECTED = {
     "근거 있음 (낮은 일치)": EvidenceStatus.FOUND,
     "㉠": EvidenceStatus.NO_QUESTION_DOC,
     "㉡": EvidenceStatus.NO_ANSWER_DOC,
+    "무응답": EvidenceStatus.NO_CLAIM,
 }
+# 일치 단계 점수 (루브릭 설계서 3.2). '문서에 없음'은 ㉡의 50점이다
+DOC_MATCH = {"같음": 100, "대부분 같음": 75, "일부만 같음": 25, "반대": 0, "문서에 없음": 50}
+
+
+def reference_score(ref: dict, expect: str) -> float:
+    """기준 점수로 내용 점수를 계산한다 (루브릭 설계서 3.3과 같은 식)."""
+    if expect == "무응답":
+        return 0.0
+    if expect == "㉠":
+        return (ref["relevance"] * 4 + ref["specificity"] * 3) / 7
+    return (ref["relevance"] * 4 + ref["specificity"] * 3 + DOC_MATCH[ref["level"]] * 3) / 10
+
+
+def _errors(result, ref: dict, expect: str) -> dict:
+    """LLM 점수와 기준 점수의 차이. 일치 축은 둘 다 일치 단계가 있을 때만 잰다."""
+    read = result.llm_output["read"]
+    ref_level = ref["level"] if expect not in ("㉠", "무응답") else None
+    both = ref_level is not None and result.doc_match_level is not None
+    return {
+        "reference_score": round(reference_score(ref, expect), 2),
+        "score_error": round(abs(float(result.score) - reference_score(ref, expect)), 2),
+        "relevance_error": abs(read["relevance"] - ref["relevance"]),
+        "specificity_error": abs(read["specificity"] - ref["specificity"]),
+        "doc_match_error": abs(DOC_MATCH[result.doc_match_level] - DOC_MATCH[ref_level]) if both else None,
+        "level": result.doc_match_level,
+        "reference_level": ref_level,
+        "level_ok": result.doc_match_level == ref_level if ref_level else None,
+        "human_reviewed": ref["human_reviewed"],
+    }
 # 평가셋에 없는 공고라 직무 설명을 여기 둔다
 JOB_DESCRIPTION = (
     "사내 기술문서 질의응답 RAG 서비스를 개발·운영한다. "
@@ -137,6 +167,7 @@ def evaluate(posting_id: int) -> list[dict]:
                 "seconds": round(seconds, 1),
                 "prepare_seconds": prepare_seconds,
                 "calls": model.calls,
+                **(_errors(result, a["reference"], a["expect"]) if "reference" in a else {}),
             }
         )
         r = rows[-1]
@@ -150,6 +181,8 @@ def evaluate(posting_id: int) -> list[dict]:
             j = judged[i] if i < len(judged) else None
             print(f"         {i + 1}. {claim[:60]} → {j['level'] + ' ' + str(j['evidence_ids']) if j else '-'}", flush=True)
         print("      호출: " + " | ".join(_call_text(c) for c in model.calls), flush=True)
+        if "reference_score" in r:
+            print(f"      기준: {r['reference_score']}점 (차이 {r['score_error']}) | 단계 LLM {r['level']} / 기준 {r['reference_level']}", flush=True)
     return rows
 
 
@@ -159,6 +192,17 @@ def report(rows: list[dict]) -> dict:
     precision = sum(picked) / len(picked) if picked else None
     print(f"\n근거 상태 정확도 {status_accuracy:.1%} ({sum(r['status_ok'] for r in rows)}/{len(rows)})")
     print(f"근거 문장 정밀도 {precision:.1%} ({sum(picked)}/{len(picked)})" if picked else "근거 문장 없음")
+    scored = [r for r in rows if "score_error" in r]
+    errors = {}
+    if scored:
+        for key, label in (("score_error", "점수 오차"), ("relevance_error", "  적합성 오차"),
+                           ("specificity_error", "  구체성 오차"), ("doc_match_error", "  일치 오차")):
+            values = [r[key] for r in scored if r[key] is not None]
+            errors[key] = statistics.mean(values) if values else None
+            print(f"{label} 평균 {errors[key]:.1f}점 ({len(values)}개)" if values else f"{label} 없음")
+        judged = [r["level_ok"] for r in scored if r["level_ok"] is not None]
+        errors["level_agreement"] = sum(judged) / len(judged) if judged else None
+        print(f"일치 단계 일치율 {errors['level_agreement']:.1%} ({sum(judged)}/{len(judged)})" if judged else "일치 단계 비교 없음")
     failed = sum(r.get("format_failed", False) for r in rows)
     print(f"검증 실패율 {failed / len(rows):.1%} ({failed}/{len(rows)}, 재시도해도 형식이 맞지 않은 답변)")
     print(f"채점 시간(답변 뒤 대기) 중앙 {statistics.median(r['seconds'] for r in rows):.1f}s")
@@ -172,6 +216,7 @@ def report(rows: list[dict]) -> dict:
                              "median_cached_tokens": statistics.median(cached)}
             print(f"  {kind}: {len(seconds)}번, 중앙 {statistics.median(seconds):.1f}s, 캐시 토큰 중앙 {statistics.median(cached):.0f}")
     return {
+        **errors,
         "calls_by_kind": by_kind,
         "status_accuracy": status_accuracy,
         "evidence_precision": precision,
