@@ -25,6 +25,7 @@ sys.path[:0] = ["/src"]
 from app.chains.answer_content import EvidenceStatus, score_content
 from app.chains.structured import StructuredOutputError
 from app.core.config import get_settings
+from app.core.llm import get_chat_model
 from app.prompts import answer_content as prompts
 from app.rag.retriever import search_company_docs
 
@@ -40,6 +41,42 @@ JOB_DESCRIPTION = (
     "사내 기술문서 질의응답 RAG 서비스를 개발·운영한다. "
     "문서 색인 파이프라인, 검색 품질 개선, LangGraph 에이전트 구현을 맡는다."
 )
+
+
+class TimedModel:
+    """LLM 호출마다 걸린 시간과 토큰 수를 남긴다. 캐시 토큰은 Ollama가 앞부분 계산을 다시 쓴 양이다."""
+
+    def __init__(self, model):
+        self.model = model
+        self.calls: list[dict] = []
+
+    def invoke(self, messages):
+        started = time.perf_counter()
+        out = self.model.invoke(messages)
+        usage = getattr(out, "usage_metadata", None) or {}
+        self.calls.append({
+            "kind": _call_kind(messages[-1].content),
+            "seconds": round(time.perf_counter() - started, 2),
+            "input_tokens": usage.get("input_tokens"),
+            "cached_tokens": (usage.get("input_token_details") or {}).get("cache_read"),
+            "output_tokens": usage.get("output_tokens"),
+        })
+        return out
+
+
+def _call_kind(last_message: str) -> str:
+    if "[지원자가 말한 것]" in last_message:
+        return "주장"
+    if "question_in_docs" in last_message:
+        return "주제"
+    if "[지원자 답변]" in last_message:
+        return "읽기"
+    return "재시도"  # 형식 오류나 빈 주장으로 다시 물은 요청
+
+
+def _call_text(c: dict) -> str:
+    cached = f", 캐시 {c['cached_tokens']}" if c["cached_tokens"] else ""
+    return f"{c['kind']} {c['seconds']}s(입력 {c['input_tokens']}{cached})"
 
 
 def _norm(s: str) -> str:
@@ -60,15 +97,16 @@ def evaluate(posting_id: int) -> list[dict]:
         q = by_id[a["question"]]
         question_context = search_company_docs(posting_id, [q["query"]])
         answer_context = search_company_docs(posting_id, [a["query"]])
+        model = TimedModel(get_chat_model())
         started = time.perf_counter()
         try:
-            result = score_content(q["query"], a["query"], question_context, answer_context, JOB_DESCRIPTION)
+            result = score_content(q["query"], a["query"], question_context, answer_context, JOB_DESCRIPTION, model=model)
         except StructuredOutputError as e:
             # 재시도해도 형식 검증에 실패했다. 이 답변은 틀린 것으로 세고 다음으로 넘어간다 (검증 실패율)
             seconds = time.perf_counter() - started
             rows.append({"id": a["id"], "expect": a["expect"], "status": "형식 실패", "status_ok": False,
                          "format_failed": True, "error": str(e), "evidence": [], "evidence_gold": [],
-                         "seconds": round(seconds, 1)})
+                         "seconds": round(seconds, 1), "calls": model.calls})
             print(f"{a['id']:<3} X 기대={a['expect']:<14} 결과=형식 실패 ({seconds:.1f}s)\n      {str(e)[:150]}", flush=True)
             continue
         seconds = time.perf_counter() - started
@@ -88,6 +126,7 @@ def evaluate(posting_id: int) -> list[dict]:
                 "question_context": len(question_context),
                 "answer_context": len(answer_context),
                 "seconds": round(seconds, 1),
+                "calls": model.calls,
             }
         )
         r = rows[-1]
@@ -100,6 +139,7 @@ def evaluate(posting_id: int) -> list[dict]:
         for i, claim in enumerate(read["claims"]):
             j = judged[i] if i < len(judged) else None
             print(f"         {i + 1}. {claim[:60]} → {j['level'] + ' ' + str(j['evidence_ids']) if j else '-'}", flush=True)
+        print("      호출: " + " | ".join(_call_text(c) for c in model.calls), flush=True)
     return rows
 
 
@@ -112,7 +152,17 @@ def report(rows: list[dict]) -> dict:
     failed = sum(r.get("format_failed", False) for r in rows)
     print(f"검증 실패율 {failed / len(rows):.1%} ({failed}/{len(rows)}, 재시도해도 형식이 맞지 않은 답변)")
     print(f"채점 시간 중앙 {statistics.median(r['seconds'] for r in rows):.1f}s")
+    calls = [c for r in rows for c in r.get("calls", [])]
+    by_kind = {}
+    for kind in ("읽기", "주제", "주장", "재시도"):
+        seconds = [c["seconds"] for c in calls if c["kind"] == kind]
+        if seconds:
+            cached = [c["cached_tokens"] or 0 for c in calls if c["kind"] == kind]
+            by_kind[kind] = {"count": len(seconds), "median_seconds": statistics.median(seconds),
+                             "median_cached_tokens": statistics.median(cached)}
+            print(f"  {kind}: {len(seconds)}번, 중앙 {statistics.median(seconds):.1f}s, 캐시 토큰 중앙 {statistics.median(cached):.0f}")
     return {
+        "calls_by_kind": by_kind,
         "status_accuracy": status_accuracy,
         "evidence_precision": precision,
         "format_failure_rate": failed / len(rows),
