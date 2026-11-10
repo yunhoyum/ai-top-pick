@@ -83,11 +83,13 @@ def main(posting_id: int) -> None:
 
     data["version"] = "v3"
     data["description"] = re.sub(r"평가셋 v[\d.]+", "평가셋 v3", data["description"])
-    data["changes"] += (
-        " v2.1 → v3 (2026-11-10): 면접 답변을 30개로 늘리고(A10~A30) 답변마다 기준 점수(reference)를 넣었다. "
-        "기대 근거 상태(expect)는 기준 점수에서 정한다. 기준 점수는 AI가 매긴 초안에 사람이 A5·A10·A19·A27을 확인해 고쳤다 "
-        "(human_reviewed). 판단에 쓴 문서 문장을 정답 문장에 더했다."
-    )
+    # 다시 실행해도 변경 기록이 한 번만 남게 한다
+    if "v2.1 → v3" not in data["changes"]:
+        data["changes"] += (
+            " v2.1 → v3 (2026-11-10): 면접 답변을 30개로 늘리고(A10~A30) 답변마다 기준 점수(reference)를 넣었다. "
+            "기대 근거 상태(expect)는 기준 점수에서 정한다. 기준 점수는 AI가 매긴 초안이고, 사람이 확인한 답변은 "
+            "human_reviewed로 표시한다. 판단에 쓴 문서 문장을 정답 문장에 더했다."
+        )
     EVAL.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     answers = [q for q in data["queries"] if q["kind"] == "면접 답변"]
