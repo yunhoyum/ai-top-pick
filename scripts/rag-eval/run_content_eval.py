@@ -83,7 +83,7 @@ def evaluate(posting_id: int) -> list[dict]:
         r = rows[-1]
         mark = "O" if r["status_ok"] else "X"
         llm = r["llm"]
-        axes = f"적합 {llm['relevance']} 구체 {llm['specificity']} 일치 {llm.get('doc_match', '-')}"
+        axes = f"적합 {llm['relevance']} 구체 {llm['specificity']} 일치 {llm.get('doc_match_level', '-')}"
         topic = f"주제 {llm['question_in_docs']} 번호 {llm['evidence_ids']}" if "question_in_docs" in llm else "문서 없음"
         print(f"{r['id']:<3} {mark} 기대={r['expect']:<14} 결과={r['status']:<8} 점수={r['score']:>6} "
               f"근거 {sum(r['evidence_gold'])}/{len(r['evidence'])} 정답 ({r['seconds']}s)\n"

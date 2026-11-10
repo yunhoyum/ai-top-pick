@@ -45,13 +45,13 @@ PG = _chunk(1, "PG 승인 응답이 5초 안에 오지 않으면 결제 상태�
 DEPLOY = _chunk(2, "배포는 Docker로 한다.", similarity=0.6)
 
 
-def _output(ids, question_in_docs=True, doc_match=95):
+def _output(ids, question_in_docs=True, level="같음"):
     return {
         "question_in_docs": question_in_docs,
         "evidence_ids": ids,
+        "doc_match_level": level,
         "relevance": 90,
         "specificity": 80,
-        "doc_match": doc_match,
         "reason": "질문에 맞게 순서대로 답했다.",
     }
 
@@ -88,7 +88,7 @@ def test_numbers_are_candidate_then_sentence_and_overlap_is_not_repeated():
 def test_found_evidence_uses_three_axes_and_copies_sentence():
     result = _score(FakeModel(_output(["1-1"])))
     assert result.status == EvidenceStatus.FOUND
-    assert result.score == Decimal("88.50")  # 36 + 24 + 28.5
+    assert result.score == Decimal("90.00")  # 36 + 24 + 30 (같음 = 100)
     assert result.reason == "질문에 맞게 순서대로 답했다."
     [evidence] = result.evidence
     assert evidence.sentence == "PG 승인 응답이 5초 안에 오지 않으면 결제 상태를 확인 중으로 둔다."
@@ -100,12 +100,21 @@ def test_unknown_ids_are_dropped_and_duplicates_kept_once():
     assert [e.sentence for e in result.evidence] == ["보정 배치가 1분마다 조회한다."]
 
 
+@pytest.mark.parametrize(
+    ("level", "expected"),
+    [("같음", "90.00"), ("대부분 같음", "82.50"), ("일부만 같음", "67.50"), ("반대", "60.00")],
+)
+def test_doc_match_level_maps_to_score(level, expected):
+    # 36 + 24 + 일치 단계 점수(100, 75, 25, 0) × 0.3
+    assert _score(FakeModel(_output(["1-1"], level=level))).score == Decimal(expected)
+
+
 def test_no_valid_id_with_topic_in_docs_is_no_answer_doc():
-    result = _score(FakeModel(_output(["9-9"], question_in_docs=True, doc_match=95)))
+    result = _score(FakeModel(_output(["9-9"], question_in_docs=True, level="같음")))
     assert result.status == EvidenceStatus.NO_ANSWER_DOC
     # 평가용으로 LLM이 낸 값은 바꾸지 않고 그대로 남긴다
-    assert result.llm_output.doc_match == 95 and result.llm_output.evidence_ids == ["9-9"]
-    # LLM의 일치 점수 95 대신 50을 넣는다: 36 + 24 + 15
+    assert result.llm_output.doc_match_level == "같음" and result.llm_output.evidence_ids == ["9-9"]
+    # LLM의 일치 단계 대신 50을 넣는다: 36 + 24 + 15
     assert result.score == Decimal("75.00")
     assert result.reason.endswith(NO_ANSWER_DOC_NOTE)
     assert result.evidence == []
@@ -118,10 +127,17 @@ def test_no_valid_id_with_topic_not_in_docs_is_no_question_doc():
     assert result.reason.endswith(NO_QUESTION_DOC_NOTE)
 
 
+def test_level_not_in_docs_is_no_answer_doc_even_with_ids():
+    # 번호를 골랐어도 일치 단계가 '문서에 없음'이면 근거로 쓰지 않는다
+    result = _score(FakeModel(_output(["1-1"], level="문서에 없음")))
+    assert result.status == EvidenceStatus.NO_ANSWER_DOC
+    assert result.score == Decimal("75.00") and result.evidence == []
+
+
 def test_valid_evidence_wins_over_topic_judgment():
     result = _score(FakeModel(_output(["1-1"], question_in_docs=False)))
     assert result.status == EvidenceStatus.FOUND
-    assert result.score == Decimal("88.50")
+    assert result.score == Decimal("90.00")
 
 
 def test_empty_question_context_scores_without_documents():
@@ -146,7 +162,7 @@ def test_prompt_numbers_sentences_from_both_contexts():
 
 
 def test_invalid_output_is_retried_with_the_error():
-    model = FakeModel("점수는 90점입니다", {**_output(["1-1"]), "relevance": 150}, _output(["1-1"]))
+    model = FakeModel("점수는 90점입니다", {**_output(["1-1"]), "doc_match_level": "보통"}, _output(["1-1"]))
     out = invoke_structured(model, [], AnswerContentOutput, max_retries=2)
     assert out.relevance == 90
     # 두 번째·세 번째 요청에는 앞의 틀린 출력과 오류가 붙어 있다
