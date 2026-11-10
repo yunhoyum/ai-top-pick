@@ -23,7 +23,7 @@ class TopicOutput(BaseModel):
 
 
 # 주장 하나와 회사 문서의 관계. 다섯 단계 중 무엇인지는 코드가 주장들을 모아 정한다 (루브릭 설계서 3.2)
-ClaimLevel = Literal["같음", "일부만 같음", "반대", "문서에 없음"]
+ClaimLevel = Literal["같음", "반대", "문서에 없음"]
 
 
 class ClaimJudgment(BaseModel):
