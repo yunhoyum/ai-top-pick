@@ -1,0 +1,2352 @@
+{
+  "experiment": "P14-v3",
+  "posting_id": 3479,
+  "prompt_version": "v13",
+  "llm_model": "hf.co/LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct-GGUF:IQ4_XS",
+  "summary": {
+    "score_error": 15.685333333333334,
+    "relevance_error": 17.166666666666668,
+    "specificity_error": 19.833333333333332,
+    "doc_match_error": 20,
+    "level_agreement": 0.6153846153846154,
+    "calls_by_kind": {
+      "출제 때 주제": {
+        "count": 29,
+        "median_seconds": 0.81,
+        "median_cached_tokens": 1648
+      },
+      "읽기": {
+        "count": 30,
+        "median_seconds": 4.605,
+        "median_cached_tokens": 146.0
+      },
+      "주장": {
+        "count": 40,
+        "median_seconds": 6.3149999999999995,
+        "median_cached_tokens": 1674.0
+      },
+      "재시도": {
+        "count": 2,
+        "median_seconds": 3.435,
+        "median_cached_tokens": 419.5
+      }
+    },
+    "status_accuracy": 0.8666666666666667,
+    "evidence_precision": 0.2631578947368421,
+    "format_failure_rate": 0.0,
+    "median_seconds": 16.4
+  },
+  "rows": [
+    {
+      "id": "A1",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "85.00",
+      "evidence": [
+        "핵심은 청크마다 문서 전체를 참고해 짧은 설명 문맥을 LLM으로 만들고, 그 문맥을 청크 앞에 붙이는 것이다.",
+        "3. Claude는 50~100 토큰의 문맥을 만든다.",
+        "문맥에는 문서명, 절 제목, 서비스명, 청크의 역할이 들어간다."
+      ],
+      "evidence_gold": [
+        true,
+        false,
+        true
+      ],
+      "reason": "답변은 문서 청크 분할 시 발생하는 문맥 손실 문제 해결 방안으로 구체적인 접근법을 제시하여 질문에 잘 부합한다. 그러나 구체적인 수치나 기술적 세부 사항이 부족하여 specificity 점수가 다소 낮다. 회사 문서와 비교한 주장 2개: 같음 2 (일치 단계: 같음).",
+      "llm": {
+        "read": {
+          "claims": [
+            "청크마다 해당 청크의 문서 내 위치를 설명하는 짧은 문맥을 LLM을 통해 생성하여 앞에 붙인다.",
+            "서비스 내 중요 정보 (예: 서비스 이름, 버전)를 청크에 포함시켜 검색 효율을 높인다."
+          ],
+          "relevance": 85,
+          "specificity": 70,
+          "reason": "답변은 문서 청크 분할 시 발생하는 문맥 손실 문제 해결 방안으로 구체적인 접근법을 제시하여 질문에 잘 부합한다. 그러나 구체적인 수치나 기술적 세부 사항이 부족하여 specificity 점수가 다소 낮다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "6-5",
+              "7-4",
+              "7-5"
+            ]
+          },
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "6-5",
+              "7-5"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 5,
+      "seconds": 21.3,
+      "prepare_seconds": 1.2,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 1.18,
+          "input_tokens": 1518,
+          "cached_tokens": 1467,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 5.7,
+          "input_tokens": 459,
+          "cached_tokens": 145,
+          "output_tokens": 138
+        },
+        {
+          "kind": "주장",
+          "seconds": 10.86,
+          "input_tokens": 2740,
+          "cached_tokens": 1467,
+          "output_tokens": 29
+        },
+        {
+          "kind": "주장",
+          "seconds": 4.2,
+          "input_tokens": 2734,
+          "cached_tokens": 2341,
+          "output_tokens": 24
+        }
+      ],
+      "reference_score": 89.0,
+      "score_error": 4.0,
+      "relevance_error": 10,
+      "specificity_error": 0,
+      "doc_match_error": 0,
+      "level": "같음",
+      "reference_level": "같음",
+      "level_ok": true,
+      "human_reviewed": false
+    },
+    {
+      "id": "A2",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "55.00",
+      "evidence": [
+        "• 중첩 — 50 토큰: 문장이 청크 경계에서 잘리는 문제를 줄인다.",
+        "4. 문맥 생성: Contextual Retriever가 청크마다 설명 문맥을 만든다."
+      ],
+      "evidence_gold": [
+        false,
+        false
+      ],
+      "reason": "답변은 질문에 대한 직접적인 해결책을 제시하여 높은 관련성을 보입니다. 그러나 구체적인 방법론이나 추가적인 기술적 세부 사항이 부족하여 specificity 점수는 중간 수준으로 평가되었습니다. 회사 문서와 비교한 주장 1개: 반대 1 (일치 단계: 반대).",
+      "llm": {
+        "read": {
+          "claims": [
+            "청크 크기를 크게 늘려 문맥 끊김을 최소화한다 (약 2천 토큰)"
+          ],
+          "relevance": 85,
+          "specificity": 70,
+          "reason": "답변은 질문에 대한 직접적인 해결책을 제시하여 높은 관련성을 보입니다. 그러나 구체적인 방법론이나 추가적인 기술적 세부 사항이 부족하여 specificity 점수는 중간 수준으로 평가되었습니다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "반대",
+            "evidence_ids": [
+              "8-5",
+              "10-4"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 5,
+      "seconds": 19.9,
+      "prepare_seconds": 0.8,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.78,
+          "input_tokens": 1518,
+          "cached_tokens": 1467,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.31,
+          "input_tokens": 429,
+          "cached_tokens": 172,
+          "output_tokens": 95
+        },
+        {
+          "kind": "주장",
+          "seconds": 15.21,
+          "input_tokens": 3271,
+          "cached_tokens": 1467,
+          "output_tokens": 24
+        }
+      ],
+      "reference_score": 40.0,
+      "score_error": 15.0,
+      "relevance_error": 15,
+      "specificity_error": 30,
+      "doc_match_error": 0,
+      "level": "반대",
+      "reference_level": "반대",
+      "level_ok": true,
+      "human_reviewed": false
+    },
+    {
+      "id": "A3",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "85.00",
+      "evidence": [
+        "[\"search_count\"] < 3 else \"fallback\""
+      ],
+      "evidence_gold": [
+        false
+      ],
+      "reason": "답변은 질문에 대한 구체적인 설계 방안을 제시하여 높은 관련성을 보입니다. 그러나 구체적인 수치나 특정 기술적 세부 사항이 부족하여 specificity 점수는 중간 수준으로 평가되었습니다. 회사 문서와 비교한 주장 2개: 같음 2 (일치 단계: 같음).",
+      "llm": {
+        "read": {
+          "claims": [
+            "문서 평가 노드에서 관련 문서 수가 두 개 미만일 경우 질의 재작성 노드로 이동",
+            "검색 횟수를 상태로 관리하여 최대 두 번까지 재검색 허용"
+          ],
+          "relevance": 85,
+          "specificity": 70,
+          "reason": "답변은 질문에 대한 구체적인 설계 방안을 제시하여 높은 관련성을 보입니다. 그러나 구체적인 수치나 특정 기술적 세부 사항이 부족하여 specificity 점수는 중간 수준으로 평가되었습니다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "8-15",
+              "9-1"
+            ]
+          },
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "3-4",
+              "9-1"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 5,
+      "seconds": 21.8,
+      "prepare_seconds": 0.9,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.89,
+          "input_tokens": 1637,
+          "cached_tokens": 1586,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.97,
+          "input_tokens": 450,
+          "cached_tokens": 145,
+          "output_tokens": 108
+        },
+        {
+          "kind": "주장",
+          "seconds": 12.45,
+          "input_tokens": 3042,
+          "cached_tokens": 1586,
+          "output_tokens": 25
+        },
+        {
+          "kind": "주장",
+          "seconds": 3.81,
+          "input_tokens": 3038,
+          "cached_tokens": 2654,
+          "output_tokens": 24
+        }
+      ],
+      "reference_score": 93.5,
+      "score_error": 8.5,
+      "relevance_error": 10,
+      "specificity_error": 15,
+      "doc_match_error": 0,
+      "level": "같음",
+      "reference_level": "같음",
+      "level_ok": true,
+      "human_reviewed": false
+    },
+    {
+      "id": "A4",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "85.00",
+      "evidence": [
+        "문서 규모는 가상이다."
+      ],
+      "evidence_gold": [
+        false
+      ],
+      "reason": "답변은 문서 색인 갱신 방법에 대해 구체적인 접근 방식을 제시하여 질문에 잘 부합하지만, '기존 청크를 지우고 새로 넣겠다'는 표현은 약간 모호할 수 있어 specificity 점수가 완벽하게 높지 않다. 해시값 기반의 갱신 방법은 효과적이지만, 구체적인 업데이트 전략이나 처리 과정에 대한 설명이 더 추가되었더라면 더 높은 점수를 받을 수 있었을 것이다. 회사 문서와 비교한 주장 1개: 같음 1 (일치 단계: 같음).",
+      "llm": {
+        "read": {
+          "claims": [
+            "문서마다 해시값을 저장하고, 해시값이 변경된 문서만 기존 색인 청크를 업데이트하거나 새로 생성한다."
+          ],
+          "relevance": 85,
+          "specificity": 70,
+          "reason": "답변은 문서 색인 갱신 방법에 대해 구체적인 접근 방식을 제시하여 질문에 잘 부합하지만, '기존 청크를 지우고 새로 넣겠다'는 표현은 약간 모호할 수 있어 specificity 점수가 완벽하게 높지 않다. 해시값 기반의 갱신 방법은 효과적이지만, 구체적인 업데이트 전략이나 처리 과정에 대한 설명이 더 추가되었더라면 더 높은 점수를 받을 수 있었을 것이다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "[6-9]",
+              "[7-15]"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 5,
+      "seconds": 19.8,
+      "prepare_seconds": 0.9,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.9,
+          "input_tokens": 1705,
+          "cached_tokens": 1654,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 5.78,
+          "input_tokens": 428,
+          "cached_tokens": 146,
+          "output_tokens": 154
+        },
+        {
+          "kind": "주장",
+          "seconds": 13.7,
+          "input_tokens": 3242,
+          "cached_tokens": 1654,
+          "output_tokens": 28
+        }
+      ],
+      "reference_score": 90.5,
+      "score_error": 5.5,
+      "relevance_error": 10,
+      "specificity_error": 5,
+      "doc_match_error": 0,
+      "level": "같음",
+      "reference_level": "같음",
+      "level_ok": true,
+      "human_reviewed": true
+    },
+    {
+      "id": "A5",
+      "expect": "㉡",
+      "status": "근거 있음",
+      "status_ok": false,
+      "score": "85.00",
+      "evidence": [
+        "5.1 단계별 처리"
+      ],
+      "evidence_gold": [
+        false
+      ],
+      "reason": "답변은 질문에 대한 명확한 접근 방법을 제시하여 높은 관련성을 보입니다. 그러나 구체적인 구현 방법이나 기술적 세부 사항이 부족하여 specificity 점수는 중간 수준으로 평가되었습니다. 회사 문서와 비교한 주장 1개: 같음 1 (일치 단계: 같음).",
+      "llm": {
+        "read": {
+          "claims": [
+            "권한이 필요한 문서는 챗봇 색인에서 제외한다.",
+            "공개 문서만 색인화 과정에 포함시킨다."
+          ],
+          "relevance": 85,
+          "specificity": 70,
+          "reason": "답변은 질문에 대한 명확한 접근 방법을 제시하여 높은 관련성을 보입니다. 그러나 구체적인 구현 방법이나 기술적 세부 사항이 부족하여 specificity 점수는 중간 수준으로 평가되었습니다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "12-12"
+            ]
+          },
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "2-12",
+              "6-12"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 2,
+      "seconds": 15.2,
+      "prepare_seconds": 0.4,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.39,
+          "input_tokens": 1739,
+          "cached_tokens": 1738,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.79,
+          "input_tokens": 440,
+          "cached_tokens": 145,
+          "output_tokens": 101
+        },
+        {
+          "kind": "주장",
+          "seconds": 6.42,
+          "input_tokens": 2431,
+          "cached_tokens": 1706,
+          "output_tokens": 21
+        },
+        {
+          "kind": "주장",
+          "seconds": 3.76,
+          "input_tokens": 2428,
+          "cached_tokens": 2046,
+          "output_tokens": 26
+        }
+      ],
+      "reference_score": 49.5,
+      "score_error": 35.5,
+      "relevance_error": 25,
+      "specificity_error": 35,
+      "doc_match_error": 50,
+      "level": "같음",
+      "reference_level": "문서에 없음",
+      "level_ok": false,
+      "human_reviewed": true
+    },
+    {
+      "id": "A6",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "85.00",
+      "evidence": [
+        "→ 파싱 → 청킹 → 청크별 문맥 생성 → 문맥을 붙인 청크 임베딩 → Qdrant와 OpenSearch에 적재."
+      ],
+      "evidence_gold": [
+        false
+      ],
+      "reason": "답변은 질문에 제시된 문제인 청크별 LLM 문맥 생성 비용 절감 방안에 대해 구체적인 접근법을 제시하고 있어 관련성이 높다. 그러나 구체적인 캐시 관리 전략이나 예상되는 비용 절감 효과 등 세부 사항이 부족하여 specificity 점수는 다소 낮게 평가되었다. 회사 문서와 비교한 주장 1개: 같음 1 (일치 단계: 같음).",
+      "llm": {
+        "read": {
+          "claims": [
+            "문서를 한 번만 입력하고, 이후 청크들은 캐시를 활용하여 중복 계산을 피한다."
+          ],
+          "relevance": 85,
+          "specificity": 70,
+          "reason": "답변은 질문에 제시된 문제인 청크별 LLM 문맥 생성 비용 절감 방안에 대해 구체적인 접근법을 제시하고 있어 관련성이 높다. 그러나 구체적인 캐시 관리 전략이나 예상되는 비용 절감 효과 등 세부 사항이 부족하여 specificity 점수는 다소 낮게 평가되었다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "4-1",
+              "9-2"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 5,
+      "seconds": 17.9,
+      "prepare_seconds": 0.4,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.38,
+          "input_tokens": 1725,
+          "cached_tokens": 1724,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.88,
+          "input_tokens": 446,
+          "cached_tokens": 175,
+          "output_tokens": 117
+        },
+        {
+          "kind": "주장",
+          "seconds": 12.57,
+          "input_tokens": 3137,
+          "cached_tokens": 1674,
+          "output_tokens": 24
+        }
+      ],
+      "reference_score": 77.5,
+      "score_error": 7.5,
+      "relevance_error": 0,
+      "specificity_error": 25,
+      "doc_match_error": 0,
+      "level": "같음",
+      "reference_level": "같음",
+      "level_ok": true,
+      "human_reviewed": false
+    },
+    {
+      "id": "A7",
+      "expect": "㉡",
+      "status": "근거 있음",
+      "status_ok": false,
+      "score": "36.00",
+      "evidence": [
+        "둘째, 키워드 검색과 의미 검색을 함께 쓴다.",
+        "표현이 다른 질문은 의미 검색이 강하다."
+      ],
+      "evidence_gold": [
+        false,
+        false
+      ],
+      "reason": "답변은 키워드 검색과 벡터 검색의 결합 이유를 부분적으로 설명하고 있지만, 키워드와 벡터 검색의 보완적 활용과 검색 정확성 향상에 대한 구체적인 맥락은 부족하다. 동의어 사전 활용은 검색 범위를 넓히는 방법으로 이해될 수 있으나, 질문에서 요구한 '키워드 검색과 벡터 검색의 함께 사용 이유'에 대한 완전한 설명은 미흡하다. 회사 문서와 비교한 주장 1개: 반대 1 (일치 단계: 반대).",
+      "llm": {
+        "read": {
+          "claims": [
+            "동의어 사전을 활용하여 질문에 비슷한 단어를 추가하여 검색 범위를 확장한다."
+          ],
+          "relevance": 60,
+          "specificity": 40,
+          "reason": "답변은 키워드 검색과 벡터 검색의 결합 이유를 부분적으로 설명하고 있지만, 키워드와 벡터 검색의 보완적 활용과 검색 정확성 향상에 대한 구체적인 맥락은 부족하다. 동의어 사전 활용은 검색 범위를 넓히는 방법으로 이해될 수 있으나, 질문에서 요구한 '키워드 검색과 벡터 검색의 함께 사용 이유'에 대한 완전한 설명은 미흡하다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "반대",
+            "evidence_ids": [
+              "2-2",
+              "2-3",
+              "2-4"
+            ]
+          }
+        ]
+      },
+      "question_context": 4,
+      "answer_context": 2,
+      "seconds": 14.4,
+      "prepare_seconds": 0.4,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.4,
+          "input_tokens": 1450,
+          "cached_tokens": 1449,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 5.25,
+          "input_tokens": 422,
+          "cached_tokens": 145,
+          "output_tokens": 133
+        },
+        {
+          "kind": "주장",
+          "seconds": 8.76,
+          "input_tokens": 2378,
+          "cached_tokens": 1400,
+          "output_tokens": 28
+        }
+      ],
+      "reference_score": 28.5,
+      "score_error": 7.5,
+      "relevance_error": 45,
+      "specificity_error": 15,
+      "doc_match_error": 50,
+      "level": "반대",
+      "reference_level": "문서에 없음",
+      "level_ok": false,
+      "human_reviewed": false
+    },
+    {
+      "id": "A8",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "85.00",
+      "evidence": [
+        "검색 실패율@20은 정답 청크가 상위 20개 후보에 없는 질문의 비율이다.",
+        "각 질문에는 정답 청크(golden chunk)를 사람이 지정했다."
+      ],
+      "evidence_gold": [
+        true,
+        true
+      ],
+      "reason": "답변은 질문에 직접적으로 관련된 지표를 제시하여 높은 관련성을 보입니다. 그러나 구체적인 수치나 추가적인 세부 사항이 부족하여 specificity 점수는 중간 수준으로 평가되었습니다. 회사 문서와 비교한 주장 3개: 같음 3 (일치 단계: 같음).",
+      "llm": {
+        "read": {
+          "claims": [
+            "검색 실패율을 평가 지표로 사용했습니다.",
+            "정답 청크를 사람이 정의했습니다.",
+            "상위 20개 결과 중 정답이 포함되지 않는 비율을 측정했습니다."
+          ],
+          "relevance": 85,
+          "specificity": 70,
+          "reason": "답변은 질문에 직접적으로 관련된 지표를 제시하여 높은 관련성을 보입니다. 그러나 구체적인 수치나 추가적인 세부 사항이 부족하여 specificity 점수는 중간 수준으로 평가되었습니다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "6-11",
+              "9-2"
+            ]
+          },
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "6-8",
+              "6-9"
+            ]
+          },
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "6-11"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 5,
+      "seconds": 25.3,
+      "prepare_seconds": 0.9,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.9,
+          "input_tokens": 1941,
+          "cached_tokens": 1890,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 5.42,
+          "input_tokens": 438,
+          "cached_tokens": 145,
+          "output_tokens": 126
+        },
+        {
+          "kind": "주장",
+          "seconds": 11.18,
+          "input_tokens": 3149,
+          "cached_tokens": 1890,
+          "output_tokens": 25
+        },
+        {
+          "kind": "주장",
+          "seconds": 3.92,
+          "input_tokens": 3148,
+          "cached_tokens": 2768,
+          "output_tokens": 24
+        },
+        {
+          "kind": "주장",
+          "seconds": 4.22,
+          "input_tokens": 3159,
+          "cached_tokens": 2768,
+          "output_tokens": 20
+        }
+      ],
+      "reference_score": 88.5,
+      "score_error": 3.5,
+      "relevance_error": 5,
+      "specificity_error": 5,
+      "doc_match_error": 0,
+      "level": "같음",
+      "reference_level": "같음",
+      "level_ok": true,
+      "human_reviewed": false
+    },
+    {
+      "id": "A9",
+      "expect": "㉠",
+      "status": "질문 근거 없음",
+      "status_ok": true,
+      "score": "85.71",
+      "evidence": [],
+      "evidence_gold": [],
+      "reason": "답변은 쿠버네티스 환경에서 서비스를 무중단으로 배포하는 핵심 방법을 잘 설명하고 있어 관련성이 매우 높다. 구체적인 기술 용어와 프로세스를 언급하여 내용의 구체성도 높다. 다만, '트래픽 이전' 부분에서 구체적인 트래픽 관리 전략이나 도구에 대한 언급이 조금 더 추가되었더라면 더욱 완벽했을 것이다. 회사 문서에 관련 내용이 없는 질문이라 회사 문서 일치 축을 빼고 채점했다.",
+      "llm": {
+        "read": {
+          "claims": [
+            "롤링 업데이트를 통해 파드를 순차적으로 업데이트한다.",
+            "readiness probe를 사용하여 새 파드의 준비 상태를 확인한다.",
+            "트래픽을 새 파드에 점진적으로 이전한다."
+          ],
+          "relevance": 90,
+          "specificity": 80,
+          "reason": "답변은 쿠버네티스 환경에서 서비스를 무중단으로 배포하는 핵심 방법을 잘 설명하고 있어 관련성이 매우 높다. 구체적인 기술 용어와 프로세스를 언급하여 내용의 구체성도 높다. 다만, '트래픽 이전' 부분에서 구체적인 트래픽 관리 전략이나 도구에 대한 언급이 조금 더 추가되었더라면 더욱 완벽했을 것이다."
+        },
+        "topic": null,
+        "claims": []
+      },
+      "question_context": 0,
+      "answer_context": 5,
+      "seconds": 3.9,
+      "prepare_seconds": 0.0,
+      "calls": [
+        {
+          "kind": "읽기",
+          "seconds": 3.92,
+          "input_tokens": 438,
+          "cached_tokens": 437,
+          "output_tokens": 156
+        }
+      ],
+      "reference_score": 81.43,
+      "score_error": 4.28,
+      "relevance_error": 0,
+      "specificity_error": 10,
+      "doc_match_error": null,
+      "level": null,
+      "reference_level": null,
+      "level_ok": null,
+      "human_reviewed": false
+    },
+    {
+      "id": "A10",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "90.00",
+      "evidence": [
+        "문서명, 서비스명, 버전, 상위 절 제목을 포함하라.",
+        "을 제거한다."
+      ],
+      "evidence_gold": [
+        false,
+        false
+      ],
+      "reason": "답변은 질문에 정확히 대응하여 문맥 유지 방법을 제시하였으며, 구체적인 접근 방안을 설명하고 있어 관련성과 구체성이 높다. 다만, 실제 구현 시 고려해야 할 기술적 세부 사항이나 잠재적인 문제점에 대한 언급이 없어 구체성 점수를 다소 낮게 책정하였다. 회사 문서와 비교한 주장 2개: 같음 2 (일치 단계: 같음).",
+      "llm": {
+        "read": {
+          "claims": [
+            "문서 청크마다 제목과 절 제목을 첨부하여 문맥 유지",
+            "이 방법으로 문서 내 위치 파악 용이"
+          ],
+          "relevance": 90,
+          "specificity": 80,
+          "reason": "답변은 질문에 정확히 대응하여 문맥 유지 방법을 제시하였으며, 구체적인 접근 방안을 설명하고 있어 관련성과 구체성이 높다. 다만, 실제 구현 시 고려해야 할 기술적 세부 사항이나 잠재적인 문제점에 대한 언급이 없어 구체성 점수를 다소 낮게 책정하였다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "7-6",
+              "8-6"
+            ]
+          },
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "7-1",
+              "8-1"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 5,
+      "seconds": 20.9,
+      "prepare_seconds": 0.9,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.86,
+          "input_tokens": 1518,
+          "cached_tokens": 1467,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 5.0,
+          "input_tokens": 432,
+          "cached_tokens": 146,
+          "output_tokens": 121
+        },
+        {
+          "kind": "주장",
+          "seconds": 11.49,
+          "input_tokens": 2825,
+          "cached_tokens": 1467,
+          "output_tokens": 24
+        },
+        {
+          "kind": "주장",
+          "seconds": 3.85,
+          "input_tokens": 2820,
+          "cached_tokens": 2442,
+          "output_tokens": 24
+        }
+      ],
+      "reference_score": 56.5,
+      "score_error": 33.5,
+      "relevance_error": 5,
+      "specificity_error": 30,
+      "doc_match_error": 75,
+      "level": "같음",
+      "reference_level": "일부만 같음",
+      "level_ok": false,
+      "human_reviewed": true
+    },
+    {
+      "id": "A11",
+      "expect": "㉡",
+      "status": "답변 내용 없음",
+      "status_ok": false,
+      "score": "0.00",
+      "evidence": [],
+      "evidence_gold": [],
+      "reason": "지원자의 답변은 문서 청크 분할 시 발생하는 문맥 상실 문제 해결 방안에 대해 구체적인 기술적 접근법이나 전략을 제시하지 않았습니다. 답변은 사용자 입력 가이드라인에 초점을 맞추고 있어 질문의 핵심 내용과 직접적으로 연관성이 낮습니다. 답변에서 방법이나 사실을 찾지 못해 내용 점수를 0점으로 채점했다.",
+      "llm": {
+        "read": {
+          "claims": [],
+          "relevance": 20,
+          "specificity": 0,
+          "reason": "지원자의 답변은 문서 청크 분할 시 발생하는 문맥 상실 문제 해결 방안에 대해 구체적인 기술적 접근법이나 전략을 제시하지 않았습니다. 답변은 사용자 입력 가이드라인에 초점을 맞추고 있어 질문의 핵심 내용과 직접적으로 연관성이 낮습니다."
+        },
+        "topic": null,
+        "claims": []
+      },
+      "question_context": 5,
+      "answer_context": 3,
+      "seconds": 6.3,
+      "prepare_seconds": 0.8,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.79,
+          "input_tokens": 1518,
+          "cached_tokens": 1467,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 2.71,
+          "input_tokens": 427,
+          "cached_tokens": 426,
+          "output_tokens": 108
+        },
+        {
+          "kind": "재시도",
+          "seconds": 3.56,
+          "input_tokens": 589,
+          "cached_tokens": 426,
+          "output_tokens": 88
+        }
+      ],
+      "reference_score": 40.0,
+      "score_error": 40.0,
+      "relevance_error": 20,
+      "specificity_error": 30,
+      "doc_match_error": null,
+      "level": null,
+      "reference_level": "문서에 없음",
+      "level_ok": false,
+      "human_reviewed": false
+    },
+    {
+      "id": "A12",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "43.00",
+      "evidence": [
+        "원본 문서의 상태 그래프를 “출발 노드 → 도착 노드 (조건)” 형식으로 적었다."
+      ],
+      "evidence_gold": [
+        false
+      ],
+      "reason": "답변은 질문에 대한 직접적인 해결책을 제시하지 않고, 대신 사용자에게 정보 부족 상황을 알리는 방법을 제안하여 부분적으로 관련성이 있지만, 구체적인 설계 방안이나 기술적 접근법에 대한 설명이 부족하여 점수가 제한적이다. 회사 문서와 비교한 주장 1개: 반대 1 (일치 단계: 반대).",
+      "llm": {
+        "read": {
+          "claims": [
+            "문서가 부족하면 사용자에게 다시 검색할 수 없다는 안내를 제공한다."
+          ],
+          "relevance": 70,
+          "specificity": 50,
+          "reason": "답변은 질문에 대한 직접적인 해결책을 제시하지 않고, 대신 사용자에게 정보 부족 상황을 알리는 방법을 제안하여 부분적으로 관련성이 있지만, 구체적인 설계 방안이나 기술적 접근법에 대한 설명이 부족하여 점수가 제한적이다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "반대",
+            "evidence_ids": [
+              "6-8",
+              "10.2 모니터링 지표 중 fallback 비율",
+              "10.3 리스크와 대응"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 5,
+      "seconds": 17.6,
+      "prepare_seconds": 0.9,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.86,
+          "input_tokens": 1637,
+          "cached_tokens": 1586,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.62,
+          "input_tokens": 428,
+          "cached_tokens": 145,
+          "output_tokens": 105
+        },
+        {
+          "kind": "주장",
+          "seconds": 12.87,
+          "input_tokens": 3026,
+          "cached_tokens": 1586,
+          "output_tokens": 38
+        }
+      ],
+      "reference_score": 13.5,
+      "score_error": 29.5,
+      "relevance_error": 55,
+      "specificity_error": 25,
+      "doc_match_error": 0,
+      "level": "반대",
+      "reference_level": "반대",
+      "level_ok": true,
+      "human_reviewed": false
+    },
+    {
+      "id": "A13",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "55.00",
+      "evidence": [
+        "r로 청크마다 문맥을 붙인 뒤, 검색 실패율@20은 15.0%에서 5.2%로 줄었다(가상 수치)."
+      ],
+      "evidence_gold": [
+        false
+      ],
+      "reason": "답변은 질문에 명확하게 대응하며, 부족한 문서를 보완하기 위한 구체적인 접근 방법을 제시하고 있다. 그러나 구체적인 알고리즘이나 단계별 프로세스에 대한 세부 사항이 부족하여 specificity 점수가 다소 낮다. 회사 문서와 비교한 주장 1개: 반대 1 (일치 단계: 반대).",
+      "llm": {
+        "read": {
+          "claims": [
+            "문서가 부족할 경우 검색 범위를 사내 문서에서 인터넷 검색으로 확장한다."
+          ],
+          "relevance": 85,
+          "specificity": 70,
+          "reason": "답변은 질문에 명확하게 대응하며, 부족한 문서를 보완하기 위한 구체적인 접근 방법을 제시하고 있다. 그러나 구체적인 알고리즘이나 단계별 프로세스에 대한 세부 사항이 부족하여 specificity 점수가 다소 낮다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "반대",
+            "evidence_ids": [
+              "6-1",
+              "8-4"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 4,
+      "seconds": 10.8,
+      "prepare_seconds": 0.8,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.8,
+          "input_tokens": 1637,
+          "cached_tokens": 1586,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.2,
+          "input_tokens": 424,
+          "cached_tokens": 177,
+          "output_tokens": 97
+        },
+        {
+          "kind": "주장",
+          "seconds": 6.21,
+          "input_tokens": 2262,
+          "cached_tokens": 1586,
+          "output_tokens": 23
+        }
+      ],
+      "reference_score": 40.5,
+      "score_error": 14.5,
+      "relevance_error": 25,
+      "specificity_error": 40,
+      "doc_match_error": 25,
+      "level": "반대",
+      "reference_level": "일부만 같음",
+      "level_ok": false,
+      "human_reviewed": false
+    },
+    {
+      "id": "A14",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "37.00",
+      "evidence": [
+        "3. 문서 전체 재처리: 해당 문서를 다시 청킹하고 모든 청크를 다시 문맥화한다.",
+        "바뀐 청크만이 아니라 문서의 모든 청크를 다시 문맥화한다."
+      ],
+      "evidence_gold": [
+        false,
+        false
+      ],
+      "reason": "답변은 문서 내용 변경 시 색인 갱신 방법을 제시하고 있어 질문에 대한 직접적인 답변으로서의 관련성이 높다. 하지만, 매일 밤 전체 문서를 다시 색인하는 방법은 효율성이 떨어질 수 있으며, 구체적인 세부 사항이나 더 효율적인 방법에 대한 언급이 부족하여 specificity 점수가 다소 낮다. 회사 문서와 비교한 주장 1개: 반대 1 (일치 단계: 반대).",
+      "llm": {
+        "read": {
+          "claims": [
+            "매일 밤 전체 문서를 처음부터 다시 색인한다."
+          ],
+          "relevance": 70,
+          "specificity": 30,
+          "reason": "답변은 문서 내용 변경 시 색인 갱신 방법을 제시하고 있어 질문에 대한 직접적인 답변으로서의 관련성이 높다. 하지만, 매일 밤 전체 문서를 다시 색인하는 방법은 효율성이 떨어질 수 있으며, 구체적인 세부 사항이나 더 효율적인 방법에 대한 언급이 부족하여 specificity 점수가 다소 낮다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "반대",
+            "evidence_ids": [
+              "1-10",
+              "1-13"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 0,
+      "seconds": 9.3,
+      "prepare_seconds": 0.9,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.89,
+          "input_tokens": 1705,
+          "cached_tokens": 1654,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.84,
+          "input_tokens": 416,
+          "cached_tokens": 146,
+          "output_tokens": 115
+        },
+        {
+          "kind": "주장",
+          "seconds": 4.12,
+          "input_tokens": 2045,
+          "cached_tokens": 1654,
+          "output_tokens": 25
+        }
+      ],
+      "reference_score": 40.5,
+      "score_error": 3.5,
+      "relevance_error": 5,
+      "specificity_error": 5,
+      "doc_match_error": 0,
+      "level": "반대",
+      "reference_level": "반대",
+      "level_ok": true,
+      "human_reviewed": false
+    },
+    {
+      "id": "A15",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "85.00",
+      "evidence": [
+        "1. 변경 감지: 웹훅과 일 1회 스캔으로 바뀐 문서를 찾는다."
+      ],
+      "evidence_gold": [
+        true
+      ],
+      "reason": "답변은 문서 변경 시 색인 갱신 방법으로 웹훅을 활용한 접근법을 제시하여 질문의 핵심을 잘 포착했다. 그러나 구체적인 구현 세부 사항이나 다른 가능한 방법들에 대한 언급이 부족하여 specificity 점수가 다소 낮다. 회사 문서와 비교한 주장 1개: 같음 1 (일치 단계: 같음).",
+      "llm": {
+        "read": {
+          "claims": [
+            "웹훅을 사용하여 변경된 문서를 식별하고 다시 색인화한다."
+          ],
+          "relevance": 85,
+          "specificity": 70,
+          "reason": "답변은 문서 변경 시 색인 갱신 방법으로 웹훅을 활용한 접근법을 제시하여 질문의 핵심을 잘 포착했다. 그러나 구체적인 구현 세부 사항이나 다른 가능한 방법들에 대한 언급이 부족하여 specificity 점수가 다소 낮다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "[1-8]",
+              "[6-1]"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 5,
+      "seconds": 15.1,
+      "prepare_seconds": 0.8,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.79,
+          "input_tokens": 1705,
+          "cached_tokens": 1654,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.29,
+          "input_tokens": 420,
+          "cached_tokens": 168,
+          "output_tokens": 100
+        },
+        {
+          "kind": "주장",
+          "seconds": 10.34,
+          "input_tokens": 2838,
+          "cached_tokens": 1654,
+          "output_tokens": 27
+        }
+      ],
+      "reference_score": 81.0,
+      "score_error": 4.0,
+      "relevance_error": 5,
+      "specificity_error": 20,
+      "doc_match_error": 0,
+      "level": "같음",
+      "reference_level": "같음",
+      "level_ok": true,
+      "human_reviewed": true
+    },
+    {
+      "id": "A16",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "90.00",
+      "evidence": [
+        "4. 두 검색 모두에 권한(acl) 필터를 적용한다."
+      ],
+      "evidence_gold": [
+        false
+      ],
+      "reason": "답변은 질문에 정확히 부합하며, 구체적인 방법을 제시하고 있어 관련성이 매우 높다. 다만, 구체적인 기술적 세부 사항이나 수치가 포함되어 있지 않아 specificity 점수는 다소 낮게 평가되었다. 회사 문서와 비교한 주장 1개: 같음 1 (일치 단계: 같음).",
+      "llm": {
+        "read": {
+          "claims": [
+            "사용자 권한 필터를 적용하여 접근 권한이 없는 문서는 검색 결과에서 제외한다."
+          ],
+          "relevance": 90,
+          "specificity": 80,
+          "reason": "답변은 질문에 정확히 부합하며, 구체적인 방법을 제시하고 있어 관련성이 매우 높다. 다만, 구체적인 기술적 세부 사항이나 수치가 포함되어 있지 않아 specificity 점수는 다소 낮게 평가되었다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "6-5"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 5,
+      "seconds": 18.7,
+      "prepare_seconds": 0.4,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.39,
+          "input_tokens": 1739,
+          "cached_tokens": 1738,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.59,
+          "input_tokens": 432,
+          "cached_tokens": 145,
+          "output_tokens": 102
+        },
+        {
+          "kind": "주장",
+          "seconds": 13.75,
+          "input_tokens": 3314,
+          "cached_tokens": 1706,
+          "output_tokens": 19
+        }
+      ],
+      "reference_score": 84.5,
+      "score_error": 5.5,
+      "relevance_error": 5,
+      "specificity_error": 25,
+      "doc_match_error": 0,
+      "level": "같음",
+      "reference_level": "같음",
+      "level_ok": true,
+      "human_reviewed": false
+    },
+    {
+      "id": "A17",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "52.00",
+      "evidence": [
+        "rerank), (\"grade_documents\", grade_documents), (\"generate\", generate), (\"check_grounded\", check_grounded), (\"direct_answer\", direct_answer), (\"fallback\", fallback)]: g.add_node(name, fn)"
+      ],
+      "evidence_gold": [
+        false
+      ],
+      "reason": "답변은 질문에 대한 직접적인 접근 방법을 제시하고 있어 관련성이 높다. 그러나 구체적인 구현 방법이나 기술적 세부 사항이 부족하여 specificity 점수는 중간 수준으로 평가한다. 회사 문서와 비교한 주장 1개: 반대 1 (일치 단계: 반대).",
+      "llm": {
+        "read": {
+          "claims": [
+            "답변을 생성한 후 권한 없는 문서 내용이 포함되어 있으면 삭제한다."
+          ],
+          "relevance": 85,
+          "specificity": 60,
+          "reason": "답변은 질문에 대한 직접적인 접근 방법을 제시하고 있어 관련성이 높다. 그러나 구체적인 구현 방법이나 기술적 세부 사항이 부족하여 specificity 점수는 중간 수준으로 평가한다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "반대",
+            "evidence_ids": [
+              "[6-2]",
+              "[6-1]"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 5,
+      "seconds": 10.9,
+      "prepare_seconds": 0.8,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.8,
+          "input_tokens": 1739,
+          "cached_tokens": 1688,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.01,
+          "input_tokens": 430,
+          "cached_tokens": 175,
+          "output_tokens": 90
+        },
+        {
+          "kind": "주장",
+          "seconds": 5.85,
+          "input_tokens": 2315,
+          "cached_tokens": 1688,
+          "output_tokens": 26
+        }
+      ],
+      "reference_score": 34.0,
+      "score_error": 18.0,
+      "relevance_error": 30,
+      "specificity_error": 20,
+      "doc_match_error": 0,
+      "level": "반대",
+      "reference_level": "반대",
+      "level_ok": true,
+      "human_reviewed": false
+    },
+    {
+      "id": "A18",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "90.00",
+      "evidence": [
+        "→ 파싱 → 청킹 → 청크별 문맥 생성 → 문맥을 붙인 청크 임베딩 → Qdrant와 OpenSearch에 적재.",
+        "프롬프트 캐싱으로문맥 생성 비용을 줄인다."
+      ],
+      "evidence_gold": [
+        false,
+        false
+      ],
+      "reason": "답변은 질문에서 제시된 비용 절감 방법에 대해 구체적인 전략을 제시하여 높은 관련성을 보입니다. 연속 처리와 프롬프트 캐싱이라는 구체적인 방법을 제시함으로써 구체성도 높지만, 특정 수치나 더 세부적인 기술적 세부 사항이 부족하여 specificity 점수를 다소 낮게 책정했습니다. 회사 문서와 비교한 주장 2개: 같음 2 (일치 단계: 같음).",
+      "llm": {
+        "read": {
+          "claims": [
+            "같은 문서의 청크를 연속으로 처리하여 비용을 줄인다.",
+            "프롬프트 캐싱을 적용하여 반복적인 처리 비용을 절감한다."
+          ],
+          "relevance": 90,
+          "specificity": 80,
+          "reason": "답변은 질문에서 제시된 비용 절감 방법에 대해 구체적인 전략을 제시하여 높은 관련성을 보입니다. 연속 처리와 프롬프트 캐싱이라는 구체적인 방법을 제시함으로써 구체성도 높지만, 특정 수치나 더 세부적인 기술적 세부 사항이 부족하여 specificity 점수를 다소 낮게 책정했습니다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "4-1",
+              "6-9",
+              "7-2"
+            ]
+          },
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "4-9",
+              "6-9"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 5,
+      "seconds": 22.8,
+      "prepare_seconds": 0.9,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.91,
+          "input_tokens": 1725,
+          "cached_tokens": 1674,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 5.73,
+          "input_tokens": 437,
+          "cached_tokens": 145,
+          "output_tokens": 136
+        },
+        {
+          "kind": "주장",
+          "seconds": 12.2,
+          "input_tokens": 3060,
+          "cached_tokens": 1674,
+          "output_tokens": 29
+        },
+        {
+          "kind": "주장",
+          "seconds": 4.28,
+          "input_tokens": 3061,
+          "cached_tokens": 2674,
+          "output_tokens": 24
+        }
+      ],
+      "reference_score": 87.5,
+      "score_error": 2.5,
+      "relevance_error": 5,
+      "specificity_error": 15,
+      "doc_match_error": 0,
+      "level": "같음",
+      "reference_level": "같음",
+      "level_ok": true,
+      "human_reviewed": false
+    },
+    {
+      "id": "A19",
+      "expect": "㉡",
+      "status": "답변 근거 없음",
+      "status_ok": true,
+      "score": "65.00",
+      "evidence": [],
+      "evidence_gold": [],
+      "reason": "답변은 질문에 대한 직접적인 해결책을 제시하고 있어 relevance가 높다. 그러나 구체적인 템플릿의 종류나 구현 방법, 예상되는 효율성 향상 수치 등 세부 사항이 부족하여 specificity 점수는 중간 수준으로 평가한다. 답변과 비교할 내용이 회사 문서에 없어 회사 문서 일치 축을 50점으로 채점했다.",
+      "llm": {
+        "read": {
+          "claims": [
+            "사람이 만든 템플릿을 사용하여 문맥을 채울 것이다."
+          ],
+          "relevance": 80,
+          "specificity": 60,
+          "reason": "답변은 질문에 대한 직접적인 해결책을 제시하고 있어 relevance가 높다. 그러나 구체적인 템플릿의 종류나 구현 방법, 예상되는 효율성 향상 수치 등 세부 사항이 부족하여 specificity 점수는 중간 수준으로 평가한다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "문서에 없음",
+            "evidence_ids": []
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 5,
+      "seconds": 11.7,
+      "prepare_seconds": 0.8,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.8,
+          "input_tokens": 1725,
+          "cached_tokens": 1674,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.16,
+          "input_tokens": 425,
+          "cached_tokens": 175,
+          "output_tokens": 95
+        },
+        {
+          "kind": "주장",
+          "seconds": 7.54,
+          "input_tokens": 2554,
+          "cached_tokens": 1674,
+          "output_tokens": 17
+        }
+      ],
+      "reference_score": 50.0,
+      "score_error": 15.0,
+      "relevance_error": 15,
+      "specificity_error": 30,
+      "doc_match_error": 0,
+      "level": "문서에 없음",
+      "reference_level": "문서에 없음",
+      "level_ok": true,
+      "human_reviewed": true
+    },
+    {
+      "id": "A20",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "82.50",
+      "evidence": [
+        "문서 평가에서 관련 문서가 부족하면 질의 재작성 단계로 돌아간다.",
+        "3. OpenSearch에서 BM25 검색으로 상위 50개를 가져온다."
+      ],
+      "evidence_gold": [
+        false,
+        false
+      ],
+      "reason": "답변의 검증 과정이 검색 문서 근거 확인에 명확하게 초점을 맞추고 있어 높은 관련성을 보인다. 그러나 구체적인 수치나 사례 없이 일반적인 설명에 머물러 있어 specificity 점수는 다소 낮다. 회사 문서와 비교한 주장 2개: 같음 1, 반대 1 (일치 단계: 대부분 같음).",
+      "llm": {
+        "read": {
+          "claims": [
+            "답변 생성 후 각 주장을 LLM으로 다시 검증한다.",
+            "근거 문서에 없는 주장은 다시 생성하여 확인한다."
+          ],
+          "relevance": 90,
+          "specificity": 80,
+          "reason": "답변의 검증 과정이 검색 문서 근거 확인에 명확하게 초점을 맞추고 있어 높은 관련성을 보인다. 그러나 구체적인 수치나 사례 없이 일반적인 설명에 머물러 있어 specificity 점수는 다소 낮다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "6-7",
+              "7-1"
+            ]
+          },
+          {
+            "level": "반대",
+            "evidence_ids": [
+              "6-4",
+              "6-5",
+              "7-4"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 5,
+      "seconds": 18.6,
+      "prepare_seconds": 0.9,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.88,
+          "input_tokens": 1699,
+          "cached_tokens": 1648,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.94,
+          "input_tokens": 437,
+          "cached_tokens": 145,
+          "output_tokens": 106
+        },
+        {
+          "kind": "주장",
+          "seconds": 9.18,
+          "input_tokens": 2700,
+          "cached_tokens": 1648,
+          "output_tokens": 24
+        },
+        {
+          "kind": "주장",
+          "seconds": 3.91,
+          "input_tokens": 2701,
+          "cached_tokens": 2317,
+          "output_tokens": 28
+        }
+      ],
+      "reference_score": 92.0,
+      "score_error": 9.5,
+      "relevance_error": 5,
+      "specificity_error": 0,
+      "doc_match_error": 25,
+      "level": "대부분 같음",
+      "reference_level": "같음",
+      "level_ok": false,
+      "human_reviewed": false
+    },
+    {
+      "id": "A21",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "90.00",
+      "evidence": [
+        "• check_grounded (Claude): 답변의 각 주장이 근거 문서에 있는지 검증한다."
+      ],
+      "evidence_gold": [
+        true
+      ],
+      "reason": "답변은 질문에 정확히 부합하며, 구체적인 방법을 제시하고 있다. 다만, 실제 구현 가능성과 기술적 세부 사항에 대한 추가 설명이 더 있으면 더욱 구체적일 수 있으나, 현재 답변은 질문의 핵심을 잘 포착하고 있다. 회사 문서와 비교한 주장 1개: 같음 1 (일치 단계: 같음).",
+      "llm": {
+        "read": {
+          "claims": [
+            "답변 아래에 근거 문서의 제목과 링크를 제공하여 사용자가 직접 확인할 수 있도록 한다."
+          ],
+          "relevance": 90,
+          "specificity": 80,
+          "reason": "답변은 질문에 정확히 부합하며, 구체적인 방법을 제시하고 있다. 다만, 실제 구현 가능성과 기술적 세부 사항에 대한 추가 설명이 더 있으면 더욱 구체적일 수 있으나, 현재 답변은 질문의 핵심을 잘 포착하고 있다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "2-4",
+              "2-5"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 1,
+      "seconds": 9.1,
+      "prepare_seconds": 0.8,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.8,
+          "input_tokens": 1699,
+          "cached_tokens": 1648,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.51,
+          "input_tokens": 426,
+          "cached_tokens": 171,
+          "output_tokens": 109
+        },
+        {
+          "kind": "주장",
+          "seconds": 4.16,
+          "input_tokens": 2049,
+          "cached_tokens": 1648,
+          "output_tokens": 24
+        }
+      ],
+      "reference_score": 41.5,
+      "score_error": 48.5,
+      "relevance_error": 35,
+      "specificity_error": 40,
+      "doc_match_error": 75,
+      "level": "같음",
+      "reference_level": "일부만 같음",
+      "level_ok": false,
+      "human_reviewed": false
+    },
+    {
+      "id": "A22",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "85.00",
+      "evidence": [
+        "둘째, 키워드 검색과 의미 검색을 함께 쓴다.",
+        "첫째, 기존 키워드 검색은 질문과 문서의 표현이 다르면 문서를 찾지 못한다.",
+        "표현이 다른 질문은 의미 검색이 강하다."
+      ],
+      "evidence_gold": [
+        false,
+        false,
+        true
+      ],
+      "reason": "답변은 키워드 검색과 벡터 검색의 각각의 장점을 잘 설명하고 있어 질문에 대한 이해가 높은 편이다. 그러나 구체적인 사례나 수치를 제시하지 않아 세부적인 맥락 이해에는 한계가 있다. 회사 문서와 비교한 주장 2개: 같음 2 (일치 단계: 같음).",
+      "llm": {
+        "read": {
+          "claims": [
+            "키워드 검색은 정확한 단어를 찾는데 효과적이다.",
+            "벡터 검색은 표현이 다른 질문이나 의미 검색에 효과적이다."
+          ],
+          "relevance": 85,
+          "specificity": 70,
+          "reason": "답변은 키워드 검색과 벡터 검색의 각각의 장점을 잘 설명하고 있어 질문에 대한 이해가 높은 편이다. 그러나 구체적인 사례나 수치를 제시하지 않아 세부적인 맥락 이해에는 한계가 있다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "2-2",
+              "7-6"
+            ]
+          },
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "2-4",
+              "7-6"
+            ]
+          }
+        ]
+      },
+      "question_context": 4,
+      "answer_context": 5,
+      "seconds": 22.7,
+      "prepare_seconds": 0.4,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.37,
+          "input_tokens": 1450,
+          "cached_tokens": 1449,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 5.06,
+          "input_tokens": 436,
+          "cached_tokens": 145,
+          "output_tokens": 111
+        },
+        {
+          "kind": "주장",
+          "seconds": 12.91,
+          "input_tokens": 2932,
+          "cached_tokens": 1415,
+          "output_tokens": 24
+        },
+        {
+          "kind": "주장",
+          "seconds": 4.28,
+          "input_tokens": 2934,
+          "cached_tokens": 2548,
+          "output_tokens": 24
+        }
+      ],
+      "reference_score": 87.5,
+      "score_error": 2.5,
+      "relevance_error": 10,
+      "specificity_error": 5,
+      "doc_match_error": 0,
+      "level": "같음",
+      "reference_level": "같음",
+      "level_ok": true,
+      "human_reviewed": false
+    },
+    {
+      "id": "A23",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "30.00",
+      "evidence": [
+        "둘째, 키워드 검색과 의미 검색을 함께 쓴다.",
+        "설정 키나 오류 코드는 키워드 검색이 강하다."
+      ],
+      "evidence_gold": [
+        true,
+        false
+      ],
+      "reason": "답변은 질문의 맥락에서 부분적으로 관련이 있으나, 키워드 검색과 벡터 검색의 병행 이유에 대한 이해 부족이 보인다. 실제 기술 문서 질의응답 시스템에서는 두 검색 방법의 장점을 결합하여 검색 정확도와 효율성을 높이는 것이 일반적이다. 회사 문서와 비교한 주장 1개: 반대 1 (일치 단계: 반대).",
+      "llm": {
+        "read": {
+          "claims": [
+            "벡터 검색만으로 충분하다고 생각하여 키워드 검색을 사용하지 않을 계획이다."
+          ],
+          "relevance": 60,
+          "specificity": 20,
+          "reason": "답변은 질문의 맥락에서 부분적으로 관련이 있으나, 키워드 검색과 벡터 검색의 병행 이유에 대한 이해 부족이 보인다. 실제 기술 문서 질의응답 시스템에서는 두 검색 방법의 장점을 결합하여 검색 정확도와 효율성을 높이는 것이 일반적이다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "반대",
+            "evidence_ids": [
+              "2-2",
+              "2-3",
+              "2-4"
+            ]
+          }
+        ]
+      },
+      "question_context": 4,
+      "answer_context": 1,
+      "seconds": 9.0,
+      "prepare_seconds": 0.4,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.38,
+          "input_tokens": 1450,
+          "cached_tokens": 1449,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.45,
+          "input_tokens": 419,
+          "cached_tokens": 169,
+          "output_tokens": 107
+        },
+        {
+          "kind": "주장",
+          "seconds": 4.21,
+          "input_tokens": 1799,
+          "cached_tokens": 1400,
+          "output_tokens": 28
+        }
+      ],
+      "reference_score": 11.0,
+      "score_error": 19.0,
+      "relevance_error": 40,
+      "specificity_error": 10,
+      "doc_match_error": 0,
+      "level": "반대",
+      "reference_level": "반대",
+      "level_ok": true,
+      "human_reviewed": false
+    },
+    {
+      "id": "A24",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "80.00",
+      "evidence": [
+        "답변 정확도",
+        "평가 결과 answer: str            # 생성된 답변 grounded: bool         # 근거 검증 통과 여부 search_count: int      # 검색 횟수, 첫 검색 포함 (최대 3) gen_count: int         # 생성 횟수, 첫 생성 포함 (최대 2)"
+      ],
+      "evidence_gold": [
+        true,
+        false
+      ],
+      "reason": "답변은 질문에 직접적으로 관련된 지표들을 언급하여 높은 관련성을 보인다. 그러나 구체적인 지표 수치나 세부적인 방법론에 대한 설명이 부족하여 specificity 점수는 중간 수준으로 평가되었다. 회사 문서와 비교한 주장 2개: 같음 2 (일치 단계: 같음).",
+      "llm": {
+        "read": {
+          "claims": [
+            "답변 정확도를 평가 지표로 사용했다",
+            "근거 충실도는 Ragas로 측정했다"
+          ],
+          "relevance": 80,
+          "specificity": 60,
+          "reason": "답변은 질문에 직접적으로 관련된 지표들을 언급하여 높은 관련성을 보인다. 그러나 구체적인 지표 수치나 세부적인 방법론에 대한 설명이 부족하여 specificity 점수는 중간 수준으로 평가되었다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "3-10",
+              "3-12",
+              "3-14"
+            ]
+          },
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "6-1",
+              "6-3"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 3,
+      "seconds": 14.9,
+      "prepare_seconds": 0.9,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.89,
+          "input_tokens": 1941,
+          "cached_tokens": 1890,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.46,
+          "input_tokens": 417,
+          "cached_tokens": 145,
+          "output_tokens": 99
+        },
+        {
+          "kind": "주장",
+          "seconds": 5.83,
+          "input_tokens": 2488,
+          "cached_tokens": 1890,
+          "output_tokens": 32
+        },
+        {
+          "kind": "주장",
+          "seconds": 3.71,
+          "input_tokens": 2490,
+          "cached_tokens": 2109,
+          "output_tokens": 24
+        }
+      ],
+      "reference_score": 33.5,
+      "score_error": 46.5,
+      "relevance_error": 45,
+      "specificity_error": 20,
+      "doc_match_error": 75,
+      "level": "같음",
+      "reference_level": "일부만 같음",
+      "level_ok": false,
+      "human_reviewed": false
+    },
+    {
+      "id": "A25",
+      "expect": "㉡",
+      "status": "근거 있음",
+      "status_ok": false,
+      "score": "44.00",
+      "evidence": [
+        "• 재검색 루프 발생률: 첫 검색에서 문서가 부족했던 비율이다."
+      ],
+      "evidence_gold": [
+        false
+      ],
+      "reason": "답변은 질문에 직접적으로 관련된 지표를 제시하여 검색 성능 평가 방법을 설명하고 있지만, 일반적으로 검색 성능 평가에는 정확도, 응답 시간, 재현율 등과 같은 기술적 지표들이 더 자주 언급되므로 완전한 관련성과 구체성 측면에서는 다소 제한적입니다. 그럼에도 불구하고 제시된 지표들은 성능 평가에 중요한 요소들입니다. 회사 문서와 비교한 주장 1개: 반대 1 (일치 단계: 반대).",
+      "llm": {
+        "read": {
+          "claims": [
+            "검색 성능은 서버 CPU 사용률과 메모리 사용량으로 평가했습니다."
+          ],
+          "relevance": 80,
+          "specificity": 40,
+          "reason": "답변은 질문에 직접적으로 관련된 지표를 제시하여 검색 성능 평가 방법을 설명하고 있지만, 일반적으로 검색 성능 평가에는 정확도, 응답 시간, 재현율 등과 같은 기술적 지표들이 더 자주 언급되므로 완전한 관련성과 구체성 측면에서는 다소 제한적입니다. 그럼에도 불구하고 제시된 지표들은 성능 평가에 중요한 요소들입니다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "반대",
+            "evidence_ids": [
+              "5-5",
+              "5-6",
+              "5-7",
+              "5-8",
+              "5-9",
+              "5-10",
+              "5-11",
+              "5-12",
+              "5-13",
+              "5-14",
+              "5-15",
+              "4-5",
+              "4-6"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 2,
+      "seconds": 11.4,
+      "prepare_seconds": 0.8,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.81,
+          "input_tokens": 1941,
+          "cached_tokens": 1890,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.85,
+          "input_tokens": 412,
+          "cached_tokens": 163,
+          "output_tokens": 123
+        },
+        {
+          "kind": "주장",
+          "seconds": 5.8,
+          "input_tokens": 2284,
+          "cached_tokens": 1890,
+          "output_tokens": 84
+        }
+      ],
+      "reference_score": 27.5,
+      "score_error": 16.5,
+      "relevance_error": 60,
+      "specificity_error": 25,
+      "doc_match_error": 50,
+      "level": "반대",
+      "reference_level": "문서에 없음",
+      "level_ok": false,
+      "human_reviewed": false
+    },
+    {
+      "id": "A26",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "52.00",
+      "evidence": [
+        "g.add_edge(START, \"route_query\") g.add_conditional_edges(\"route_query\", lambda s: s[\"route\"], {\"search\": \"rewrite_query\", \"chitchat\": \"direct_answer\"}) g.add_edge(\"rewrite_query\", \"retrieve\") g.add_edge(\"retrieve\", \"rerank\") g.add_edge(\"rerank\", \"grade_documents\") g.add_conditional_edges(\"grade_documents\", after_grade, {\"generate\": \"generate\", \"retry\": \"rewrite_query\", \"fallback\": \"fallback\"}) g.add_ed",
+        "[\"search_count\"] < 3 else \"fallback\""
+      ],
+      "evidence_gold": [
+        false,
+        false
+      ],
+      "reason": "답변은 검색을 다시 수행하도록 설계해야 한다는 기본적인 개념을 언급했지만, 구체적인 설계 방법이나 기술적 세부 사항이 부족하여 relevance와 specificity 점수가 낮다. 구체적인 알고리즘이나 조건 설정 등에 대한 설명이 더 필요하다. 회사 문서와 비교한 주장 1개: 같음 1 (일치 단계: 같음).",
+      "llm": {
+        "read": {
+          "claims": [
+            "다시 검색하게 설계한다."
+          ],
+          "relevance": 40,
+          "specificity": 20,
+          "reason": "답변은 검색을 다시 수행하도록 설계해야 한다는 기본적인 개념을 언급했지만, 구체적인 설계 방법이나 기술적 세부 사항이 부족하여 relevance와 specificity 점수가 낮다. 구체적인 알고리즘이나 조건 설정 등에 대한 설명이 더 필요하다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "7-2",
+              "6-1",
+              "6-2"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 3,
+      "seconds": 12.7,
+      "prepare_seconds": 0.9,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.89,
+          "input_tokens": 1637,
+          "cached_tokens": 1586,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.28,
+          "input_tokens": 415,
+          "cached_tokens": 146,
+          "output_tokens": 92
+        },
+        {
+          "kind": "주장",
+          "seconds": 7.13,
+          "input_tokens": 2378,
+          "cached_tokens": 1586,
+          "output_tokens": 29
+        }
+      ],
+      "reference_score": 21.0,
+      "score_error": 31.0,
+      "relevance_error": 10,
+      "specificity_error": 15,
+      "doc_match_error": 75,
+      "level": "같음",
+      "reference_level": "일부만 같음",
+      "level_ok": false,
+      "human_reviewed": false
+    },
+    {
+      "id": "A27",
+      "expect": "무응답",
+      "status": "답변 내용 없음",
+      "status_ok": true,
+      "score": "0.00",
+      "evidence": [],
+      "evidence_gold": [],
+      "reason": "지원자가 '잘 모르겠습니다'라고 답변하여 구체적인 방법이나 전략을 제시하지 않았다. 질문에 대한 직접적인 답변이 부족하여 관련성이 낮지만, 질문에 대한 인식 자체는 있었음을 고려하여 낮은 점수를 부여한다. 답변에서 방법이나 사실을 찾지 못해 내용 점수를 0점으로 채점했다.",
+      "llm": {
+        "read": {
+          "claims": [],
+          "relevance": 10,
+          "specificity": 0,
+          "reason": "지원자가 '잘 모르겠습니다'라고 답변하여 구체적인 방법이나 전략을 제시하지 않았다. 질문에 대한 직접적인 답변이 부족하여 관련성이 낮지만, 질문에 대한 인식 자체는 있었음을 고려하여 낮은 점수를 부여한다."
+        },
+        "topic": null,
+        "claims": []
+      },
+      "question_context": 5,
+      "answer_context": 0,
+      "seconds": 7.5,
+      "prepare_seconds": 0.9,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.89,
+          "input_tokens": 1725,
+          "cached_tokens": 1674,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.16,
+          "input_tokens": 414,
+          "cached_tokens": 145,
+          "output_tokens": 87
+        },
+        {
+          "kind": "재시도",
+          "seconds": 3.31,
+          "input_tokens": 555,
+          "cached_tokens": 413,
+          "output_tokens": 87
+        }
+      ],
+      "reference_score": 0.0,
+      "score_error": 0.0,
+      "relevance_error": 10,
+      "specificity_error": 0,
+      "doc_match_error": null,
+      "level": null,
+      "reference_level": null,
+      "level_ok": null,
+      "human_reviewed": true
+    },
+    {
+      "id": "A28",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "85.00",
+      "evidence": [
+        "핵심은 청크마다 문서 전체를 참고해 짧은 설명 문맥을 LLM으로 만들고, 그 문맥을 청크 앞에 붙이는 것이다."
+      ],
+      "evidence_gold": [
+        true
+      ],
+      "reason": "답변은 질문에 대한 적절한 해결책을 제시하여 높은 관련성을 보입니다. 그러나 구체적인 방법론이나 구현 방안에 대한 세부 사항이 부족하여 specificity 점수는 중간 수준으로 평가되었습니다. 회사 문서와 비교한 주장 1개: 같음 1 (일치 단계: 같음).",
+      "llm": {
+        "read": {
+          "claims": [
+            "LLM을 활용하여 청크 간 문맥 연결을 강화한다."
+          ],
+          "relevance": 85,
+          "specificity": 70,
+          "reason": "답변은 질문에 대한 적절한 해결책을 제시하여 높은 관련성을 보입니다. 그러나 구체적인 방법론이나 구현 방안에 대한 세부 사항이 부족하여 specificity 점수는 중간 수준으로 평가되었습니다."
+        },
+        "topic": {
+          "question_in_docs": true
+        },
+        "claims": [
+          {
+            "level": "같음",
+            "evidence_ids": [
+              "8-5",
+              "8-8"
+            ]
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 5,
+      "seconds": 17.7,
+      "prepare_seconds": 0.3,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.35,
+          "input_tokens": 1518,
+          "cached_tokens": 1517,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.13,
+          "input_tokens": 431,
+          "cached_tokens": 172,
+          "output_tokens": 86
+        },
+        {
+          "kind": "주장",
+          "seconds": 13.15,
+          "input_tokens": 3021,
+          "cached_tokens": 1467,
+          "output_tokens": 24
+        }
+      ],
+      "reference_score": 64.5,
+      "score_error": 20.5,
+      "relevance_error": 10,
+      "specificity_error": 55,
+      "doc_match_error": 0,
+      "level": "같음",
+      "reference_level": "같음",
+      "level_ok": true,
+      "human_reviewed": false
+    },
+    {
+      "id": "A29",
+      "expect": "㉠",
+      "status": "질문 근거 없음",
+      "status_ok": true,
+      "score": "78.57",
+      "evidence": [],
+      "evidence_gold": [],
+      "reason": "답변은 LLM 파인튜닝에 필요한 학습 데이터 준비 방법에 대해 명확하게 설명하고 있어 관련성이 높다. 그러나 구체적인 수치나 세부적인 파이프라인 단계에 대한 설명이 부족하여 specificity 점수가 다소 낮다. 회사 문서에 관련 내용이 없는 질문이라 회사 문서 일치 축을 빼고 채점했다.",
+      "llm": {
+        "read": {
+          "claims": [
+            "학습 데이터는 질문과 답변 쌍으로 구성한다.",
+            "중복 데이터는 제거한다.",
+            "일부 데이터는 검증용으로 남겨둔다."
+          ],
+          "relevance": 85,
+          "specificity": 70,
+          "reason": "답변은 LLM 파인튜닝에 필요한 학습 데이터 준비 방법에 대해 명확하게 설명하고 있어 관련성이 높다. 그러나 구체적인 수치나 세부적인 파이프라인 단계에 대한 설명이 부족하여 specificity 점수가 다소 낮다."
+        },
+        "topic": {
+          "question_in_docs": false
+        },
+        "claims": [
+          {
+            "level": "문서에 없음",
+            "evidence_ids": []
+          },
+          {
+            "level": "문서에 없음",
+            "evidence_ids": []
+          },
+          {
+            "level": "문서에 없음",
+            "evidence_ids": []
+          }
+        ]
+      },
+      "question_context": 3,
+      "answer_context": 3,
+      "seconds": 22.4,
+      "prepare_seconds": 0.9,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.86,
+          "input_tokens": 1085,
+          "cached_tokens": 1034,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.75,
+          "input_tokens": 430,
+          "cached_tokens": 145,
+          "output_tokens": 111
+        },
+        {
+          "kind": "주장",
+          "seconds": 10.61,
+          "input_tokens": 2320,
+          "cached_tokens": 1034,
+          "output_tokens": 17
+        },
+        {
+          "kind": "주장",
+          "seconds": 3.52,
+          "input_tokens": 2316,
+          "cached_tokens": 1939,
+          "output_tokens": 17
+        },
+        {
+          "kind": "주장",
+          "seconds": 3.52,
+          "input_tokens": 2318,
+          "cached_tokens": 1939,
+          "output_tokens": 17
+        }
+      ],
+      "reference_score": 70.0,
+      "score_error": 8.57,
+      "relevance_error": 0,
+      "specificity_error": 20,
+      "doc_match_error": null,
+      "level": null,
+      "reference_level": null,
+      "level_ok": null,
+      "human_reviewed": false
+    },
+    {
+      "id": "A30",
+      "expect": "㉠",
+      "status": "질문 근거 없음",
+      "status_ok": true,
+      "score": "78.57",
+      "evidence": [],
+      "evidence_gold": [],
+      "reason": "답변은 데이터베이스 인덱스 설계와 쿼리 튜닝에 대한 핵심적인 접근 방법을 잘 설명하고 있어 관련성이 높다. 그러나 구체적인 수치나 특정 순서에 대한 설명이 부족하여 specificity 점수는 다소 낮게 책정되었다. 회사 문서에 관련 내용이 없는 질문이라 회사 문서 일치 축을 빼고 채점했다.",
+      "llm": {
+        "read": {
+          "claims": [
+            "자주 조회되는 컬럼에 인덱스를 생성한다.",
+            "실행 계획을 분석하여 느린 쿼리를 최적화한다."
+          ],
+          "relevance": 85,
+          "specificity": 70,
+          "reason": "답변은 데이터베이스 인덱스 설계와 쿼리 튜닝에 대한 핵심적인 접근 방법을 잘 설명하고 있어 관련성이 높다. 그러나 구체적인 수치나 특정 순서에 대한 설명이 부족하여 specificity 점수는 다소 낮게 책정되었다."
+        },
+        "topic": {
+          "question_in_docs": false
+        },
+        "claims": [
+          {
+            "level": "문서에 없음",
+            "evidence_ids": []
+          },
+          {
+            "level": "문서에 없음",
+            "evidence_ids": []
+          }
+        ]
+      },
+      "question_context": 5,
+      "answer_context": 3,
+      "seconds": 18.8,
+      "prepare_seconds": 0.9,
+      "calls": [
+        {
+          "kind": "출제 때 주제",
+          "seconds": 0.91,
+          "input_tokens": 1567,
+          "cached_tokens": 1516,
+          "output_tokens": 10
+        },
+        {
+          "kind": "읽기",
+          "seconds": 4.58,
+          "input_tokens": 421,
+          "cached_tokens": 145,
+          "output_tokens": 104
+        },
+        {
+          "kind": "주장",
+          "seconds": 10.59,
+          "input_tokens": 2766,
+          "cached_tokens": 1516,
+          "output_tokens": 17
+        },
+        {
+          "kind": "주장",
+          "seconds": 3.59,
+          "input_tokens": 2767,
+          "cached_tokens": 2385,
+          "output_tokens": 17
+        }
+      ],
+      "reference_score": 67.86,
+      "score_error": 10.71,
+      "relevance_error": 0,
+      "specificity_error": 25,
+      "doc_match_error": null,
+      "level": null,
+      "reference_level": null,
+      "level_ok": null,
+      "human_reviewed": false
+    }
+  ]
+}
