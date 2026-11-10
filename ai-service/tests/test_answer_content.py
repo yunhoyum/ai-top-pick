@@ -75,6 +75,12 @@ def test_sentences_split_at_sentence_end_and_newline_but_not_decimals():
     assert split_sentences("버전은 v1.2다. 충실도는 0.93이다!\n목록 항목") == ["버전은 v1.2다.", "충실도는 0.93이다!", "목록 항목"]
 
 
+def test_list_numbers_stay_with_their_sentence():
+    # P9에서 '10.', '13.'만 남은 조각이 근거 문장으로 뽑혔다
+    text = "엣지는 다음과 같다. 10. generate → check_grounded\n11.\n\ncheck_grounded → END"
+    assert split_sentences(text) == ["엣지는 다음과 같다.", "10. generate → check_grounded", "11. check_grounded → END"]
+
+
 def test_contexts_merge_by_chunk_keeping_highest_similarity():
     merged = merge_contexts([_chunk(1, "a", 0.6), _chunk(2, "b", 0.7)], [_chunk(1, "a", 0.9)])
     assert [(c.chunk_id, c.similarity) for c in merged] == [(1, 0.9), (2, 0.7)]

@@ -7,6 +7,7 @@ from app.rag.retriever import Chunk
 
 # 마침표·물음표·느낌표 뒤 공백, 또는 줄바꿈에서 문장을 나눈다 (벡터 DB 설계서 8.4). 'v1.2', '0.93'은 나누지 않는다
 _SENTENCE_BREAK = re.compile(r"(?<=[.?!])\s+|\n+")
+_LIST_NUMBER = re.compile(r"\d+\.")
 
 
 @dataclass(frozen=True)
@@ -28,7 +29,16 @@ def merge_contexts(*contexts: list[Chunk]) -> list[Chunk]:
 
 
 def split_sentences(text: str) -> list[str]:
-    return [s.strip() for s in _SENTENCE_BREAK.split(text) if s.strip()]
+    """번호 목록 '10. 문장'은 '10.' 뒤 공백에서도 나뉜다. 번호만 남은 조각은 뒤 문장에 붙인다 (RAG 설계서 5.5 P9)."""
+    sentences: list[str] = []
+    for piece in (s.strip() for s in _SENTENCE_BREAK.split(text)):
+        if not piece:
+            continue
+        if sentences and _LIST_NUMBER.fullmatch(sentences[-1]):
+            sentences[-1] = f"{sentences[-1]} {piece}"
+        else:
+            sentences.append(piece)
+    return sentences
 
 
 def number_sentences(chunks: list[Chunk]) -> list[NumberedSentence]:
