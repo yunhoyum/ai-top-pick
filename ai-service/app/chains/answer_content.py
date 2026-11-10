@@ -47,6 +47,8 @@ class ContentScore:
     reason: str  # interview_answer.content_reason
     status: EvidenceStatus
     evidence: list[EvidenceSentence]
+    # 검증을 통과한 LLM 출력 그대로. 평가·디버깅용이다. 축 점수는 DB에 저장하지 않는다 (루브릭 설계서 3.6)
+    llm_output: AnswerContentOutput | AnswerContentNoDocOutput
 
 
 def score_content(
@@ -64,7 +66,7 @@ def score_content(
         out = invoke_structured(
             model, prompts.without_documents(question, answer, job_description), AnswerContentNoDocOutput
         )
-        return _without_doc_axis(out.relevance, out.specificity, out.reason)
+        return _without_doc_axis(out)
 
     sentences = number_sentences(merge_contexts(question_context, answer_context))
     out = invoke_structured(
@@ -79,12 +81,12 @@ def score_content(
     if picked:
         evidence = [EvidenceSentence(s.chunk.source_type, s.chunk.source_id, s.chunk.chunk_id, s.text) for s in picked]
         score = _weighted(out.relevance, out.specificity, out.doc_match)
-        return ContentScore(score, out.reason, EvidenceStatus.FOUND, evidence)
+        return ContentScore(score, out.reason, EvidenceStatus.FOUND, evidence, out)
     if not out.question_in_docs:
-        return _without_doc_axis(out.relevance, out.specificity, out.reason)
+        return _without_doc_axis(out)
     # ㉡: LLM이 낸 일치 점수는 쓰지 않는다
     score = _weighted(out.relevance, out.specificity, NO_ANSWER_DOC_MATCH)
-    return ContentScore(score, f"{out.reason} {NO_ANSWER_DOC_NOTE}", EvidenceStatus.NO_ANSWER_DOC, [])
+    return ContentScore(score, f"{out.reason} {NO_ANSWER_DOC_NOTE}", EvidenceStatus.NO_ANSWER_DOC, [], out)
 
 
 def _weighted(relevance: int, specificity: int, doc_match: int) -> Decimal:
@@ -92,10 +94,10 @@ def _weighted(relevance: int, specificity: int, doc_match: int) -> Decimal:
     return _round((Decimal(relevance) * 4 + Decimal(specificity) * 3 + Decimal(doc_match) * 3) / 10)
 
 
-def _without_doc_axis(relevance: int, specificity: int, reason: str) -> ContentScore:
+def _without_doc_axis(out: AnswerContentOutput | AnswerContentNoDocOutput) -> ContentScore:
     """㉠: 일치 축을 빼고 40:30 비율을 유지한다 (4/7, 3/7)."""
-    score = _round((Decimal(relevance) * 4 + Decimal(specificity) * 3) / 7)
-    return ContentScore(score, f"{reason} {NO_QUESTION_DOC_NOTE}", EvidenceStatus.NO_QUESTION_DOC, [])
+    score = _round((Decimal(out.relevance) * 4 + Decimal(out.specificity) * 3) / 7)
+    return ContentScore(score, f"{out.reason} {NO_QUESTION_DOC_NOTE}", EvidenceStatus.NO_QUESTION_DOC, [], out)
 
 
 def _round(value: Decimal) -> Decimal:

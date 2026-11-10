@@ -103,6 +103,8 @@ def test_unknown_ids_are_dropped_and_duplicates_kept_once():
 def test_no_valid_id_with_topic_in_docs_is_no_answer_doc():
     result = _score(FakeModel(_output(["9-9"], question_in_docs=True, doc_match=95)))
     assert result.status == EvidenceStatus.NO_ANSWER_DOC
+    # 평가용으로 LLM이 낸 값은 바꾸지 않고 그대로 남긴다
+    assert result.llm_output.doc_match == 95 and result.llm_output.evidence_ids == ["9-9"]
     # LLM의 일치 점수 95 대신 50을 넣는다: 36 + 24 + 15
     assert result.score == Decimal("75.00")
     assert result.reason.endswith(NO_ANSWER_DOC_NOTE)

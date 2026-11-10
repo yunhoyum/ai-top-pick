@@ -73,14 +73,21 @@ def evaluate(posting_id: int) -> list[dict]:
                 "evidence": [e.sentence for e in result.evidence],
                 "evidence_gold": [_is_gold(e.sentence, a["gold"]) for e in result.evidence],
                 "reason": result.reason,
+                # LLM이 낸 값 그대로 (질문 주제 판정, 고른 번호, 축 점수). 점수 계산 전 값이다
+                "llm": result.llm_output.model_dump(),
                 "question_context": len(question_context),
+                "answer_context": len(answer_context),
                 "seconds": round(seconds, 1),
             }
         )
         r = rows[-1]
         mark = "O" if r["status_ok"] else "X"
+        llm = r["llm"]
+        axes = f"적합 {llm['relevance']} 구체 {llm['specificity']} 일치 {llm.get('doc_match', '-')}"
+        topic = f"주제 {llm['question_in_docs']} 번호 {llm['evidence_ids']}" if "question_in_docs" in llm else "문서 없음"
         print(f"{r['id']:<3} {mark} 기대={r['expect']:<14} 결과={r['status']:<8} 점수={r['score']:>6} "
-              f"근거 {sum(r['evidence_gold'])}/{len(r['evidence'])} 정답 ({r['seconds']}s)", flush=True)
+              f"근거 {sum(r['evidence_gold'])}/{len(r['evidence'])} 정답 ({r['seconds']}s)\n"
+              f"      LLM: {topic} | {axes}", flush=True)
     return rows
 
 
