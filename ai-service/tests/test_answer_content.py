@@ -166,6 +166,14 @@ def test_claim_given_as_text_is_matched_to_the_claim_list():
     assert len(result.evidence) == 2
 
 
+def test_list_number_before_claim_text_and_sentence_after_evidence_id_are_accepted():
+    # P8에서 EXAONE이 실제로 쓴 형식: '1. 주장 문장', '[1-2] 문장'
+    matches = _match(("1. 타임아웃 후 확인 중으로 둔다", "같음", ["[1-1] PG 승인 응답이 5초 안에…"]),
+                     ("2.배치로 PG에 조회해 확정한다", "같음", ["1-2"]))
+    result = _score(FakeModel(_read(), matches))
+    assert result.status == EvidenceStatus.FOUND and len(result.evidence) == 2
+
+
 def test_nothing_compared_and_topic_not_in_docs_is_no_question_doc():
     result = _score(FakeModel(_read(), _match((1, "문서에 없음", []), question_in_docs=False)))
     assert result.status == EvidenceStatus.NO_QUESTION_DOC

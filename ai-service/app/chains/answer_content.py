@@ -106,7 +106,7 @@ def _compare(
         if index is None or index in seen_claims:
             continue
         seen_claims.add(index)
-        ids = [i for i in m.evidence_ids if i in by_id]
+        ids = [i for i in _evidence_ids(m.evidence_ids) if i in by_id]
         if m.level == "문서에 없음" or not ids:
             continue
         compared += 1
@@ -116,16 +116,26 @@ def _compare(
     return same, compared, list(picked.values())
 
 
+_LIST_NUMBER = re.compile(r"^\s*\d+\.\s*")
+_SENTENCE_ID = re.compile(r"\d+-\d+")
+
+
 def _claim_index(claim: int | str, claims: list[str]) -> int | None:
-    """주장 번호(1부터)를 돌려준다. 번호 대신 문장이 오면 띄어쓰기를 무시하고 같은 주장을 찾는다. 없으면 None."""
+    """주장 번호(1부터)를 돌려준다. 번호 대신 문장이 오면 띄어쓰기를 무시하고 같은 주장을 찾는다. 없으면 None.
+    EXAONE은 프롬프트 목록의 번호까지 붙여 '1. 문장'으로 쓰기도 해서 앞 번호를 뗀다 (RAG 설계서 5.5 P8)."""
     if isinstance(claim, str):
         if claim.strip().isdigit():
             claim = int(claim)
         else:
-            key = re.sub(r"\s+", "", claim)
+            key = re.sub(r"\s+", "", _LIST_NUMBER.sub("", claim))
             found = [i for i, c in enumerate(claims, start=1) if re.sub(r"\s+", "", c) == key]
             return found[0] if found else None
     return claim if 1 <= claim <= len(claims) else None
+
+
+def _evidence_ids(raw: list[str]) -> list[str]:
+    """근거 번호를 뽑는다. EXAONE은 '[1-7] 문장'처럼 번호와 문장을 함께 쓰기도 한다."""
+    return [found for item in raw for found in _SENTENCE_ID.findall(item)]
 
 
 def _level(same: int, compared: int) -> str:
