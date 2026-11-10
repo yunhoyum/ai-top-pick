@@ -31,6 +31,8 @@ from app.schemas.llm_outputs import AnswerReadOutput, ClaimJudgment, TopicOutput
 # 일치 단계별 점수 (루브릭 설계서 3.2). '문서에 없음'은 ㉡이고 50을 넣는다
 DOC_MATCH_SCORES = {"같음": 100, "대부분 같음": 75, "일부만 같음": 25, "반대": 0}
 NO_ANSWER_DOC_MATCH = 50
+# 주장 하나의 판정 점수. 주장들의 평균에 가장 가까운 일치 단계를 고른다
+CLAIM_SCORES = {"같음": 100, "일부만 같음": 25, "반대": 0}
 
 # 근거 상태를 저장하지 않으므로 점수 이유 끝에 처리 사실을 붙인다 (루브릭 설계서 3.3)
 NO_QUESTION_DOC_NOTE = "회사 문서에 관련 내용이 없는 질문이라 회사 문서 일치 축을 빼고 채점했다."
@@ -127,12 +129,14 @@ def score_content(
 
     # 판정 순서 (루브릭 설계서 3.3): 근거 번호가 검증된 같음·반대 주장이 있으면 질문 주제 판정과 상관없이 근거 있음
     if compared:
-        same = sum(level == "같음" for _, level, _ in compared)
-        level = _level(same, len(compared))
+        level = _level([claim_level for _, claim_level, _ in compared])
         picked = _filter_evidence(compared, embed or EmbedClient())
         evidence = [EvidenceSentence(s.chunk.source_type, s.chunk.source_id, s.chunk.chunk_id, s.text) for s in picked]
         score = _weighted(read.relevance, read.specificity, DOC_MATCH_SCORES[level])
-        reason = f"{read.reason} 회사 문서와 비교한 주장 {len(compared)}개 중 {same}개가 문서와 같다 (일치 단계: {level})."
+        counts = ", ".join(
+            f"{name} {n}" for name in CLAIM_SCORES if (n := sum(lv == name for _, lv, _ in compared))
+        )
+        reason = f"{read.reason} 회사 문서와 비교한 주장 {len(compared)}개: {counts} (일치 단계: {level})."
         return ContentScore(score, reason, EvidenceStatus.FOUND, evidence, llm_output, doc_match_level=level)
     if not topic.question_in_docs:
         return _without_doc_axis(read, llm_output)
@@ -201,15 +205,12 @@ def _evidence_ids(raw: list[str]) -> list[str]:
     return [found for item in raw for found in _SENTENCE_ID.findall(item)]
 
 
-def _level(same: int, compared: int) -> str:
-    """주장별 결과를 루브릭 설계서 3.2의 일치 단계로 모은다. '문서에 없음' 주장은 세지 않는다."""
-    if same == compared:
-        return "같음"
-    if same * 2 >= compared:
-        return "대부분 같음"
-    if same > 0:
-        return "일부만 같음"
-    return "반대"
+def _level(claim_levels: list[str]) -> str:
+    """주장별 결과를 루브릭 설계서 3.2의 일치 단계로 모은다. '문서에 없음' 주장은 세지 않는다.
+    주장 점수(같음 100, 일부만 같음 25, 반대 0)의 평균에 가장 가까운 단계를 고르고, 거리가 같으면 높은 단계를 고른다.
+    예: 같음+반대 → 50 → 대부분 같음, 같음+반대+반대 → 33 → 일부만 같음, 일부만 같음 하나 → 25 → 일부만 같음."""
+    mean = sum(CLAIM_SCORES[lv] for lv in claim_levels) / len(claim_levels)
+    return min(DOC_MATCH_SCORES, key=lambda name: (abs(DOC_MATCH_SCORES[name] - mean), -DOC_MATCH_SCORES[name]))
 
 
 def _weighted(relevance: int, specificity: int, doc_match: int) -> Decimal:
