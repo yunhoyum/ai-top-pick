@@ -1,0 +1,633 @@
+{
+  "experiment": "E0",
+  "posting_id": 3262,
+  "summary": {
+    "recall_at_1": 0.5714285714285714,
+    "recall_at_5": 0.8571428571428571,
+    "misses": [
+      "Q1",
+      "A2",
+      "A4"
+    ],
+    "by_threshold": [
+      {
+        "min_similarity": 0.3,
+        "recall_at_k": 0.8571428571428571,
+        "empty_correct": 0.0
+      },
+      {
+        "min_similarity": 0.35,
+        "recall_at_k": 0.8571428571428571,
+        "empty_correct": 0.14285714285714285
+      },
+      {
+        "min_similarity": 0.4,
+        "recall_at_k": 0.8571428571428571,
+        "empty_correct": 0.2857142857142857
+      },
+      {
+        "min_similarity": 0.45,
+        "recall_at_k": 0.8571428571428571,
+        "empty_correct": 0.5714285714285714
+      },
+      {
+        "min_similarity": 0.5,
+        "recall_at_k": 0.7619047619047619,
+        "empty_correct": 0.8571428571428571
+      },
+      {
+        "min_similarity": 0.55,
+        "recall_at_k": 0.5238095238095238,
+        "empty_correct": 1.0
+      },
+      {
+        "min_similarity": 0.6,
+        "recall_at_k": 0.23809523809523808,
+        "empty_correct": 1.0
+      },
+      {
+        "min_similarity": 0.65,
+        "recall_at_k": 0.09523809523809523,
+        "empty_correct": 1.0
+      },
+      {
+        "min_similarity": 0.7,
+        "recall_at_k": 0.0,
+        "empty_correct": 1.0
+      }
+    ],
+    "median_ms": 96.5
+  },
+  "rows": [
+    {
+      "id": "S1",
+      "kind": "서류",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 2,
+      "gold_similarity": 0.5811968649324671,
+      "top1_similarity": 0.6347940359915435,
+      "top1_seq": 20,
+      "top_seqs": [
+        20,
+        11,
+        19,
+        1,
+        12
+      ],
+      "chunks": 21,
+      "ms": 598
+    },
+    {
+      "id": "S2",
+      "kind": "서류",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 1,
+      "gold_similarity": 0.6664735630417522,
+      "top1_similarity": 0.6664735630417522,
+      "top1_seq": 13,
+      "top_seqs": [
+        13,
+        5,
+        14,
+        20,
+        12
+      ],
+      "chunks": 21,
+      "ms": 98
+    },
+    {
+      "id": "S3",
+      "kind": "서류",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 5,
+      "gold_similarity": 0.48886788556996996,
+      "top1_similarity": 0.5644772836133138,
+      "top1_seq": 19,
+      "top_seqs": [
+        19,
+        20,
+        5,
+        13,
+        16
+      ],
+      "chunks": 21,
+      "ms": 97
+    },
+    {
+      "id": "S4",
+      "kind": "서류",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 2,
+      "gold_similarity": 0.5065487617237138,
+      "top1_similarity": 0.5302752683184587,
+      "top1_seq": 4,
+      "top_seqs": [
+        4,
+        18,
+        19,
+        3,
+        2
+      ],
+      "chunks": 21,
+      "ms": 98
+    },
+    {
+      "id": "S5",
+      "kind": "서류",
+      "expect": "관계없음",
+      "has_gold": false,
+      "gold_rank": null,
+      "gold_similarity": null,
+      "top1_similarity": 0.40933288599240414,
+      "top1_seq": 2,
+      "top_seqs": [
+        2,
+        4,
+        16,
+        1,
+        20
+      ],
+      "chunks": 21,
+      "ms": 103
+    },
+    {
+      "id": "S6",
+      "kind": "서류",
+      "expect": "관계없음",
+      "has_gold": false,
+      "gold_rank": null,
+      "gold_similarity": null,
+      "top1_similarity": 0.32661564425088807,
+      "top1_seq": 8,
+      "top_seqs": [
+        8,
+        4,
+        1,
+        5,
+        19
+      ],
+      "chunks": 21,
+      "ms": 95
+    },
+    {
+      "id": "Q1",
+      "kind": "면접 질문",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 7,
+      "gold_similarity": 0.578476892665411,
+      "top1_similarity": 0.671201000301146,
+      "top1_seq": 20,
+      "top_seqs": [
+        20,
+        19,
+        12,
+        9,
+        8
+      ],
+      "chunks": 21,
+      "ms": 100
+    },
+    {
+      "id": "Q2",
+      "kind": "면접 질문",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 3,
+      "gold_similarity": 0.5657389425454142,
+      "top1_similarity": 0.6026654931690254,
+      "top1_seq": 19,
+      "top_seqs": [
+        19,
+        1,
+        5,
+        7,
+        20
+      ],
+      "chunks": 21,
+      "ms": 95
+    },
+    {
+      "id": "Q3",
+      "kind": "면접 질문",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 1,
+      "gold_similarity": 0.5599458929406002,
+      "top1_similarity": 0.5599458929406002,
+      "top1_seq": 18,
+      "top_seqs": [
+        18,
+        3,
+        19,
+        7,
+        5
+      ],
+      "chunks": 21,
+      "ms": 95
+    },
+    {
+      "id": "Q4",
+      "kind": "면접 질문",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 1,
+      "gold_similarity": 0.5448538651199849,
+      "top1_similarity": 0.5448538651199849,
+      "top1_seq": 19,
+      "top_seqs": [
+        19,
+        3,
+        14,
+        7,
+        13
+      ],
+      "chunks": 21,
+      "ms": 102
+    },
+    {
+      "id": "Q5",
+      "kind": "면접 질문",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 1,
+      "gold_similarity": 0.6536103181530246,
+      "top1_similarity": 0.6536103181530246,
+      "top1_seq": 12,
+      "top_seqs": [
+        12,
+        20,
+        11,
+        19,
+        8
+      ],
+      "chunks": 21,
+      "ms": 126
+    },
+    {
+      "id": "Q6",
+      "kind": "면접 질문",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 1,
+      "gold_similarity": 0.5489714876834252,
+      "top1_similarity": 0.5489714876834252,
+      "top1_seq": 14,
+      "top_seqs": [
+        14,
+        16,
+        15,
+        19,
+        17
+      ],
+      "chunks": 21,
+      "ms": 100
+    },
+    {
+      "id": "Q7",
+      "kind": "면접 질문",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 1,
+      "gold_similarity": 0.4983623726006219,
+      "top1_similarity": 0.4983623726006219,
+      "top1_seq": 7,
+      "top_seqs": [
+        7,
+        13,
+        2,
+        8,
+        14
+      ],
+      "chunks": 21,
+      "ms": 95
+    },
+    {
+      "id": "Q8",
+      "kind": "면접 질문",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 1,
+      "gold_similarity": 0.5899266312576222,
+      "top1_similarity": 0.5899266312576222,
+      "top1_seq": 17,
+      "top_seqs": [
+        17,
+        13,
+        2,
+        18,
+        20
+      ],
+      "chunks": 21,
+      "ms": 95
+    },
+    {
+      "id": "Q9",
+      "kind": "면접 질문",
+      "expect": "㉠",
+      "has_gold": false,
+      "gold_rank": null,
+      "gold_similarity": null,
+      "top1_similarity": 0.4462437011282915,
+      "top1_seq": 4,
+      "top_seqs": [
+        4,
+        3,
+        9,
+        5,
+        16
+      ],
+      "chunks": 21,
+      "ms": 95
+    },
+    {
+      "id": "Q10",
+      "kind": "면접 질문",
+      "expect": "㉠",
+      "has_gold": false,
+      "gold_rank": null,
+      "gold_similarity": null,
+      "top1_similarity": 0.4799869349846042,
+      "top1_seq": 5,
+      "top_seqs": [
+        5,
+        20,
+        13,
+        11,
+        6
+      ],
+      "chunks": 21,
+      "ms": 95
+    },
+    {
+      "id": "A1",
+      "kind": "면접 답변",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 2,
+      "gold_similarity": 0.6410152045719043,
+      "top1_similarity": 0.6755298668367791,
+      "top1_seq": 20,
+      "top_seqs": [
+        20,
+        11,
+        12,
+        19,
+        8
+      ],
+      "chunks": 21,
+      "ms": 104
+    },
+    {
+      "id": "A2",
+      "kind": "면접 답변",
+      "expect": "근거 있음 (낮은 일치)",
+      "has_gold": true,
+      "gold_rank": 7,
+      "gold_similarity": 0.47640233244588726,
+      "top1_similarity": 0.5780674265375696,
+      "top1_seq": 12,
+      "top_seqs": [
+        12,
+        20,
+        11,
+        19,
+        8
+      ],
+      "chunks": 21,
+      "ms": 94
+    },
+    {
+      "id": "A3",
+      "kind": "면접 답변",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 1,
+      "gold_similarity": 0.6083039676273488,
+      "top1_similarity": 0.6083039676273488,
+      "top1_seq": 16,
+      "top_seqs": [
+        16,
+        13,
+        15,
+        14,
+        19
+      ],
+      "chunks": 21,
+      "ms": 96
+    },
+    {
+      "id": "A4",
+      "kind": "면접 답변",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 13,
+      "gold_similarity": 0.4547042592199876,
+      "top1_similarity": 0.5688534118488034,
+      "top1_seq": 8,
+      "top_seqs": [
+        8,
+        12,
+        11,
+        19,
+        9
+      ],
+      "chunks": 21,
+      "ms": 95
+    },
+    {
+      "id": "A5",
+      "kind": "면접 답변",
+      "expect": "㉡",
+      "has_gold": false,
+      "gold_rank": null,
+      "gold_similarity": null,
+      "top1_similarity": 0.5418520351897971,
+      "top1_seq": 3,
+      "top_seqs": [
+        3,
+        7,
+        14,
+        13,
+        11
+      ],
+      "chunks": 21,
+      "ms": 96
+    },
+    {
+      "id": "A6",
+      "kind": "면접 답변",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 1,
+      "gold_similarity": 0.56236595965736,
+      "top1_similarity": 0.56236595965736,
+      "top1_seq": 12,
+      "top_seqs": [
+        12,
+        8,
+        10,
+        9,
+        11
+      ],
+      "chunks": 21,
+      "ms": 99
+    },
+    {
+      "id": "A7",
+      "kind": "면접 답변",
+      "expect": "㉡",
+      "has_gold": false,
+      "gold_rank": null,
+      "gold_similarity": null,
+      "top1_similarity": 0.47448817691557865,
+      "top1_seq": 7,
+      "top_seqs": [
+        7,
+        14,
+        13,
+        20,
+        16
+      ],
+      "chunks": 21,
+      "ms": 102
+    },
+    {
+      "id": "A8",
+      "kind": "면접 답변",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 1,
+      "gold_similarity": 0.6446035132382664,
+      "top1_similarity": 0.6446035132382664,
+      "top1_seq": 17,
+      "top_seqs": [
+        17,
+        2,
+        20,
+        13,
+        10
+      ],
+      "chunks": 21,
+      "ms": 95
+    },
+    {
+      "id": "A9",
+      "kind": "면접 답변",
+      "expect": "㉠",
+      "has_gold": false,
+      "gold_rank": null,
+      "gold_similarity": null,
+      "top1_similarity": 0.546578072207574,
+      "top1_seq": 14,
+      "top_seqs": [
+        14,
+        16,
+        15,
+        13,
+        4
+      ],
+      "chunks": 21,
+      "ms": 96
+    },
+    {
+      "id": "F1",
+      "kind": "꼬리질문",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 4,
+      "gold_similarity": 0.5976414284032178,
+      "top1_similarity": 0.6640211930619657,
+      "top1_seq": 19,
+      "top_seqs": [
+        19,
+        16,
+        18,
+        7,
+        10
+      ],
+      "chunks": 21,
+      "ms": 95
+    },
+    {
+      "id": "F2",
+      "kind": "꼬리질문",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 1,
+      "gold_similarity": 0.5195310379985955,
+      "top1_similarity": 0.5195310379985955,
+      "top1_seq": 13,
+      "top_seqs": [
+        13,
+        17,
+        19,
+        2,
+        16
+      ],
+      "chunks": 21,
+      "ms": 97
+    },
+    {
+      "id": "F3",
+      "kind": "꼬리질문",
+      "expect": "근거 있음",
+      "has_gold": true,
+      "gold_rank": 1,
+      "gold_similarity": 0.5222497298248678,
+      "top1_similarity": 0.5222497298248678,
+      "top1_seq": 8,
+      "top_seqs": [
+        8,
+        19,
+        9,
+        10,
+        20
+      ],
+      "chunks": 21,
+      "ms": 95
+    },
+    {
+      "id": "X1",
+      "kind": "관계없음",
+      "expect": "관계없음",
+      "has_gold": false,
+      "gold_rank": null,
+      "gold_similarity": null,
+      "top1_similarity": 0.4978038269162002,
+      "top1_seq": 7,
+      "top_seqs": [
+        7,
+        6,
+        3,
+        5,
+        4
+      ],
+      "chunks": 21,
+      "ms": 100
+    },
+    {
+      "id": "X2",
+      "kind": "관계없음",
+      "expect": "관계없음",
+      "has_gold": false,
+      "gold_rank": null,
+      "gold_similarity": null,
+      "top1_similarity": 0.37884542223796536,
+      "top1_seq": 3,
+      "top_seqs": [
+        3,
+        1,
+        10,
+        9,
+        19
+      ],
+      "chunks": 21,
+      "ms": 97
+    }
+  ]
+}
