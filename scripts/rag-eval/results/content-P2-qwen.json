@@ -1,0 +1,181 @@
+{
+  "experiment": "P2-qwen",
+  "posting_id": 3479,
+  "prompt_version": "v2",
+  "llm_model": "qwen3.5:4b",
+  "summary": {
+    "status_accuracy": 0.7777777777777778,
+    "evidence_precision": 0.6363636363636364,
+    "median_seconds": 65.8
+  },
+  "rows": [
+    {
+      "id": "A1",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "88.50",
+      "evidence": [
+        "• Contextual Retrieval: 청크마다 LLM이 만든 설명 문맥을 붙여 임베딩과 BM25 색인을 만드는 기법이다.",
+        "핵심은 청크마다 문서 전체를 참고해 짧은 설명 문맥을 LLM으로 만들고, 그 문맥을 청크 앞에 붙이는 것이다.",
+        "문맥에는 문서명, 절 제목, 서비스명, 청크의 역할이 들어간다."
+      ],
+      "evidence_gold": [
+        true,
+        true,
+        true
+      ],
+      "reason": "면접 질문의 주제인 문맥 유실 해결은 회사 문서에서 Contextual Retrieval 기법으로 명시되어 있습니다. 지원자의 답변이 문서에 제시된 LLM 을 활용한 문맥 생성 및 붙여넣기 방법을 정확히 반영하고 있습니다.",
+      "question_context": 5,
+      "seconds": 59.0
+    },
+    {
+      "id": "A2",
+      "expect": "근거 있음 (낮은 일치)",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "54.50",
+      "evidence": [
+        "KnowBridge 프로토타입은 문서를 400 토큰 청크로 나눠 임베딩했다.",
+        "• 청크 크기 — 최대 400 토큰: 프로토타입 실험에서 검색 정밀도와 문맥량의 균형이 가장 좋았다(가상)."
+      ],
+      "evidence_gold": [
+        false,
+        true
+      ],
+      "reason": "지원자가 청크 크기를 2 천 토큰으로 제안했으나 회사 문서는 프로토타입에서 400 토큰이 최적의 균형이라고 명시하고 있다. 문맥 유실 해결책은 Contextual Retriever 를 사용하는 것이 주된 방안이나 지원자는 이를 언급하지 않고 단순 크기 증가만 제시했다.",
+      "question_context": 5,
+      "seconds": 88.0
+    },
+    {
+      "id": "A3",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "95.00",
+      "evidence": [
+        "search_count는 rewrite_query 노드가 실행될 때마다, gen_count는 generate 노드가 실행될 때마다 1씩 늘린다.",
+        "그래서 재검색은 최대 2회, 재생성은 최대 1회로 제한된다.",
+        "grade_documents → rewrite_query (관련 문서 부족, 재검색 2회 이내) — 재검색 루프",
+        "문서 평가에서 관련 문서가 부족하면 질의 재작성 단계로 돌아간다.",
+        "이 재검색 루프는 최대 2회까지 반복한다."
+      ],
+      "evidence_gold": [
+        true,
+        true,
+        true,
+        true,
+        false
+      ],
+      "reason": "지원자의 답변은 회사 문서에 명시된 LangGraph 에이전트 설계와 정확히 일치합니다. 문서 평가에서 관련 문서가 부족할 때 질의 재작성 단계로 돌아가고, 검색 횟수를 상태 변수로 관리하여 최대 2 회까지 재검색하는 로직이 문서 내용과 동일하게 표현되었습니다.",
+      "question_context": 5,
+      "seconds": 57.2
+    },
+    {
+      "id": "A4",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "92.00",
+      "evidence": [
+        "KnowBridge는 문서가 바뀌면 바뀐 문서만 다시 색인한다.",
+        "해시 비교: content_hash를 비교해 실제로 내용이 바뀌었는지 확인한다.",
+        "교체 적재: 기존 청크를 삭제한 뒤 새 청크를 적재한다."
+      ],
+      "evidence_gold": [
+        false,
+        true,
+        true
+      ],
+      "reason": "지원자의 답변은 회사 문서의 증분 색인 절차 (해시 비교, 청크 삭제 및 적재) 와 일치합니다. 문서를 통해 제시된 핵심 프로세스를 잘 요약하여 답변했습니다.",
+      "question_context": 5,
+      "seconds": 82.8
+    },
+    {
+      "id": "A5",
+      "expect": "㉡",
+      "status": "근거 있음",
+      "status_ok": false,
+      "score": "50.50",
+      "evidence": [
+        "• 권한 없는 문서 노출: 보안 사고로 이어진다.",
+        "• FR-03 (필수): 사용자 권한으로 볼 수 없는 문서는 검색 결과에서 제외한다.",
+        "acl은 검색 시 권한 필터에 쓰인다."
+      ],
+      "evidence_gold": [
+        false,
+        false,
+        false
+      ],
+      "reason": "면접 질문의 주제는 회사 문서에 명시되어 있으며, 권한 없는 문서 노출 위험과 대응 방안이 다루어졌습니다. 지원자의 답변은 문서의 검색 단계 필터링 방식과 다른 접근법으로, 문맥 일치도는 낮습니다. 하지만 보안 문제 해결을 위한 명확한 전략을 제시했으므로 관련성은 높았습니다.",
+      "question_context": 5,
+      "seconds": 92.9
+    },
+    {
+      "id": "A6",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "68.50",
+      "evidence": [
+        "7.4 비용 최적화: 프롬프트 캐싱",
+        "프롬프트 캐싱으로문맥 생성 비용을 줄인다."
+      ],
+      "evidence_gold": [
+        false,
+        true
+      ],
+      "reason": "지원자가 프롬프트 캐싱을 통해 비용 절감을 언급했으므로 관련성이 높으나 구체적인 수치나 절차가 없어 특이성은 낮다. 회사 문서의 프롬프트 캐싱 내용과 일치하므로 문장 매칭 점수는 높다.",
+      "question_context": 5,
+      "seconds": 57.1
+    },
+    {
+      "id": "A7",
+      "expect": "㉡",
+      "status": "근거 있음",
+      "status_ok": false,
+      "score": "14.00",
+      "evidence": [
+        "• 키워드 검색 — OpenSearch + Nori 분석기: Nori는 한국어 형태소 분석기다."
+      ],
+      "evidence_gold": [
+        false
+      ],
+      "reason": "지원자가 현재 문서에서 명시된 형태소 분석기 사용 방식을 반대하는 답변을 제시했습니다. 질문의 핵심인 검색 방식 병용 이유를 설명하지 않았습니다.",
+      "question_context": 4,
+      "seconds": 71.6
+    },
+    {
+      "id": "A8",
+      "expect": "근거 있음",
+      "status": "근거 있음",
+      "status_ok": true,
+      "score": "91.50",
+      "evidence": [
+        "각 질문에는 정답 청크(golden chunk)를 사람이 지정했다.",
+        "검색 실패율@20은 정답 청크가 상위 20개 후보에 없는 질문의 비율이다.",
+        "답변 정확도는 평가자 2명이 독립 판정하고, 의견이 다르면 3번째 평가자가 결정했다."
+      ],
+      "evidence_gold": [
+        true,
+        true,
+        true
+      ],
+      "reason": "면접 질문의 주제는 회사 문서에 명시되어 있으며, 지원자가 답변한 검색 실패율 정의와 평가자 판정 방식이 문장 내용과 일치합니다.",
+      "question_context": 5,
+      "seconds": 65.8
+    },
+    {
+      "id": "A9",
+      "expect": "㉠",
+      "status": "질문 근거 없음",
+      "status_ok": true,
+      "score": "72.86",
+      "evidence": [],
+      "evidence_gold": [],
+      "reason": "쿠버네티스 무중단 배포의 핵심 개념인 롤링 업데이트와 레디네스 프로브를 올바르게 언급했습니다. 하지만 구체적인 수치나 상세한 실행 순서는 부족합니다. 회사 문서에 관련 내용이 없는 질문이라 회사 문서 일치 축을 빼고 채점했다.",
+      "question_context": 0,
+      "seconds": 41.7
+    }
+  ]
+}
