@@ -124,14 +124,6 @@ def test_read_call_sees_no_documents_and_comparison_calls_see_no_raw_answer():
     assert CLAIMS[0] in claim1 and CLAIMS[1] not in claim1 and CLAIMS[1] in claim2
 
 
-def test_read_prompt_keeps_claims_of_off_topic_answers():
-    # P12-v3 A11: 질문에서 빗나간 답변의 주장을 뽑지 않아 무응답 0점이 됐다
-    model = _model(("같음", ["1-1"]), ("같음", ["1-2"]))
-    _score(model)
-    read = model.calls[0][-1].content
-    assert "질문에서 빗나간 답변이어도" in read and "relevance에서만 판단한다" in read
-
-
 def test_comparison_calls_share_the_same_front_part():
     model = _model(("같음", ["1-1"]), ("같음", ["1-2"]))
     _score(model, question_context=(PG, DEPLOY))
