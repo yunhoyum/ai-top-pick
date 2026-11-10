@@ -15,10 +15,10 @@ class Settings(BaseSettings):
 
     # ---------- 회사 문서 검색 (벡터 DB 설계서 8장) ----------
     # 검색어를 나누는 길이. worker의 CHUNK_MAX_TOKENS와 같게 둔다
-    QUERY_MAX_TOKENS: int = 512
+    QUERY_MAX_TOKENS: int = 256
     RAG_TOP_K: int = 5
-    # 평가(벡터 DB 설계서 11장) 전까지 쓰는 임시 값이다
-    RAG_MIN_SIMILARITY: float = 0.0
+    # 명백히 관계없는 청크만 거른다. ㉠(질문 근거 없음)은 이 값이 아니라 LLM이 판정한다 (RAG 설계서 3.3, E2-v2)
+    RAG_MIN_SIMILARITY: float = 0.50
 
     @property
     def sqlalchemy_url(self) -> str:

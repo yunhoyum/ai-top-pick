@@ -24,8 +24,8 @@ class Settings(BaseSettings):
     # ---------- 회사 문서 임베딩 (벡터 DB 설계서 4장) ----------
     EMBED_URL: str = "http://embed-server:8000"
     INTERNAL_TOKEN: str = ""
-    # 임베딩 입력 한도(embed-server EMBED_MAX_SEQ_LEN)와 같게 둔다
-    CHUNK_MAX_TOKENS: int = 512
+    # 검색 평가 E2에서 정했다 (RAG 설계서 5.5). embed-server 입력 한도(EMBED_MAX_SEQ_LEN 512)보다 크면 안 된다
+    CHUNK_MAX_TOKENS: int = 256
     CHUNK_OVERLAP_TOKENS: int = 64
 
     # ---------- CORS: 쉼표로 구분. 쿠키 인증이라 와일드카드는 쓸 수 없다 ----------
