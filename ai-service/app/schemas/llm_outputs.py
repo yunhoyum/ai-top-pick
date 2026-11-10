@@ -21,7 +21,9 @@ ClaimLevel = Literal["같음", "반대", "문서에 없음"]
 
 
 class ClaimMatch(BaseModel):
-    claim: int  # 1번 호출의 claims 순번 (1부터)
+    # 1번 호출의 claims 순번(1부터). EXAONE이 번호 대신 주장 문장을 쓰기도 해서 문장도 받는다.
+    # 문장이면 코드가 claims와 맞춰 본다 (RAG 설계서 5.5 P8)
+    claim: int | str
     evidence_ids: list[str]
     level: ClaimLevel
 

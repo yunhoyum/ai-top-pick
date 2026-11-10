@@ -22,7 +22,8 @@ from pathlib import Path
 
 sys.path[:0] = ["/src"]
 
-from app.chains.answer_content import EvidenceStatus, score_content
+from app.chains.answer_content import EvidenceStatus, _claim_index, score_content
+from app.chains.structured import StructuredOutputError
 from app.core.config import get_settings
 from app.prompts import answer_content as prompts
 from app.rag.retriever import search_company_docs
@@ -60,7 +61,16 @@ def evaluate(posting_id: int) -> list[dict]:
         question_context = search_company_docs(posting_id, [q["query"]])
         answer_context = search_company_docs(posting_id, [a["query"]])
         started = time.perf_counter()
-        result = score_content(q["query"], a["query"], question_context, answer_context, JOB_DESCRIPTION)
+        try:
+            result = score_content(q["query"], a["query"], question_context, answer_context, JOB_DESCRIPTION)
+        except StructuredOutputError as e:
+            # 재시도해도 형식 검증에 실패했다. 이 답변은 틀린 것으로 세고 다음으로 넘어간다 (검증 실패율)
+            seconds = time.perf_counter() - started
+            rows.append({"id": a["id"], "expect": a["expect"], "status": "형식 실패", "status_ok": False,
+                         "format_failed": True, "error": str(e), "evidence": [], "evidence_gold": [],
+                         "seconds": round(seconds, 1)})
+            print(f"{a['id']:<3} X 기대={a['expect']:<14} 결과=형식 실패 ({seconds:.1f}s)\n      {str(e)[:150]}", flush=True)
+            continue
         seconds = time.perf_counter() - started
         expected = EXPECTED[a["expect"]]
         rows.append(
@@ -86,7 +96,9 @@ def evaluate(posting_id: int) -> list[dict]:
         print(f"{r['id']:<3} {mark} 기대={r['expect']:<14} 결과={r['status']:<8} 점수={r['score']:>6} "
               f"근거 {sum(r['evidence_gold'])}/{len(r['evidence'])} 정답 ({r['seconds']}s)\n"
               f"      1번: 적합 {read['relevance']} 구체 {read['specificity']}", flush=True)
-        matches = {m["claim"]: m for m in match["matches"]} if match else {}
+        matches = {}
+        for m in match["matches"] if match else []:
+            matches.setdefault(_claim_index(m["claim"], read["claims"]), m)
         for i, claim in enumerate(read["claims"], start=1):
             m = matches.get(i)
             judged = f"{m['level']} {m['evidence_ids']}" if m else "-"
@@ -102,10 +114,13 @@ def report(rows: list[dict]) -> dict:
     precision = sum(picked) / len(picked) if picked else None
     print(f"\n근거 상태 정확도 {status_accuracy:.1%} ({sum(r['status_ok'] for r in rows)}/{len(rows)})")
     print(f"근거 문장 정밀도 {precision:.1%} ({sum(picked)}/{len(picked)})" if picked else "근거 문장 없음")
+    failed = sum(r.get("format_failed", False) for r in rows)
+    print(f"검증 실패율 {failed / len(rows):.1%} ({failed}/{len(rows)}, 재시도해도 형식이 맞지 않은 답변)")
     print(f"채점 시간 중앙 {statistics.median(r['seconds'] for r in rows):.1f}s")
     return {
         "status_accuracy": status_accuracy,
         "evidence_precision": precision,
+        "format_failure_rate": failed / len(rows),
         "median_seconds": statistics.median(r["seconds"] for r in rows),
     }
 

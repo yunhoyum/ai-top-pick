@@ -158,6 +158,14 @@ def test_unknown_and_repeated_claim_numbers_are_ignored():
     ]
 
 
+def test_claim_given_as_text_is_matched_to_the_claim_list():
+    # EXAONE이 번호 대신 주장 문장을 쓰기도 한다. 띄어쓰기가 달라도 같은 주장으로 본다
+    matches = _match(("타임아웃 후  확인 중으로 둔다", "같음", ["1-1"]), ("목록에 없는 주장", "반대", ["1-2"]), ("2", "같음", ["1-2"]))
+    result = _score(FakeModel(_read(), matches))
+    assert result.status == EvidenceStatus.FOUND and result.score == Decimal("90.00")
+    assert len(result.evidence) == 2
+
+
 def test_nothing_compared_and_topic_not_in_docs_is_no_question_doc():
     result = _score(FakeModel(_read(), _match((1, "문서에 없음", []), question_in_docs=False)))
     assert result.status == EvidenceStatus.NO_QUESTION_DOC

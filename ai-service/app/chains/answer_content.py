@@ -7,6 +7,7 @@ LLM을 두 번 부른다.
 1번에 문서를 넣지 않는 이유: 문서를 같이 보면 답변에 없는 문서 내용을 답변에 섞어 읽었다 (RAG 설계서 5.5 P7).
 """
 
+import re
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from enum import StrEnum
@@ -101,9 +102,10 @@ def _compare(
     same = compared = 0
     picked: dict[str, NumberedSentence] = {}
     for m in match.matches:
-        if not 1 <= m.claim <= len(claims) or m.claim in seen_claims:
+        index = _claim_index(m.claim, claims)
+        if index is None or index in seen_claims:
             continue
-        seen_claims.add(m.claim)
+        seen_claims.add(index)
         ids = [i for i in m.evidence_ids if i in by_id]
         if m.level == "문서에 없음" or not ids:
             continue
@@ -112,6 +114,18 @@ def _compare(
         for i in ids:
             picked.setdefault(i, by_id[i])
     return same, compared, list(picked.values())
+
+
+def _claim_index(claim: int | str, claims: list[str]) -> int | None:
+    """주장 번호(1부터)를 돌려준다. 번호 대신 문장이 오면 띄어쓰기를 무시하고 같은 주장을 찾는다. 없으면 None."""
+    if isinstance(claim, str):
+        if claim.strip().isdigit():
+            claim = int(claim)
+        else:
+            key = re.sub(r"\s+", "", claim)
+            found = [i for i, c in enumerate(claims, start=1) if re.sub(r"\s+", "", c) == key]
+            return found[0] if found else None
+    return claim if 1 <= claim <= len(claims) else None
 
 
 def _level(same: int, compared: int) -> str:
