@@ -1,0 +1,44 @@
+"""근거 후보 문장 만들기 (벡터 DB 설계서 8.4의 1~2단계, RAG 설계서 3.1의 ③④)."""
+
+import re
+from dataclasses import dataclass
+
+from app.rag.retriever import Chunk
+
+# 마침표·물음표·느낌표 뒤 공백, 또는 줄바꿈에서 문장을 나눈다 (벡터 DB 설계서 8.4). 'v1.2', '0.93'은 나누지 않는다
+_SENTENCE_BREAK = re.compile(r"(?<=[.?!])\s+|\n+")
+
+
+@dataclass(frozen=True)
+class NumberedSentence:
+    id: str  # "후보 순번-문장 순번", 예: "1-2"
+    text: str
+    chunk: Chunk
+
+
+def merge_contexts(*contexts: list[Chunk]) -> list[Chunk]:
+    """chunk_id로 합치고 같은 청크는 가장 높은 유사도를 남긴다. 유사도 순으로 돌려준다."""
+    best: dict[int, Chunk] = {}
+    for chunks in contexts:
+        for chunk in chunks:
+            kept = best.get(chunk.chunk_id)
+            if kept is None or chunk.similarity > kept.similarity:
+                best[chunk.chunk_id] = chunk
+    return sorted(best.values(), key=lambda c: c.similarity, reverse=True)
+
+
+def split_sentences(text: str) -> list[str]:
+    return [s.strip() for s in _SENTENCE_BREAK.split(text) if s.strip()]
+
+
+def number_sentences(chunks: list[Chunk]) -> list[NumberedSentence]:
+    """청크의 문장을 원래 순서대로 번호를 붙인다. 청크 겹침으로 이미 나온 문장은 다시 넣지 않는다."""
+    seen: set[str] = set()
+    numbered: list[NumberedSentence] = []
+    for i, chunk in enumerate(chunks, start=1):
+        for j, sentence in enumerate(split_sentences(chunk.content), start=1):
+            if sentence in seen:
+                continue
+            seen.add(sentence)
+            numbered.append(NumberedSentence(f"{i}-{j}", sentence, chunk))
+    return numbered

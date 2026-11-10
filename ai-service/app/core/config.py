@@ -20,6 +20,15 @@ class Settings(BaseSettings):
     # 명백히 관계없는 청크만 거른다. ㉠(질문 근거 없음)은 이 값이 아니라 LLM이 판정한다 (RAG 설계서 3.3, E2-v2)
     RAG_MIN_SIMILARITY: float = 0.50
 
+    # ---------- LLM (OpenAI 호환 API, 아키텍처 4.2) ----------
+    LLM_URL: str = ""
+    LLM_MODEL: str = ""
+    # 같은 입력에 같은 점수가 나오게 고정한다 (RAG 설계서 5.1)
+    LLM_TEMPERATURE: float = 0.0
+    LLM_TIMEOUT_SEC: float = 120.0
+    # 출력이 형식 검증을 통과하지 못하면 다시 묻는 횟수 (아키텍처 9.4)
+    LLM_MAX_RETRIES: int = 2
+
     @property
     def sqlalchemy_url(self) -> str:
         """psycopg3 드라이버 접두어를 붙인다. .env에는 postgresql:// 형태로 둔다."""
