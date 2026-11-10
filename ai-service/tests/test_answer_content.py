@@ -64,8 +64,20 @@ def _model(*judgments, claims=tuple(CLAIMS), in_docs=True):
     return FakeModel(_read(claims), _topic(in_docs), *[_claim(lv, ids) for lv, ids in judgments])
 
 
-def _score(model, question_context=(PG, DEPLOY), answer_context=()):
-    return score_content(QUESTION, ANSWER, list(question_context), list(answer_context), JOB, model=model)
+class FakeEmbed:
+    """글마다 정해 둔 방향의 단위 벡터를 준다. 정하지 않은 글은 모두 같은 방향이라 유사도 1이다."""
+
+    def __init__(self, directions=None):
+        self.directions = directions or {}
+
+    def embed(self, texts):
+        return [[1.0, 0.0] if self.directions.get(t, 0) == 0 else [0.0, 1.0] for t in texts]
+
+
+def _score(model, question_context=(PG, DEPLOY), answer_context=(), embed=None):
+    return score_content(
+        QUESTION, ANSWER, list(question_context), list(answer_context), JOB, model=model, embed=embed or FakeEmbed()
+    )
 
 
 # ---------- 문장 번호 ----------
@@ -168,6 +180,26 @@ def test_sentence_after_evidence_id_is_accepted():
     # P8에서 EXAONE이 실제로 쓴 형식: '[1-1] 문장'
     result = _score(_model(("같음", ["[1-1] PG 승인 응답이 5초 안에…"]), ("같음", ["1-2"])))
     assert result.status == EvidenceStatus.FOUND and len(result.evidence) == 2
+
+
+FIRST = "PG 승인 응답이 5초 안에 오지 않으면 결제 상태를 확인 중으로 둔다."
+SECOND = "보정 배치가 1분마다 조회한다."
+
+
+def test_evidence_unlike_the_claim_is_not_kept_but_verdict_stays():
+    # 1번 주장의 근거 중 SECOND는 주장과 직교(유사도 0)라 빠진다
+    embed = FakeEmbed({SECOND: 1})
+    result = _score(_model(("같음", ["1-1", "1-2"]), ("문서에 없음", [])), embed=embed)
+    assert result.status == EvidenceStatus.FOUND and result.score == Decimal("90.00")
+    assert [e.sentence for e in result.evidence] == [FIRST]
+
+
+def test_best_evidence_is_kept_even_when_all_are_unlike():
+    # 근거가 모두 기준 아래여도 주장마다 가장 비슷한 1개는 남긴다. 판정은 바꾸지 않는다
+    embed = FakeEmbed({FIRST: 1, SECOND: 1})
+    result = _score(_model(("같음", ["1-1"]), ("반대", ["1-2"])), embed=embed)
+    assert result.score == Decimal("82.50")  # 같음·반대 → 대부분 같음
+    assert [e.sentence for e in result.evidence] == [FIRST, SECOND]
 
 
 def test_nothing_compared_and_topic_not_in_docs_is_no_question_doc():

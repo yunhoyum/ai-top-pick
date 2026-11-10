@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     RAG_TOP_K: int = 5
     # 명백히 관계없는 청크만 거른다. ㉠(질문 근거 없음)은 이 값이 아니라 LLM이 판정한다 (RAG 설계서 3.3, E2-v2)
     RAG_MIN_SIMILARITY: float = 0.50
+    # 주장과 근거 문장의 유사도가 이보다 낮은 근거는 저장하지 않는다. 판정은 바꾸지 않는다 (RAG 설계서 5.5 P11)
+    EVIDENCE_MIN_SIMILARITY: float = 0.50
 
     # ---------- LLM (OpenAI 호환 API, 아키텍처 4.2) ----------
     LLM_URL: str = ""

@@ -20,6 +20,8 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import Runnable
 
 from app.chains.structured import invoke_structured
+from app.clients.embed import EmbedClient
+from app.core.config import get_settings
 from app.core.llm import get_chat_model
 from app.prompts import answer_content as prompts
 from app.rag.evidence import NumberedSentence, merge_contexts, number_sentences
@@ -71,6 +73,7 @@ def score_content(
     answer_context: list[Chunk],
     job_description: str,
     model: Runnable | None = None,
+    embed: EmbedClient | None = None,
 ) -> ContentScore:
     model = model or get_chat_model()
     read = _read_answer(model, question, answer, job_description)
@@ -89,14 +92,16 @@ def score_content(
         "claims": [j.model_dump() for j in judgments],
     }
 
-    same, compared, picked = _compare(judgments, sentences)
+    compared = _compared_claims(read.claims, judgments, sentences)
 
     # 판정 순서 (루브릭 설계서 3.3): 근거 번호가 검증된 같음·반대 주장이 있으면 질문 주제 판정과 상관없이 근거 있음
     if compared:
-        level = _level(same, compared)
+        same = sum(level == "같음" for _, level, _ in compared)
+        level = _level(same, len(compared))
+        picked = _filter_evidence(compared, embed or EmbedClient())
         evidence = [EvidenceSentence(s.chunk.source_type, s.chunk.source_id, s.chunk.chunk_id, s.text) for s in picked]
         score = _weighted(read.relevance, read.specificity, DOC_MATCH_SCORES[level])
-        reason = f"{read.reason} 회사 문서와 비교한 주장 {compared}개 중 {same}개가 문서와 같다 (일치 단계: {level})."
+        reason = f"{read.reason} 회사 문서와 비교한 주장 {len(compared)}개 중 {same}개가 문서와 같다 (일치 단계: {level})."
         return ContentScore(score, reason, EvidenceStatus.FOUND, evidence, llm_output)
     if not topic.question_in_docs:
         return _without_doc_axis(read, llm_output)
@@ -115,23 +120,36 @@ def _read_answer(model: Runnable, question: str, answer: str, job_description: s
     return invoke_structured(model, retry, AnswerReadOutput)
 
 
-def _compare(
-    judgments: list[ClaimJudgment], sentences: list[NumberedSentence]
-) -> tuple[int, int, list[NumberedSentence]]:
-    """(같음 수, 비교된 주장 수, 근거 문장). 목록에 없는 문장 번호는 버린다.
-    같음·반대인데 남은 문장 번호가 없으면 근거를 확인할 수 없으므로 '문서에 없음'과 같이 센다."""
+def _compared_claims(
+    claims: list[str], judgments: list[ClaimJudgment], sentences: list[NumberedSentence]
+) -> list[tuple[str, str, list[NumberedSentence]]]:
+    """일치 단계에 세는 주장 (주장, 같음·반대, 근거 문장). 목록에 없는 문장 번호는 버린다.
+    같음·반대인데 남은 문장 번호가 없으면 근거를 확인할 수 없으므로 '문서에 없음'과 같이 빼고 센다."""
     by_id = {s.id: s for s in sentences}
-    same = compared = 0
+    compared = []
+    for claim, j in zip(claims, judgments):
+        ids = list(dict.fromkeys(i for i in _evidence_ids(j.evidence_ids) if i in by_id))
+        if j.level != "문서에 없음" and ids:
+            compared.append((claim, j.level, [by_id[i] for i in ids]))
+    return compared
+
+
+def _filter_evidence(
+    compared: list[tuple[str, str, list[NumberedSentence]]], embed: EmbedClient
+) -> list[NumberedSentence]:
+    """주장과 유사도가 낮은 근거 문장은 저장하지 않는다. 주장마다 가장 비슷한 1개는 남긴다.
+    판정은 바꾸지 않는다. 유사도로 판정을 바꾸면 맞는 판정도 잃었다 (RAG 설계서 5.5 P11)."""
+    threshold = get_settings().EVIDENCE_MIN_SIMILARITY
+    texts = list(dict.fromkeys([claim for claim, _, _ in compared] + [s.text for _, _, ss in compared for s in ss]))
+    # embed-server는 길이 1로 정규화한 벡터를 준다. 내적이 코사인 유사도다
+    vectors = dict(zip(texts, embed.embed(texts)))
     picked: dict[str, NumberedSentence] = {}
-    for j in judgments:
-        ids = [i for i in _evidence_ids(j.evidence_ids) if i in by_id]
-        if j.level == "문서에 없음" or not ids:
-            continue
-        compared += 1
-        same += j.level == "같음"
-        for i in ids:
-            picked.setdefault(i, by_id[i])
-    return same, compared, list(picked.values())
+    for claim, _, candidates in compared:
+        scored = [(sum(a * b for a, b in zip(vectors[claim], vectors[s.text])), s) for s in candidates]
+        kept = [s for similarity, s in scored if similarity >= threshold] or [max(scored, key=lambda x: x[0])[1]]
+        for s in kept:
+            picked.setdefault(s.id, s)
+    return list(picked.values())
 
 
 def _evidence_ids(raw: list[str]) -> list[str]:
