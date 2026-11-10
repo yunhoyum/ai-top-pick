@@ -17,9 +17,7 @@ from app.rag.evidence import merge_contexts, number_sentences
 from app.rag.retriever import Chunk
 from app.schemas.llm_outputs import AnswerContentNoDocOutput, AnswerContentOutput
 
-# 일치 단계별 점수 (루브릭 설계서 3.2). '문서에 없음'은 ㉡이고 50을 넣는다
-DOC_MATCH_SCORES = {"같음": 100, "대부분 같음": 75, "일부만 같음": 25, "반대": 0}
-NO_ANSWER_DOC_LEVEL = "문서에 없음"
+# ㉡이면 일치 축을 이 점수로 넣는다 (루브릭 설계서 3.2)
 NO_ANSWER_DOC_MATCH = 50
 
 # 근거 상태를 저장하지 않으므로 점수 이유 끝에 처리 사실을 붙인다 (루브릭 설계서 3.3)
@@ -79,11 +77,10 @@ def score_content(
     by_id = {s.id: s for s in sentences}
     picked = [by_id[i] for i in dict.fromkeys(out.evidence_ids) if i in by_id]
 
-    # 판정 순서 (루브릭 설계서 3.3): 통과한 번호가 있고 일치 단계가 '문서에 없음'이 아니면
-    # 질문 주제 판정과 상관없이 근거 있음
-    if picked and out.doc_match_level != NO_ANSWER_DOC_LEVEL:
+    # 판정 순서 (루브릭 설계서 3.3): 통과한 번호가 있으면 질문 주제 판정과 상관없이 근거 있음
+    if picked:
         evidence = [EvidenceSentence(s.chunk.source_type, s.chunk.source_id, s.chunk.chunk_id, s.text) for s in picked]
-        score = _weighted(out.relevance, out.specificity, DOC_MATCH_SCORES[out.doc_match_level])
+        score = _weighted(out.relevance, out.specificity, out.doc_match)
         return ContentScore(score, out.reason, EvidenceStatus.FOUND, evidence, out)
     if not out.question_in_docs:
         return _without_doc_axis(out)
