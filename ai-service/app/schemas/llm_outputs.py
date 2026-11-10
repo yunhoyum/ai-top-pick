@@ -11,10 +11,14 @@ DocMatchLevel = Literal["같음", "대부분 같음", "문서에 없음", "일�
 
 
 class AnswerContentOutput(BaseModel):
-    """면접 답변 내용 채점 (루브릭 설계서 3.4). 출력 순서: 질문 주제 판정 → 근거 번호 → 일치 단계 → 두 축 → 이유."""
+    """면접 답변 내용 채점 (루브릭 설계서 3.4).
+    출력 순서: 질문 주제 판정 → 답변 요지 → 근거 번호 → 문서와 비교 → 두 축 → 일치 단계 → 이유.
+    요지와 비교를 판단보다 먼저 쓰게 해 비교한 뒤에 판단하게 한다 (실험 P7)."""
 
     question_in_docs: bool
+    answer_summary: str = Field(min_length=1)
     evidence_ids: list[str]
+    doc_comparison: str = Field(min_length=1)
     doc_match_level: DocMatchLevel
     relevance: Score
     specificity: Score

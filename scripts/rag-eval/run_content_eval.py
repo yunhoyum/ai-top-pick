@@ -88,6 +88,8 @@ def evaluate(posting_id: int) -> list[dict]:
         print(f"{r['id']:<3} {mark} 기대={r['expect']:<14} 결과={r['status']:<8} 점수={r['score']:>6} "
               f"근거 {sum(r['evidence_gold'])}/{len(r['evidence'])} 정답 ({r['seconds']}s)\n"
               f"      LLM: {topic} | {axes}", flush=True)
+        if "doc_comparison" in llm:
+            print(f"      비교: {llm['doc_comparison'][:90]}", flush=True)
     return rows
 
 

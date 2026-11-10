@@ -7,9 +7,10 @@ from app.rag.evidence import NumberedSentence
 # v2: 근거로 고를 문장과 ㉡(문서에 없는 다른 방법)을 예시로 구분한다
 # v3: 5단계 + 점수 구간 + 순서 변경을 한 번에 넣었다가 나빠져 되돌렸다 (RAG 설계서 5.5 P3-exaone)
 # v4: v2에서 일치 축만 숫자 대신 5단계로 고른다 (실험 P4)
-# v5: v4에 점수 구간 기준을 더했다. 점수가 90/90 근처로 올라가기만 하고 변별은 없어 뺐다 (실험 P5)
-# v6: v4에서 자료 순서만 바꾼다. 질문 주제를 답변을 보기 전에 판단하게 한다 (실험 P6)
-VERSION = "v6"
+# v5: v4 + 점수 구간 기준. 점수가 올라가기만 해 뺐다 (실험 P5)
+# v6: v4 + 자료 순서 변경. 근거 상태 정확도가 떨어져 뺐다 (실험 P6)
+# v7: v4에서 답변 요지와 문서와의 비교를 판단보다 먼저 쓰게 한다 (실험 P7)
+VERSION = "v7"
 
 SYSTEM = """너는 채용 면접에서 지원자의 답변 내용을 채점하는 평가자다.
 - 주어진 자료만 보고 판단한다. 자료에 없는 사실을 지어내지 않는다.
@@ -35,31 +36,23 @@ def with_documents(
     question: str, answer: str, job_description: str, sentences: list[NumberedSentence]
 ) -> list:
     numbered = "\n".join(f"[{s.id}] {s.text}" for s in sentences)
-    # 질문 주제(question_in_docs)는 답변을 읽기 전에 정하게 회사 문서와 질문을 답변 앞에 둔다
     return [
         SystemMessage(content=SYSTEM),
         HumanMessage(
-            content=f"""[직무 설명] (참고용이다. 근거 번호로 고르지 않는다)
-{job_description}
+            content=f"""{_common(question, answer, job_description)}
 
 [회사 문서 문장]
 {numbered}
 
-[면접 질문]
-{question}
-
-먼저 답변을 보기 전에 질문만 보고 정한다.
+아래 순서로 판단해 JSON으로 출력하라.
 - question_in_docs: 면접 질문의 주제가 회사 문서 문장에 있으면 true, 없으면 false.
-
-[지원자 답변]
-{answer}
-
-그다음 아래 순서로 판단해 JSON으로 출력하라.
+- answer_summary: 지원자 답변이 말한 방법이나 사실을 한 문장으로 요약한다.
 - evidence_ids: 답변이 말한 방법이나 사실을 회사 문서 문장이 직접 다룰 때만 그 문장의 번호를 고른다.
   - 문서가 같은 방법·사실을 말한다 → 고른다.
   - 문서가 답변과 같은 대상(같은 설정, 같은 방법)에 대해 다른 값이나 반대 판단을 말한다 → 고른다. 문서가 검토하고 채택하지 않은 방법도 여기에 든다.
   - 답변이 문서에 아예 나오지 않는 다른 방법을 말한다 → 고르지 않는다. 문서가 같은 문제를 다른 방법으로 푼다는 것만으로는 근거가 아니다.
   - 위 목록에 있는 번호만 쓴다. 판단에 직접 쓴 문장만 고르고, 제목이나 용어 정의처럼 답변을 판단할 수 없는 문장은 고르지 않는다. 애매하면 빈 목록으로 둔다.
+- doc_comparison: answer_summary를 고른 문장과 비교해 같은 점과 다른 점을 한 문장으로 쓴다. 고른 문장이 없으면 "문서에 없는 방법이다"라고 쓴다.
 {_AXES}
 - doc_match_level: evidence_ids의 문장과 비교해 아래 다섯 가지 중 하나를 그대로 쓴다.
   - "같음": 답변의 핵심이 문서와 같다.
@@ -74,7 +67,7 @@ def with_documents(
 - 답변 "5초를 기다리지 않고 바로 실패로 처리합니다" → evidence_ids ["1-1"], doc_match_level "반대"
 - 답변 "결제 버튼을 한 번 누르면 비활성화합니다" → evidence_ids [], doc_match_level "문서에 없음". question_in_docs는 true다
 
-형식: {{"question_in_docs": true, "evidence_ids": ["1-1"], "relevance": 0, "specificity": 0, "doc_match_level": "같음", "reason": "..."}}"""
+형식: {{"question_in_docs": true, "answer_summary": "...", "evidence_ids": ["1-1"], "doc_comparison": "...", "relevance": 0, "specificity": 0, "doc_match_level": "같음", "reason": "..."}}"""
         ),
     ]
 

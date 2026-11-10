@@ -48,7 +48,9 @@ DEPLOY = _chunk(2, "배포는 Docker로 한다.", similarity=0.6)
 def _output(ids, question_in_docs=True, level="같음"):
     return {
         "question_in_docs": question_in_docs,
+        "answer_summary": "타임아웃 후 확인 중으로 두고 배치로 확정한다.",
         "evidence_ids": ids,
+        "doc_comparison": "문서와 같은 방법이다.",
         "doc_match_level": level,
         "relevance": 90,
         "specificity": 80,
