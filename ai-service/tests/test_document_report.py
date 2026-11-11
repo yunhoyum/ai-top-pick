@@ -95,6 +95,15 @@ def test_read_call_sees_no_company_material():
     assert "PG 승인 응답" not in read and "결제 장애를 재현" not in read and "주문·결제 백엔드" not in read
 
 
+def test_read_prompt_keeps_only_comparable_claims():
+    # D1-v1: 학력·소속, 결과 수치, 자기평가를 주장으로 뽑아 같음 비율이 낮아졌다
+    model = FakeModel(_case_read(["a"]), _claim("같음", ["1-1"]))
+    _score(model, _docs(skill_cases=[CASE]))
+    read = model.calls[0][-1].content
+    assert "실제로 한 일, 쓴 방법, 내린 결정" in read
+    assert "소속 정보" in read and "결과 수치와 성과" in read and "행동 없이 자신을 평가한 말" in read
+
+
 def test_comparison_sees_functional_talent_and_project_doc_and_shares_front_part():
     model = FakeModel(_case_read(["a", "b"]), _claim("같음", ["기-2"]), _claim("같음", ["1-1"]))
     item = _score(model, _docs(skill_cases=[CASE]))["기술 적용 사례"]
