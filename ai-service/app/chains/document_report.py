@@ -38,6 +38,7 @@ from app.schemas.llm_outputs import (
 )
 
 RESUME, SKILL_CASE, PORTFOLIO, ESSAY = "이력서", "기술 적용 사례", "포트폴리오", "자기소개"
+ITEMS = (RESUME, SKILL_CASE, PORTFOLIO, ESSAY)  # eval_criteria의 서류 항목 이름과 같아야 한다
 
 # 인재상·직무 설명 문장 번호의 앞글자. 프로젝트 문서 문장은 '후보 순번-문장 순번'이다
 JOB, FUNCTIONAL, NONFUNCTIONAL = ("직", "직무 설명"), ("기", "기능적 인재상"), ("비", "비기능적 인재상")
