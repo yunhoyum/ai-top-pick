@@ -1,4 +1,4 @@
-from app.services import embedding_batch
+from app.services import document_report_batch, embedding_batch
 from app.services.progress_batch import advance_posting_progress
 from app.workers.celery_app import celery_app
 
@@ -13,3 +13,9 @@ def advance_progress() -> dict[str, int]:
 def embed_company_documents(job_id: int) -> int:
     """공고의 프로젝트 문서를 청크로 나눠 임베딩한다 (공고 등록, 등록된 공고의 문서 변경 때 main-api가 보낸다)."""
     return embedding_batch.embed_company_documents(job_id)
+
+
+@celery_app.task(name="report.generate_document_report")
+def generate_document_report(job_id: int) -> int | None:
+    """지원자 1명의 서류 보고서를 만든다. llm 큐에서 한 번에 하나씩 돈다 (celery_app.py task_routes)."""
+    return document_report_batch.generate_document_report(job_id)

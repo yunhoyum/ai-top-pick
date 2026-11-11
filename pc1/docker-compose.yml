@@ -91,6 +91,25 @@ services:
       retries: 3
       start_period: 20s
 
+  # LLM 작업(서류 보고서 등)만 받는다. 동시 1개라 실시간 면접 응답이 늦어지지 않는다 (Celery 2장, 아키텍처 8)
+  celery-worker-llm:
+    build: *main-api-build
+    command: celery -A app.workers.celery_app worker -Q llm --concurrency=1 -n llm@%h --loglevel=INFO
+    env_file: .env
+    volumes:
+      - storage:/data/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.workers.celery_app inspect ping -d llm@$${HOSTNAME}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
   # ---------- 전형 마감 감지 ----------
   celery-beat:
     build: *main-api-build

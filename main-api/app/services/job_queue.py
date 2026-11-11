@@ -13,6 +13,7 @@ log = logging.getLogger(__name__)
 # 작업 종류 → Celery 작업 이름 (workers/tasks.py)
 TASK_NAMES = {
     JobType.COMPANY_DOC_EMBED.value: "embedding.embed_company_documents",
+    JobType.DOC_REPORT.value: "report.generate_document_report",
 }
 
 

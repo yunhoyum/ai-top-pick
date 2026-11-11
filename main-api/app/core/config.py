@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     CHUNK_MAX_TOKENS: int = 256
     CHUNK_OVERLAP_TOKENS: int = 64
 
+    # ---------- ai-service (PC2) ----------
+    AI_SERVICE_URL: str = ""
+    # 서류 보고서는 지원자 1명에 LLM을 20번 넘게 부른다. EXAONE으로 1~3분 걸렸다 (RAG 설계서 5.8)
+    AI_SERVICE_TIMEOUT_SEC: float = 600.0
+
     # ---------- CORS: 쉼표로 구분. 쿠키 인증이라 와일드카드는 쓸 수 없다 ----------
     CORS_ORIGINS: str = ""
 
