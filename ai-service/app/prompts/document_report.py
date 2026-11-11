@@ -12,14 +12,16 @@ v3: 강점·확인 필요(항목마다 0~1개씩)와 요약을 더한다. 항목
     둘 다 서류 원문 대신 ①②의 결과만 받는다. 앞 단계와 다른 말을 하지 않게 하기 위해서다
 v4: 서류 원문이 없어 있는 수치를 '없다'고 쓰고, 어느 지원자에게나 쓸 일반적인 문장을 냈다.
     회사와 관계없는 지원자도 요약에서 '직무와 잘 부합한다'고 썼다 (D3-v3).
-    - 인재상 적합도: 인재상 문장마다 서류에서 근거 문장을 그대로 옮긴다 (fit_system, judge_fit)
+    - 인재상 적합도: 인재상 문장마다 LLM이 서류에서 근거 문장을 그대로 옮긴다
     - 강점·확인 필요: 항목 원문을 넣고, 구체적으로 쓰게 한다
     - 요약: 항목 점수와 인재상 확인 개수를 넣고, 낮으면 직무와 맞는다고 쓰지 않게 한다
+v5: 인재상 적합도를 v3의 코드 방식으로 되돌린다. v4의 인용 방식은 EXAONE이 근거가 없어도 늘 2개를 채웠고,
+    옮긴 문장의 69%가 원문과 달랐으며, 남은 근거도 절반이 엉뚱했다 (D4-v4). 강점·확인 필요, 요약은 v4와 같다
 """
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
-VERSION = "v4"
+VERSION = "v5"
 
 SYSTEM = """너는 채용 서류 전형에서 지원자의 서류를 채점하는 평가자다.
 - 주어진 자료만 보고 판단한다. 자료에 없는 사실을 지어내지 않는다.
@@ -108,30 +110,6 @@ def judge_claim(system: SystemMessage, claim: str) -> list[BaseMessage]:
 형식: {{"level": "같음", "evidence_ids": ["1-1"]}}"""
         ),
     ]
-
-def fit_system(texts: dict[str, str]) -> SystemMessage:
-    """인재상 판정들이 함께 쓰는 앞부분. 지원자 서류 전체를 둔다. 인재상만 바꿔 묻는다."""
-    documents = "\n\n".join(f"[{name}]\n{text}" for name, text in texts.items())
-    return SystemMessage(content=f"{SYSTEM}\n\n[지원자 서류]\n{documents}")
-
-
-def judge_fit(system: SystemMessage, talent: str) -> list[BaseMessage]:
-    return [
-        system,
-        HumanMessage(
-            content=f"""[회사의 인재상]
-{talent}
-
-위 지원자 서류에서 이 인재상을 보여 주는 경험을 찾아 JSON으로 출력하라.
-- quotes: 근거가 되는 서류 문장을 최대 2개, 서류에서 글자 그대로 옮겨 적는다. 바꾸거나 줄이지 않는다.
-- 지원자가 실제로 한 행동이나 결과만 근거다. '책임감이 강하다'처럼 행동 없이 자신을 평가한 말은 근거가 아니다.
-- 같은 분야라는 것만으로는 근거가 아니다. 인재상이 말하는 일이나 태도를 직접 보여 줘야 한다.
-- 근거가 없으면 빈 목록이다.
-
-형식: {{"quotes": ["..."]}}"""
-        ),
-    ]
-
 
 def points(item: str, text: str, brief: str) -> list[BaseMessage]:
     """text: 항목 원문. brief: 항목의 축 점수, 채점 이유, 주장별 판정 (chains/document_report._item_brief)."""

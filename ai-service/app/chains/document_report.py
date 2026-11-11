@@ -30,7 +30,6 @@ from app.schemas.internal import ApplicantDocuments, PostingBrief
 from app.schemas.llm_outputs import (
     ClaimJudgment,
     EssayReadOutput,
-    FitOutput,
     PointsOutput,
     PortfolioReadOutput,
     ResumeReadOutput,
@@ -79,7 +78,7 @@ class Match:
     evidence: list[SourceSentence]
     judgments: list[dict]
     # 주장마다 (주장, 코드가 정한 판정, 번호가 검증된 회사 자료 문장). 거르기 전이다.
-    # 강점·확인 필요가 쓴다
+    # 인재상 적합도와 강점·확인 필요가 쓴다
     claims: list[tuple[str, str, list[SourceSentence]]] = field(default_factory=list)
 
 
@@ -117,7 +116,7 @@ class DocumentReport:
     fits: list[Fit]
     points: list[Point]
     summary: str  # stage_report.ai_summary
-    llm_output: dict  # {"fits": [...], "points": {항목: 출력}, "summary": 출력}. 평가·디버깅용이다
+    llm_output: dict  # {"points": {항목: 출력}, "summary": 출력}. 평가·디버깅용이다
 
 
 def score_document_items(
@@ -162,13 +161,12 @@ def build_document_report(
     embed: EmbedClient | None = None,
 ) -> DocumentReport:
     """서류 보고서 전체 (RAG 설계서 4.1): ① 항목 점수 → ② 인재상 적합도 → ③ 강점·확인 필요 → ④ 요약.
-    ②는 인재상 문장마다 LLM이 서류에서 근거 문장을 그대로 옮기고, 코드가 서류에 있는 문장인지 확인한다.
-    ③은 항목 원문과 ①의 결과를, ④는 ①②③의 결과와 항목 점수를 받는다."""
+    ②는 ①의 주장 비교로 코드가 만든다. ③은 항목 원문과 ①의 결과를, ④는 ①②③의 결과와 항목 점수를 받는다."""
     model = model or get_chat_model()
     items = score_document_items(posting, documents, model=model, search=search, embed=embed)
     texts = {name: text for name, text in _item_texts(documents).items() if text}
     talents = _talent(FUNCTIONAL, posting.functional_talent) + _talent(NONFUNCTIONAL, posting.nonfunctional_talent)
-    fits, fits_output = _fits(model, talents, texts)
+    fits = _fits(items, talents)
 
     points: list[Point] = []
     points_output: dict[str, dict] = {}
@@ -180,40 +178,25 @@ def build_document_report(
         points += [Point(t, item.name, c.strip()) for t, c in (("강점", out.strength), ("확인 필요", out.check)) if c.strip()]
 
     summary = invoke_structured(model, prompts.summary(_report_brief(items, fits, points)), SummaryOutput)
-    llm_output = {"fits": fits_output, "points": points_output, "summary": summary.model_dump()}
+    llm_output = {"points": points_output, "summary": summary.model_dump()}
     return DocumentReport(items, fits, points, summary.summary, llm_output)
 
 
-def _fits(model, talents: list[SourceSentence], texts: dict[str, str]) -> tuple[list[Fit], list[dict]]:
-    """인재상 문장마다 서류에서 근거 문장을 옮겨 받는다 (루브릭 설계서 10).
-    ①의 주장으로 만들면 결과 수치·태도처럼 주장에서 뺀 내용이 근거가 될 수 없어, 지표·정직함 같은
-    인재상이 늘 '확인되지 않음'이었다 (D3-v3). 옮긴 문장이 서류에 없으면 버린다. 지어낸 근거를 막는다."""
-    if not texts:
-        return [Fit(t.text, NO_FIT_NOTE) for t in talents], []
-    system = prompts.fit_system(texts)  # 서류를 앞부분에 둬 인재상마다 같은 앞부분 계산을 다시 쓴다
-    fits, outputs = [], []
-    for t in talents:
-        out = invoke_structured(model, prompts.judge_fit(system, t.text), FitOutput)
-        kept = [(name, q) for q in out.quotes if (name := _quoted_item(q, texts))]
-        outputs.append({"talent": t.text, "quotes": out.quotes, "kept": len(kept)})
-        evidence = " / ".join(f'{name}: "{_strip_quote(q)}"' for name, q in kept)
-        fits.append(Fit(t.text, evidence or NO_FIT_NOTE))
-    return fits, outputs
-
-
-_QUOTE_CHARS = "\"'“”‘’「」"
-
-
-def _strip_quote(q: str) -> str:
-    return q.strip().strip(_QUOTE_CHARS).strip()
-
-
-def _quoted_item(quote: str, texts: dict[str, str]) -> str | None:
-    """옮긴 문장이 들어 있는 항목 이름. 공백과 따옴표 차이는 무시한다. 너무 짧은 조각은 근거로 보지 않는다."""
-    q = re.sub(r"\s+", "", _strip_quote(quote))
-    if len(q) < 10:
-        return None
-    return next((name for name, text in texts.items() if q in re.sub(r"\s+", "", text)), None)
+def _fits(items: list[ItemScore], talents: list[SourceSentence]) -> list[Fit]:
+    """인재상 문장마다 '같음'으로 판정되고 그 문장을 근거로 든 서류 내용을 모은다 (루브릭 설계서 10).
+    결과 수치·태도는 주장에서 빼므로 지표·정직함 같은 인재상은 확인되지 않기 쉽다 (알려진 한계).
+    인재상마다 LLM이 서류를 다시 읽게 해 봤지만, EXAONE이 근거가 없어도 늘 2개를 채웠고 옮긴 문장의
+    69%가 원문과 달라 이 방식보다 정확하지 않았다 (D4-v4)."""
+    found: dict[str, list[str]] = {t.id: [] for t in talents}
+    for item in items:
+        for match in item.matches.values():
+            for claim, level, sources in match.claims:
+                if level != "같음":
+                    continue
+                for s in sources:
+                    if s.id in found and f"{item.name}: {claim}" not in found[s.id]:
+                        found[s.id].append(f"{item.name}: {claim}")
+    return [Fit(t.text, " / ".join(found[t.id]) or NO_FIT_NOTE) for t in talents]
 
 
 def _item_brief(item: ItemScore) -> str:
