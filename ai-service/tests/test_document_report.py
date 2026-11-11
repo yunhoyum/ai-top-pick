@@ -66,8 +66,19 @@ def _claim(level, ids):
     return {"level": level, "evidence_ids": ids}
 
 
-def _score(model, docs, search=None):
-    return {i.name: i for i in score_document_items(POSTING, docs, model=model, search=search or FakeSearch())}
+class FakeEmbed:
+    """글마다 정해 둔 방향의 단위 벡터를 준다. 정하지 않은 글은 모두 같은 방향이라 유사도 1이다."""
+
+    def __init__(self, directions=None):
+        self.directions = directions or {}
+
+    def embed(self, texts):
+        return [[1.0, 0.0] if self.directions.get(t, 0) == 0 else [0.0, 1.0] for t in texts]
+
+
+def _score(model, docs, search=None, embed=None):
+    items = score_document_items(POSTING, docs, model=model, search=search or FakeSearch(), embed=embed or FakeEmbed())
+    return {i.name: i for i in items}
 
 
 # ---------- 기술 적용 사례: 회사와 상관없는 축 + 회사 업무 일치 ----------
@@ -134,6 +145,24 @@ def test_same_without_valid_ids_counts_as_not_in_docs():
 def test_evidence_ids_written_with_sentences_are_parsed():
     model = FakeModel(_case_read(["a"]), _claim("같음", ["[기-1] 결제 장애를 재현하고 원인을 기록하는 사람"]))
     item = _score(model, _docs(skill_cases=[CASE]))["기술 적용 사례"]
+    assert [e.id for e in item.evidence] == ["기-1"]
+
+
+def test_evidence_far_from_claim_is_dropped_but_judgment_stays():
+    # D2-v2: 번호 칸에 목록을 통째로 붙여 근거가 수십 개가 됐다. 유사도 0.50 미만은 뺀다
+    claim = "타임아웃이 나면 확인 중으로 두었다"
+    model = FakeModel(_case_read([claim]), _claim("같음", ["[1-1] ... [기-1] ... [기-2]"]))
+    talent = "결제 장애를 재현하고 원인을 기록하는 사람"
+    embed = FakeEmbed({talent: 1, "외부 API 타임아웃을 설계해 본 사람": 1})
+    item = _score(model, _docs(skill_cases=[CASE]), embed=embed)["기술 적용 사례"]
+    assert [e.id for e in item.evidence] == ["1-1"]
+    assert item.axes["doc_match"] == Decimal("100.00")
+
+
+def test_closest_evidence_is_kept_when_all_are_far():
+    claim = "타임아웃이 나면 확인 중으로 두었다"
+    model = FakeModel(_case_read([claim]), _claim("같음", ["기-1"]))
+    item = _score(model, _docs(skill_cases=[CASE]), embed=FakeEmbed({claim: 1}))["기술 적용 사례"]
     assert [e.id for e in item.evidence] == ["기-1"]
 
 

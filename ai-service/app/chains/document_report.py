@@ -20,6 +20,8 @@ from langchain_core.runnables import Runnable
 from pydantic import BaseModel
 
 from app.chains.structured import invoke_structured
+from app.clients.embed import EmbedClient
+from app.core.config import get_settings
 from app.core.llm import get_chat_model
 from app.prompts import document_report as prompts
 from app.rag.evidence import merge_contexts, number_sentences, split_sentences
@@ -81,9 +83,12 @@ def score_document_items(
     documents: ApplicantDocuments,
     model: Runnable | None = None,
     search: Callable[[list[str]], list[Chunk]] | None = None,
+    embed: EmbedClient | None = None,
 ) -> list[ItemScore]:
-    """search: 항목 텍스트로 그 공고의 프로젝트 문서를 찾는다. 없으면 search_company_docs를 쓴다."""
+    """search: 항목 텍스트로 그 공고의 프로젝트 문서를 찾는다. 없으면 search_company_docs를 쓴다.
+    embed: 근거 문장 거르기에 쓴다."""
     model = model or get_chat_model()
+    embed = embed or EmbedClient()
     search = search or (lambda texts: search_company_docs(posting.posting_id, texts))
     job = _talent(JOB, posting.job_description)
     functional = _talent(FUNCTIONAL, posting.functional_talent)
@@ -95,28 +100,28 @@ def score_document_items(
     essays = "\n\n".join(f"[{e.get('topic', '')}]\n{e.get('content', '')}" for e in documents.essays if e.get("content"))
     skill = _skill_score(documents.skills)
 
-    resume = _resume(model, search, resume_text, skill, job, functional)
+    resume = _resume(model, embed, search, resume_text, skill, job, functional)
     others = [
         # 회사 일치 축: 프로젝트 문서 + 기능적 인재상 (루브릭 설계서 7.3)
-        _item(model, SKILL_CASE, skill_cases, SkillCaseReadOutput, {"problem": 20, "process": 30, "result": 20},
+        _item(model, embed, SKILL_CASE, skill_cases, SkillCaseReadOutput, {"problem": 20, "process": 30, "result": 20},
               "doc_match", 30, lambda: functional + _project(search, skill_cases)),
-        _item(model, PORTFOLIO, portfolio, PortfolioReadOutput, {"decision": 40, "depth": 30},
+        _item(model, embed, PORTFOLIO, portfolio, PortfolioReadOutput, {"decision": 40, "depth": 30},
               "doc_match", 30, lambda: functional + _project(search, portfolio)),
         # 회사 일치도: 비기능적 인재상만. 프로젝트 문서는 검색하지 않는다
-        _item(model, ESSAY, essays, EssayReadOutput, {"format": 30, "logic": 40},
+        _item(model, embed, ESSAY, essays, EssayReadOutput, {"format": 30, "logic": 40},
               "company_match", 30, lambda: nonfunctional),
     ]
     return [resume, *others]
 
 
-def _resume(model, search, text: str, skill: Decimal, job, functional) -> ItemScore:
+def _resume(model, embed, search, text: str, skill: Decimal, job, functional) -> ItemScore:
     """직무 관련 경험 40 (직무 설명 + 프로젝트 문서) + 필수 기술 20 (코드) + 기능적 인재상 일치 40."""
     if not text:
         # 공고가 학력·경력·프로젝트를 모두 고르지 않았다. LLM을 부르지 않는다 (루브릭 설계서 7.3)
         return ItemScore(RESUME, skill, SKILL_ONLY_NOTE, [], {"skill": skill}, {})
     read = _read(model, RESUME, text, ResumeReadOutput)
-    experience = _match(model, read.claims, job + _project(search, text))
-    talent = _match(model, read.claims, functional)
+    experience = _match(model, embed, read.claims, job + _project(search, text))
+    talent = _match(model, embed, read.claims, functional)
     score = _round((experience.score * 40 + skill * 20 + talent.score * 40) / 100)
     reason = " ".join([read.reason, _match_note("직무 관련 경험", experience), _match_note("기능적 인재상 일치", talent)])
     return ItemScore(
@@ -127,13 +132,13 @@ def _resume(model, search, text: str, skill: Decimal, job, functional) -> ItemSc
 
 
 def _item(
-    model, name: str, text: str, schema: type[BaseModel], ratios: dict[str, int],
+    model, embed, name: str, text: str, schema: type[BaseModel], ratios: dict[str, int],
     match_key: str, match_ratio: int, sources: Callable[[], list[SourceSentence]],
 ) -> ItemScore:
     if not text:
         return ItemScore(name, Decimal("0.00"), NO_TEXT_NOTE, [], {}, {})
     read = _read(model, name, text, schema)
-    match = _match(model, read.claims, sources())
+    match = _match(model, embed, read.claims, sources())
     axes = {key: Decimal(getattr(read, key)) for key in ratios} | {match_key: match.score}
     score = _round(sum(axes[k] * r for k, r in (ratios | {match_key: match_ratio}).items()) / 100)
     reason = f"{read.reason} {_match_note(_MATCH_NAMES[match_key], match)}"
@@ -153,14 +158,14 @@ def _read(model, item: str, text: str, schema: type[BaseModel]):
     return invoke_structured(model, retry, schema)
 
 
-def _match(model, claims: list[str], sources: list[SourceSentence]) -> Match:
+def _match(model, embed: EmbedClient, claims: list[str], sources: list[SourceSentence]) -> Match:
     """주장마다 회사 자료와 비교한다. 근거 번호가 검증된 '같음' 주장의 비율이 점수다."""
     counts = {"같음": 0, "반대": 0, "문서에 없음": 0}
     if not claims:
         return Match(Decimal("0.00"), counts, [], [])
     system = prompts.comparison_system([(s.id, s.text) for s in sources])
     by_id = {s.id: s for s in sources}
-    evidence: dict[str, SourceSentence] = {}
+    compared: list[tuple[str, list[SourceSentence]]] = []
     judgments = []
     for claim in claims:
         j = invoke_structured(model, prompts.judge_claim(system, claim), ClaimJudgment)
@@ -170,10 +175,28 @@ def _match(model, claims: list[str], sources: list[SourceSentence]) -> Match:
         level = j.level if ids else "문서에 없음"
         counts[level] += 1
         if level != "문서에 없음":
-            for i in ids:
-                evidence.setdefault(i, by_id[i])
+            compared.append((claim, [by_id[i] for i in ids]))
     score = _round(Decimal(counts["같음"] * 100) / len(claims))
-    return Match(score, counts, list(evidence.values()), judgments)
+    return Match(score, counts, _filter_evidence(compared, embed), judgments)
+
+
+def _filter_evidence(compared: list[tuple[str, list[SourceSentence]]], embed: EmbedClient) -> list[SourceSentence]:
+    """주장과 유사도가 낮은 근거 문장은 저장하지 않는다. 주장마다 가장 비슷한 1개는 남긴다.
+    판정과 점수는 바꾸지 않는다 (면접과 같은 규칙, RAG 설계서 5.5 P11).
+    EXAONE이 번호 칸에 목록 전체를 붙여 써 근거가 수십 개가 되기도 했다 (D2-v2)."""
+    if not compared:
+        return []
+    threshold = get_settings().EVIDENCE_MIN_SIMILARITY
+    texts = list(dict.fromkeys([claim for claim, _ in compared] + [s.text for _, ss in compared for s in ss]))
+    # embed-server는 길이 1로 정규화한 벡터를 준다. 내적이 코사인 유사도다
+    vectors = dict(zip(texts, embed.embed(texts)))
+    picked: dict[str, SourceSentence] = {}
+    for claim, candidates in compared:
+        scored = [(sum(a * b for a, b in zip(vectors[claim], vectors[s.text])), s) for s in candidates]
+        kept = [s for similarity, s in scored if similarity >= threshold] or [max(scored, key=lambda x: x[0])[1]]
+        for s in kept:
+            picked.setdefault(s.id, s)
+    return list(picked.values())
 
 
 def _match_note(axis: str, match: Match) -> str:
