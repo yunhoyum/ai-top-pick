@@ -246,56 +246,71 @@ def test_empty_items_score_zero_without_llm():
     assert model.calls == []
     for name in ("기술 적용 사례", "포트폴리오", "자기소개"):
         assert items[name].score == Decimal("0.00") and items[name].reason == NO_TEXT_NOTE
-    assert list(items) == ["이력서", "기술 적용 사례", "포트폴리오", "자기소개"]
-# ---------- 보고서: 인재상 적합도, 강점·확인 필요, 요약 ----------
-# 호출 순서: 항목 점수 → 항목마다 강점·확인 필요 → 요약. 인재상 적합도는 LLM을 부르지 않는다
+    assert list(items) == ["이력서", "기술 적용 사례", "포트폴리오", "자기소개"]# ---------- 보고서: 인재상 적합도, 강점·확인 필요, 요약 ----------
+# 호출 순서: 항목 점수 → 요약. 인재상 적합도와 강점·확인 필요는 LLM을 부르지 않는다
 
 
 def _report(model, docs):
     return build_document_report(POSTING, docs, model=model, search=FakeSearch(), embed=FakeEmbed())
 
 
-def test_report_builds_fits_from_same_claims_then_asks_points_and_summary():
+def _points(report):
+    return [(p.point_type, p.item, p.content) for p in report.points]
+
+
+def test_report_builds_fits_and_points_from_judgments_then_asks_summary():
     model = FakeModel(
         _case_read(["확인 중으로 두었다", "바로 실패로 처리했다"]),
         _claim("같음", ["기-2", "1-1"]),
-        _claim("반대", ["기-2"]),
-        {"strength": "PG 타임아웃을 확인 중으로 처리했다.", "check": "실패 처리 방식이 회사와 다르다."},
+        _claim("반대", ["1-1"]),
         {"summary": "결제 타임아웃 경험이 있다."},
     )
     report = _report(model, _docs(skill_cases=[CASE]))
-    # 필수 기술만 본 이력서와 빈 항목은 강점·확인 필요를 묻지 않는다: 읽기 1 + 비교 2 + 메모 1 + 요약 1
-    assert len(model.calls) == 5
+    # 필수 기술만 본 이력서와 빈 항목은 건너뛴다: 읽기 1 + 비교 2 + 요약 1
+    assert len(model.calls) == 4
     assert [(f.talent_content, f.evidence) for f in report.fits] == [
         ("결제 장애를 재현하고 원인을 기록하는 사람", NO_FIT_NOTE),
         ("외부 API 타임아웃을 설계해 본 사람", "기술 적용 사례: 확인 중으로 두었다"),  # 반대 주장은 넣지 않는다
         ("모르면 모른다고 말하는 정직함", NO_FIT_NOTE),
     ]
-    assert [(p.point_type, p.item) for p in report.points] == [("강점", "기술 적용 사례"), ("확인 필요", "기술 적용 사례")]
+    pg = "PG 승인 응답이 5초 안에 오지 않으면 결제 상태를 확인 중으로 둔다."
+    assert _points(report) == [
+        ("강점", "기술 적용 사례", "회사 자료와 맞는 일: '확인 중으로 두었다' (회사 자료: \"외부 API 타임아웃을 설계해 본 사람\")"),
+        ("확인 필요", "기술 적용 사례", f"회사 자료와 다른 일: '바로 실패로 처리했다' (회사 자료: \"{pg}\"). 이렇게 한 이유를 확인한다."),
+    ]
     assert report.summary == "결제 타임아웃 경험이 있다."
 
 
-def test_points_see_item_text_and_judgments():
-    model = FakeModel(
-        _case_read(["확인 중으로 두었다", "바로 실패로 처리했다"]),
-        _claim("같음", ["기-2", "1-1"]), _claim("반대", ["1-1"]),
-        {"strength": "  ", "check": "결과 수치가 없다."},
-        {"summary": "s"},
-    )
+def test_points_fall_back_to_axis_scores_without_same_or_opposite():
+    # 주장이 모두 '문서에 없음'이면 회사 업무 일치가 0이다. 가장 높은 축(문제 정의 80)이 강점이다
+    model = FakeModel(_case_read(["앱 이미지 로딩을 줄였다", "캐시를 붙였다"]), _claim("문서에 없음", []),
+                      _claim("문서에 없음", []), {"summary": "s"})
     report = _report(model, _docs(skill_cases=[CASE]))
-    prompt = model.calls[3][-1].content
-    assert CASE in prompt  # 원문이 있어야 서류에 있는 수치를 '없다'고 쓰지 않는다 (D3-v3)
-    assert "- 문제 정의: 80" in prompt and "- 회사 업무 일치: 50" in prompt
-    assert '(반대) 바로 실패로 처리했다 ← 회사 자료: "PG 승인 응답이 5초 안에' in prompt
-    assert [(p.point_type, p.content) for p in report.points] == [("확인 필요", "결과 수치가 없다.")]  # 빈 강점은 버린다
+    assert _points(report) == [
+        ("강점", "기술 적용 사례", "이 항목에서 가장 높게 평가된 부분은 문제 정의이다 (어떤 문제를 풀었는지 분명한지)."),
+        ("확인 필요", "기술 적용 사례", "서류에서 읽은 일 2개 중 회사 자료와 맞는 것이 0개다. 회사 업무와 관련된 경험을 확인한다."),
+    ]
 
 
-def test_summary_sees_scores_and_fit_count_but_not_documents():
-    model = FakeModel(
-        _case_read(["확인 중으로 두었다"]), _claim("같음", ["기-2"]),
-        {"strength": "", "check": "실패 처리 방식이 회사와 다르다."},
-        {"summary": "s"},
+def test_weakest_non_match_axis_becomes_check():
+    # 반대 주장이 없으면 가장 낮은 축이 60 미만일 때 확인 필요다. 회사 일치도(같음 100)가 아니라 형식(50)이다
+    essay = {"claims": ["모른다고 말했다"], "format": 50, "logic": 70, "reason": "r"}
+    model = FakeModel(essay, _claim("같음", ["비-1"]), {"summary": "s"})
+    report = _report(model, _docs(essays=[{"topic": "지원 동기", "content": "모른다고 말했다."}]))
+    assert _points(report)[1] == (
+        "확인 필요", "자기소개",
+        "이 항목에서 가장 약한 부분은 형식(주장-근거 명확도)이다 (주장마다 근거(경험)가 붙어 있는지). 면접에서 확인한다.",
     )
+
+
+def test_no_strength_when_no_same_claim_and_best_axis_below_80():
+    model = FakeModel({"claims": ["한 일"], "decision": 70, "depth": 65, "reason": "r"}, _claim("문서에 없음", []), {"summary": "s"})
+    report = _report(model, _docs(portfolio_text="대안을 비교했다."))
+    assert [p[0] for p in _points(report)] == ["확인 필요"]  # 회사 업무 일치 0이 가장 낮다
+
+
+def test_summary_sees_scores_points_and_fit_count_but_not_documents():
+    model = FakeModel(_case_read(["확인 중으로 두었다"]), _claim("같음", ["기-2"]), {"summary": "s"})
     _report(model, _docs(skill_cases=[CASE]))
     prompt = model.calls[-1][-1].content
     # 점수 없이 쓰게 했더니 관계없는 지원자도 '직무와 잘 부합한다'고 썼다 (D3-v3)
@@ -303,5 +318,5 @@ def test_summary_sees_scores_and_fit_count_but_not_documents():
     assert "[인재상 적합도] 3개 중 1개 확인" in prompt
     assert "외부 API 타임아웃을 설계해 본 사람: 확인됨" in prompt
     assert "결제 장애를 재현하고 원인을 기록하는 사람: 서류에서 확인되지 않음" in prompt
-    assert "(확인 필요, 기술 적용 사례) 실패 처리 방식이 회사와 다르다." in prompt
+    assert "(강점, 기술 적용 사례) 회사 자료와 맞는 일: '확인 중으로 두었다'" in prompt
     assert "결제 버튼도 한 번만" not in prompt  # 서류 원문은 넣지 않는다

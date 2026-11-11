@@ -59,12 +59,5 @@ class EssayReadOutput(ResumeReadOutput):
     logic: Score
 
 
-class PointsOutput(BaseModel):
-    """항목 하나의 강점·확인 필요. 쓸 것이 없으면 빈 문자열이다 (루브릭 설계서 10)."""
-
-    strength: str
-    check: str
-
-
 class SummaryOutput(BaseModel):
     summary: str = Field(min_length=1)

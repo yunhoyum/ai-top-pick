@@ -17,11 +17,13 @@ v4: 서류 원문이 없어 있는 수치를 '없다'고 쓰고, 어느 지원�
     - 요약: 항목 점수와 인재상 확인 개수를 넣고, 낮으면 직무와 맞는다고 쓰지 않게 한다
 v5: 인재상 적합도를 v3의 코드 방식으로 되돌린다. v4의 인용 방식은 EXAONE이 근거가 없어도 늘 2개를 채웠고,
     옮긴 문장의 69%가 원문과 달랐으며, 남은 근거도 절반이 엉뚱했다 (D4-v4). 강점·확인 필요, 요약은 v4와 같다
+v6: 강점·확인 필요 프롬프트를 뺀다. 코드가 ①의 판정과 축 점수로 만든다(chains/document_report._points).
+    LLM 문장은 사람 판정에서 맞음이 24개 중 8개였다(D5-v5). 요약은 v4와 같다
 """
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
-VERSION = "v5"
+VERSION = "v6"
 
 SYSTEM = """너는 채용 서류 전형에서 지원자의 서류를 채점하는 평가자다.
 - 주어진 자료만 보고 판단한다. 자료에 없는 사실을 지어내지 않는다.
@@ -110,28 +112,6 @@ def judge_claim(system: SystemMessage, claim: str) -> list[BaseMessage]:
 형식: {{"level": "같음", "evidence_ids": ["1-1"]}}"""
         ),
     ]
-
-def points(item: str, text: str, brief: str) -> list[BaseMessage]:
-    """text: 항목 원문. brief: 항목의 축 점수, 채점 이유, 주장별 판정 (chains/document_report._item_brief)."""
-    return [
-        SystemMessage(content=SYSTEM),
-        HumanMessage(
-            content=f"""[지원자 서류: {item}]
-{text}
-
-[채점 결과]
-{brief}
-
-위 서류와 채점 결과를 보고 면접관에게 줄 메모를 JSON으로 출력하라.
-- strength: 이 항목에서 가장 두드러진 강점 하나를 한 문장으로 쓴다. 점수가 높은 축이나 "같음"인 일에서 고른다. 내세울 것이 없으면 빈 문자열이다.
-- check: 면접에서 확인해야 할 점 하나를 한 문장으로 쓴다. "반대"인 일, 점수가 낮은 축, 채점 이유가 지적한 부족한 점에서 고른다. 없으면 빈 문자열이다.
-- 서류에 나온 기술·방법 이름이나 사실을 들어 구체적으로 쓴다. 어느 지원자에게나 쓸 수 있는 일반적인 말은 쓰지 않는다.
-- 서류에 있는 내용을 없다고 쓰지 않는다. 서류와 채점 결과에 없는 사실을 쓰지 않는다. 점수 숫자를 문장에 쓰지 않는다.
-
-형식: {{"strength": "...", "check": "..."}}"""
-        ),
-    ]
-
 
 def summary(brief: str) -> list[BaseMessage]:
     """brief: 항목 점수, 채점 이유, 인재상 적합도, 강점·확인 필요 (chains/document_report._report_brief)."""

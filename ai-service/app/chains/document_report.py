@@ -30,7 +30,6 @@ from app.schemas.internal import ApplicantDocuments, PostingBrief
 from app.schemas.llm_outputs import (
     ClaimJudgment,
     EssayReadOutput,
-    PointsOutput,
     PortfolioReadOutput,
     ResumeReadOutput,
     SkillCaseReadOutput,
@@ -50,13 +49,24 @@ SKILL_ONLY_NOTE = "공고가 학력·경력·프로젝트를 고르지 않아 �
 NO_CLAIM_NOTE = "서류에서 지원자가 한 일을 찾지 못해 회사 일치 축을 0점으로 채점했다."
 NO_FIT_NOTE = "서류에서 이 인재상과 맞는 경험을 찾지 못했다."
 
-# 루브릭 설계서 7.3의 축 이름. 강점·확인 필요 프롬프트에 쓴다
+# 루브릭 설계서 7.3의 축 이름과 보는 것. 강점·확인 필요 문장과 요약 자료에 쓴다
 AXIS_NAMES = {
     "experience": "직무 관련 경험", "skill": "필수 기술 수준", "talent_match": "기능적 인재상 일치",
     "problem": "문제 정의", "process": "해결 과정·기술 선택 근거", "result": "결과·성과", "doc_match": "회사 업무 일치",
     "decision": "의사결정 방식", "depth": "기술 깊이",
     "format": "형식(주장-근거 명확도)", "logic": "논리성", "company_match": "회사 일치도",
 }
+AXIS_LOOKS = {
+    "experience": "학력·경력·프로젝트가 직무와 관련 있는지", "talent_match": "경험과 기술이 기능적 인재상과 맞는지",
+    "problem": "어떤 문제를 풀었는지 분명한지", "process": "왜 그 기술을 골랐고 어떻게 적용했는지",
+    "result": "결과가 수치나 사실로 나오는지", "doc_match": "프로젝트 문서·기능적 인재상의 업무와 맞는지",
+    "decision": "문제를 해결한 의사결정 방식이 합리적인지", "depth": "문제 해결, 개선 과정이 있는지",
+    "format": "주장마다 근거(경험)가 붙어 있는지", "logic": "근거가 주장을 실제로 뒷받침하는지",
+    "company_match": "비기능적 인재상과 맞는지",
+}
+# 강점·확인 필요로 쓸 축 점수 기준 (제안, 2026-11-11). 주장 판정이 없을 때만 쓴다
+STRENGTH_FROM = 80
+CHECK_BELOW = 60
 
 
 @dataclass(frozen=True)
@@ -117,7 +127,7 @@ class DocumentReport:
     fits: list[Fit]
     points: list[Point]
     summary: str  # stage_report.ai_summary
-    llm_output: dict  # {"points": {항목: 출력}, "summary": 출력}. 평가·디버깅용이다
+    llm_output: dict  # {"summary": 출력}. 평가·디버깅용이다
 
 
 def score_document_items(
@@ -162,25 +172,15 @@ def build_document_report(
     embed: EmbedClient | None = None,
 ) -> DocumentReport:
     """서류 보고서 전체 (RAG 설계서 4.1): ① 항목 점수 → ② 인재상 적합도 → ③ 강점·확인 필요 → ④ 요약.
-    ②는 ①의 주장 비교로 코드가 만든다. ③은 항목 원문과 ①의 결과를, ④는 ①②③의 결과와 항목 점수를 받는다."""
+    ②③은 ①의 주장 판정과 축 점수로 코드가 만든다. ④만 LLM이 ①②③의 결과와 항목 점수를 받아 쓴다."""
     model = model or get_chat_model()
     items = score_document_items(posting, documents, model=model, search=search, embed=embed)
-    texts = {name: text for name, text in _item_texts(documents).items() if text}
     talents = _talent(FUNCTIONAL, posting.functional_talent) + _talent(NONFUNCTIONAL, posting.nonfunctional_talent)
     fits = _fits(items, talents)
-
-    points: list[Point] = []
-    points_output: dict[str, dict] = {}
-    for item in items:
-        if not item.llm_output:  # 내용이 없거나 필수 기술만 본 항목은 쓸 자료가 없다
-            continue
-        out = invoke_structured(model, prompts.points(item.name, texts[item.name], _item_brief(item)), PointsOutput)
-        points_output[item.name] = out.model_dump()
-        points += [Point(t, item.name, c.strip()) for t, c in (("강점", out.strength), ("확인 필요", out.check)) if c.strip()]
+    points = [p for item in items if item.llm_output for p in _points(item)]  # 내용이 없거나 필수 기술만 본 항목은 뺀다
 
     summary = invoke_structured(model, prompts.summary(_report_brief(items, fits, points)), SummaryOutput)
-    llm_output = {"points": points_output, "summary": summary.model_dump()}
-    return DocumentReport(items, fits, points, summary.summary, llm_output)
+    return DocumentReport(items, fits, points, summary.summary, {"summary": summary.model_dump()})
 
 
 def _fits(items: list[ItemScore], talents: list[SourceSentence]) -> list[Fit]:
@@ -200,18 +200,41 @@ def _fits(items: list[ItemScore], talents: list[SourceSentence]) -> list[Fit]:
     return [Fit(t.text, " / ".join(found[t.id]) or NO_FIT_NOTE) for t in talents]
 
 
-def _item_brief(item: ItemScore) -> str:
-    """강점·확인 필요를 쓸 자료: 축 점수, 채점 이유, 주장별 판정. 반대면 회사 자료 문장을 함께 보인다."""
-    axes = "\n".join(f"- {AXIS_NAMES[k]}: {v:.0f}" for k, v in item.axes.items())
-    lines = []
-    for match in item.matches.values():
-        for claim, level, sources in match.claims:
-            line = f"- ({level}) {claim}"
-            if level == "반대" and sources:
-                line += f' ← 회사 자료: "{sources[0].text}"'
-            if line not in lines:
-                lines.append(line)
-    return f"[축 점수 (0~100)]\n{axes}\n\n[채점 이유]\n{item.reason}\n\n[서류에서 읽은 일과 회사 자료 비교]\n" + "\n".join(lines)
+def _points(item: ItemScore) -> list[Point]:
+    """항목 하나의 강점·확인 필요를 0~1개씩 만든다 (루브릭 설계서 10).
+    LLM이 쓰게 했더니 맞는 문장이 3분의 1이었다. 서류에 없는 말을 덧붙이고, 있는 수치를 없다고 하고,
+    회사 문서에 없는 전제를 만들었다 (D5-v5 판정). 그래서 ①의 판정과 축 점수를 문장 틀에 넣는다.
+    - 확인 필요: '반대' 주장 → 가장 낮은 축이 CHECK_BELOW 미만
+    - 강점: '같음' 주장 → 가장 높은 축이 STRENGTH_FROM 이상"""
+    judged = [(claim, level, sources) for m in item.matches.values() for claim, level, sources in m.claims]
+    axes = {k: v for k, v in item.axes.items() if k != "skill"}  # 필수 기술은 자기평가라 강점·약점으로 보지 않는다
+    points = []
+
+    same = next(((c, s) for c, level, s in judged if level == "같음"), None)
+    best = max(axes, key=axes.get, default=None)
+    if same:
+        claim, sources = same
+        points.append(Point("강점", item.name, f"회사 자료와 맞는 일: '{claim}' (회사 자료: \"{sources[0].text}\")"))
+    elif best and axes[best] >= STRENGTH_FROM:
+        points.append(Point("강점", item.name, f"이 항목에서 가장 높게 평가된 부분은 {AXIS_NAMES[best]}이다 ({AXIS_LOOKS[best]})."))
+
+    opposite = next(((c, s) for c, level, s in judged if level == "반대"), None)
+    worst = min(axes, key=axes.get, default=None)
+    if opposite:
+        claim, sources = opposite
+        points.append(Point(
+            "확인 필요", item.name,
+            f"회사 자료와 다른 일: '{claim}' (회사 자료: \"{sources[0].text}\"). 이렇게 한 이유를 확인한다.",
+        ))
+    elif worst and axes[worst] < CHECK_BELOW:
+        if worst in item.matches:
+            counts = item.matches[worst].counts
+            text = (f"서류에서 읽은 일 {sum(counts.values())}개 중 회사 자료와 맞는 것이 {counts['같음']}개다. "
+                    "회사 업무와 관련된 경험을 확인한다.")
+        else:
+            text = f"이 항목에서 가장 약한 부분은 {AXIS_NAMES[worst]}이다 ({AXIS_LOOKS[worst]}). 면접에서 확인한다."
+        points.append(Point("확인 필요", item.name, text))
+    return points
 
 
 def _report_brief(items: list[ItemScore], fits: list[Fit], points: list[Point]) -> str:
