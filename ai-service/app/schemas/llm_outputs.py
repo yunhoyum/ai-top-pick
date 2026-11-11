@@ -59,6 +59,12 @@ class EssayReadOutput(ResumeReadOutput):
     logic: Score
 
 
+class FitOutput(BaseModel):
+    """인재상 하나를 보여 주는 서류 문장. 서류에서 그대로 옮긴다. 없으면 빈 목록이다."""
+
+    quotes: list[str]
+
+
 class PointsOutput(BaseModel):
     """항목 하나의 강점·확인 필요. 쓸 것이 없으면 빈 문자열이다 (루브릭 설계서 10)."""
 

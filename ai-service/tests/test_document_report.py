@@ -248,48 +248,95 @@ def test_empty_items_score_zero_without_llm():
         assert items[name].score == Decimal("0.00") and items[name].reason == NO_TEXT_NOTE
     assert list(items) == ["이력서", "기술 적용 사례", "포트폴리오", "자기소개"]
 
-
 # ---------- 보고서: 인재상 적합도, 강점·확인 필요, 요약 ----------
+# 호출 순서: 항목 점수 → 인재상마다 근거 옮기기 (이 공고는 3개) → 항목마다 강점·확인 필요 → 요약
 
 
 def _report(model, docs):
     return build_document_report(POSTING, docs, model=model, search=FakeSearch(), embed=FakeEmbed())
 
 
-def test_report_builds_fits_from_same_claims_and_asks_points_then_summary():
+def _fit(*quotes):
+    return {"quotes": list(quotes)}
+
+
+def _case_calls():
+    """기술 적용 사례만 있는 서류의 항목 점수 호출 (읽기 1 + 비교 1)."""
+    return [_case_read(["확인 중으로 두었다"]), _claim("같음", ["기-2"])]
+
+
+def test_report_asks_fits_points_summary_in_order():
     model = FakeModel(
-        _case_read(["확인 중으로 두었다", "바로 실패로 처리했다"]),
-        _claim("같음", ["기-2", "1-1"]),
-        _claim("반대", ["1-1"]),
-        {"strength": "타임아웃을 확인 중으로 처리했다.", "check": "실패 처리 방식이 회사와 다르다."},
+        *_case_calls(),
+        _fit(), _fit("PG 타임아웃이 나면 결제를 확인 중으로 두었습니다."), _fit(),
+        {"strength": "PG 타임아웃을 확인 중으로 처리했다.", "check": "결제 버튼 중복 방지의 근거가 없다."},
         {"summary": "결제 타임아웃 경험이 있다."},
     )
     report = _report(model, _docs(skill_cases=[CASE]))
-    # 필수 기술만 본 이력서와 빈 항목은 강점·확인 필요를 묻지 않는다: 읽기 1 + 비교 2 + 메모 1 + 요약 1
-    assert len(model.calls) == 5
+    # 필수 기술만 본 이력서와 빈 항목은 강점·확인 필요를 묻지 않는다
+    assert len(model.calls) == 2 + 3 + 1 + 1
     assert [(f.talent_content, f.evidence) for f in report.fits] == [
         ("결제 장애를 재현하고 원인을 기록하는 사람", NO_FIT_NOTE),
-        ("외부 API 타임아웃을 설계해 본 사람", "기술 적용 사례: 확인 중으로 두었다"),  # 반대 주장은 넣지 않는다
+        ("외부 API 타임아웃을 설계해 본 사람", '기술 적용 사례: "PG 타임아웃이 나면 결제를 확인 중으로 두었습니다."'),
         ("모르면 모른다고 말하는 정직함", NO_FIT_NOTE),
     ]
     assert [(p.point_type, p.item) for p in report.points] == [("강점", "기술 적용 사례"), ("확인 필요", "기술 적용 사례")]
     assert report.summary == "결제 타임아웃 경험이 있다."
 
-    brief = model.calls[3][-1].content
-    assert "- 문제 정의: 80" in brief and "- 회사 업무 일치: 50" in brief
-    assert '(반대) 바로 실패로 처리했다 ← 회사 자료: "PG 승인 응답이 5초 안에' in brief
-    summary = model.calls[4][-1].content
-    assert "외부 API 타임아웃을 설계해 본 사람: 확인됨" in summary
-    assert "결제 장애를 재현하고 원인을 기록하는 사람: 서류에서 확인되지 않음" in summary
-    assert "(확인 필요, 기술 적용 사례) 실패 처리 방식이 회사와 다르다." in summary
-    assert "결제 버튼도 한 번만" not in summary  # 서류 원문은 넣지 않는다
+
+def test_fit_calls_share_documents_in_front_part_without_personal_info():
+    model = FakeModel(*_case_calls(), _fit(), _fit(), _fit(), {"strength": "", "check": ""}, {"summary": "s"})
+    _report(model, _docs(skill_cases=[CASE]))
+    fit_calls = model.calls[2:5]
+    assert fit_calls[0][0].content == fit_calls[2][0].content  # 앞부분이 같아야 캐시를 다시 쓴다
+    assert "[기술 적용 사례]\n" + CASE in fit_calls[0][0].content and "홍길동" not in fit_calls[0][0].content
+    assert "외부 API 타임아웃을 설계해 본 사람" in fit_calls[1][-1].content
 
 
-def test_blank_point_is_dropped():
+def test_fit_quote_not_in_documents_is_dropped():
     model = FakeModel(
-        _case_read(["a"]), _claim("문서에 없음", []),
-        {"strength": "  ", "check": "결과 수치가 없다."},
-        {"summary": "요약"},
+        *_case_calls(),
+        # 서류에 없는 문장, 너무 짧은 조각, 공백·따옴표만 다른 문장
+        _fit("결제 장애를 재현하고 원인을 문서로 남겼습니다.", "확인 중"),
+        _fit("“PG 타임아웃이 나면   결제를 확인 중으로 두었습니다.”"),
+        _fit(),
+        {"strength": "", "check": ""}, {"summary": "s"},
     )
     report = _report(model, _docs(skill_cases=[CASE]))
-    assert [(p.point_type, p.content) for p in report.points] == [("확인 필요", "결과 수치가 없다.")]
+    assert report.fits[0].evidence == NO_FIT_NOTE
+    assert report.fits[1].evidence == '기술 적용 사례: "PG 타임아웃이 나면   결제를 확인 중으로 두었습니다."'
+    assert report.llm_output["fits"][0]["kept"] == 0
+
+
+def test_points_see_item_text_and_judgments():
+    model = FakeModel(
+        _case_read(["확인 중으로 두었다", "바로 실패로 처리했다"]),
+        _claim("같음", ["기-2", "1-1"]), _claim("반대", ["1-1"]),
+        _fit(), _fit(), _fit(),
+        {"strength": "  ", "check": "결과 수치가 없다."},
+        {"summary": "s"},
+    )
+    report = _report(model, _docs(skill_cases=[CASE]))
+    prompt = model.calls[6][-1].content
+    assert CASE in prompt  # 원문이 있어야 서류에 있는 수치를 '없다'고 쓰지 않는다 (D3-v3)
+    assert "- 문제 정의: 80" in prompt and "- 회사 업무 일치: 50" in prompt
+    assert '(반대) 바로 실패로 처리했다 ← 회사 자료: "PG 승인 응답이 5초 안에' in prompt
+    assert [(p.point_type, p.content) for p in report.points] == [("확인 필요", "결과 수치가 없다.")]  # 빈 강점은 버린다
+
+
+def test_summary_sees_scores_and_fit_count_but_not_documents():
+    model = FakeModel(
+        *_case_calls(),
+        _fit(), _fit("PG 타임아웃이 나면 결제를 확인 중으로 두었습니다."), _fit(),
+        {"strength": "", "check": "실패 처리 방식이 회사와 다르다."},
+        {"summary": "s"},
+    )
+    _report(model, _docs(skill_cases=[CASE]))
+    prompt = model.calls[-1][-1].content
+    # 점수 없이 쓰게 했더니 관계없는 지원자도 '직무와 잘 부합한다'고 썼다 (D3-v3)
+    assert "[기술 적용 사례] 항목 점수 79 (회사 일치: 회사 업무 일치 100)" in prompt
+    assert "[인재상 적합도] 3개 중 1개 확인" in prompt
+    assert "외부 API 타임아웃을 설계해 본 사람: 확인됨" in prompt
+    assert "결제 장애를 재현하고 원인을 기록하는 사람: 서류에서 확인되지 않음" in prompt
+    assert "(확인 필요, 기술 적용 사례) 실패 처리 방식이 회사와 다르다." in prompt
+    assert "결제 버튼도 한 번만" not in prompt  # 서류 원문은 넣지 않는다

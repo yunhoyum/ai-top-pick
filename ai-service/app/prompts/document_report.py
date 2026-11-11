@@ -10,11 +10,16 @@ v2: 주장을 '실제로 한 일, 쓴 방법, 내린 결정'으로 좁힌다. �
     v1은 이런 문장을 주장으로 뽑아, 같음 비율인 회사 일치 축이 모두 낮게 나왔다 (D1-v1)
 v3: 강점·확인 필요(항목마다 0~1개씩)와 요약을 더한다. 항목 점수 프롬프트는 v2와 같다.
     둘 다 서류 원문 대신 ①②의 결과만 받는다. 앞 단계와 다른 말을 하지 않게 하기 위해서다
+v4: 서류 원문이 없어 있는 수치를 '없다'고 쓰고, 어느 지원자에게나 쓸 일반적인 문장을 냈다.
+    회사와 관계없는 지원자도 요약에서 '직무와 잘 부합한다'고 썼다 (D3-v3).
+    - 인재상 적합도: 인재상 문장마다 서류에서 근거 문장을 그대로 옮긴다 (fit_system, judge_fit)
+    - 강점·확인 필요: 항목 원문을 넣고, 구체적으로 쓰게 한다
+    - 요약: 항목 점수와 인재상 확인 개수를 넣고, 낮으면 직무와 맞는다고 쓰지 않게 한다
 """
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
-VERSION = "v3"
+VERSION = "v4"
 
 SYSTEM = """너는 채용 서류 전형에서 지원자의 서류를 채점하는 평가자다.
 - 주어진 자료만 보고 판단한다. 자료에 없는 사실을 지어내지 않는다.
@@ -104,19 +109,46 @@ def judge_claim(system: SystemMessage, claim: str) -> list[BaseMessage]:
         ),
     ]
 
+def fit_system(texts: dict[str, str]) -> SystemMessage:
+    """인재상 판정들이 함께 쓰는 앞부분. 지원자 서류 전체를 둔다. 인재상만 바꿔 묻는다."""
+    documents = "\n\n".join(f"[{name}]\n{text}" for name, text in texts.items())
+    return SystemMessage(content=f"{SYSTEM}\n\n[지원자 서류]\n{documents}")
 
-def points(item: str, brief: str) -> list[BaseMessage]:
-    """brief: 항목의 축 점수, 채점 이유, 주장별 판정 (chains/document_report._item_brief)."""
+
+def judge_fit(system: SystemMessage, talent: str) -> list[BaseMessage]:
+    return [
+        system,
+        HumanMessage(
+            content=f"""[회사의 인재상]
+{talent}
+
+위 지원자 서류에서 이 인재상을 보여 주는 경험을 찾아 JSON으로 출력하라.
+- quotes: 근거가 되는 서류 문장을 최대 2개, 서류에서 글자 그대로 옮겨 적는다. 바꾸거나 줄이지 않는다.
+- 지원자가 실제로 한 행동이나 결과만 근거다. '책임감이 강하다'처럼 행동 없이 자신을 평가한 말은 근거가 아니다.
+- 같은 분야라는 것만으로는 근거가 아니다. 인재상이 말하는 일이나 태도를 직접 보여 줘야 한다.
+- 근거가 없으면 빈 목록이다.
+
+형식: {{"quotes": ["..."]}}"""
+        ),
+    ]
+
+
+def points(item: str, text: str, brief: str) -> list[BaseMessage]:
+    """text: 항목 원문. brief: 항목의 축 점수, 채점 이유, 주장별 판정 (chains/document_report._item_brief)."""
     return [
         SystemMessage(content=SYSTEM),
         HumanMessage(
-            content=f"""[평가 항목: {item}]
+            content=f"""[지원자 서류: {item}]
+{text}
+
+[채점 결과]
 {brief}
 
-위 자료만 보고 면접관에게 줄 메모를 JSON으로 출력하라.
+위 서류와 채점 결과를 보고 면접관에게 줄 메모를 JSON으로 출력하라.
 - strength: 이 항목에서 가장 두드러진 강점 하나를 한 문장으로 쓴다. 점수가 높은 축이나 "같음"인 일에서 고른다. 내세울 것이 없으면 빈 문자열이다.
 - check: 면접에서 확인해야 할 점 하나를 한 문장으로 쓴다. "반대"인 일, 점수가 낮은 축, 채점 이유가 지적한 부족한 점에서 고른다. 없으면 빈 문자열이다.
-- 위 자료에 없는 사실을 쓰지 않는다. 점수 숫자를 문장에 쓰지 않는다.
+- 서류에 나온 기술·방법 이름이나 사실을 들어 구체적으로 쓴다. 어느 지원자에게나 쓸 수 있는 일반적인 말은 쓰지 않는다.
+- 서류에 있는 내용을 없다고 쓰지 않는다. 서류와 채점 결과에 없는 사실을 쓰지 않는다. 점수 숫자를 문장에 쓰지 않는다.
 
 형식: {{"strength": "...", "check": "..."}}"""
         ),
@@ -124,15 +156,17 @@ def points(item: str, brief: str) -> list[BaseMessage]:
 
 
 def summary(brief: str) -> list[BaseMessage]:
-    """brief: 항목별 채점 이유, 인재상 적합도, 강점·확인 필요 (chains/document_report._report_brief)."""
+    """brief: 항목 점수, 채점 이유, 인재상 적합도, 강점·확인 필요 (chains/document_report._report_brief)."""
     return [
         SystemMessage(content=SYSTEM),
         HumanMessage(
-            content=f"""[서류 평가 결과]
+            content=f"""[서류 평가 결과] (점수는 0~100)
 {brief}
 
 위 결과를 바탕으로 이 지원자의 서류를 3~4문장으로 요약해 JSON으로 출력하라.
 - 직무와 맞는 점, 인재상과 맞는 점, 면접에서 확인할 점을 담는다.
+- 회사 일치 점수가 낮거나 확인된 인재상이 적으면 직무나 인재상과 맞는다고 쓰지 않는다. 맞지 않는다고 분명히 쓴다.
+- 인재상은 '확인됨'인 것만 맞는다고 쓴다.
 - 위 결과에 없는 사실을 쓰지 않는다. 점수 숫자와 지원자의 이름 같은 인적사항을 쓰지 않는다.
 
 형식: {{"summary": "..."}}"""

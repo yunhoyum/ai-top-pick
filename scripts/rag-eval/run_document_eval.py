@@ -108,6 +108,9 @@ def check_texts(reports: list[dict]) -> dict:
         "points": sum(len(r["points"]) for r in reports),
         "fits_found": sum(f["evidence"] != NO_FIT_NOTE for r in reports for f in r["fits"]),
         "fits_total": sum(len(r["fits"]) for r in reports),
+        # LLM이 옮긴 근거 중 서류에서 찾지 못해 버린 것. 많으면 근거를 지어내거나 고쳐 쓰고 있다
+        "fit_quotes": sum(len(o["quotes"]) for r in reports for o in r["llm_output"]["fits"]),
+        "fit_quotes_dropped": sum(len(o["quotes"]) - o["kept"] for r in reports for o in r["llm_output"]["fits"]),
         "with_score_number": [t for _, t in texts if _SCORE_NUMBER.search(t)],
         "with_name": [t for r, t in texts if r["name"] and r["name"] in t],
         "summary_sentences": {r["applicant"]: len(split_sentences(r["summary"])) for r in reports},

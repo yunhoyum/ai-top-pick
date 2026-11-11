@@ -30,6 +30,7 @@ from app.schemas.internal import ApplicantDocuments, PostingBrief
 from app.schemas.llm_outputs import (
     ClaimJudgment,
     EssayReadOutput,
+    FitOutput,
     PointsOutput,
     PortfolioReadOutput,
     ResumeReadOutput,
@@ -78,7 +79,7 @@ class Match:
     evidence: list[SourceSentence]
     judgments: list[dict]
     # 주장마다 (주장, 코드가 정한 판정, 번호가 검증된 회사 자료 문장). 거르기 전이다.
-    # 인재상 적합도와 강점·확인 필요가 쓴다
+    # 강점·확인 필요가 쓴다
     claims: list[tuple[str, str, list[SourceSentence]]] = field(default_factory=list)
 
 
@@ -116,7 +117,7 @@ class DocumentReport:
     fits: list[Fit]
     points: list[Point]
     summary: str  # stage_report.ai_summary
-    llm_output: dict  # {"points": {항목: 출력}, "summary": 출력}. 평가·디버깅용이다
+    llm_output: dict  # {"fits": [...], "points": {항목: 출력}, "summary": 출력}. 평가·디버깅용이다
 
 
 def score_document_items(
@@ -135,10 +136,8 @@ def score_document_items(
     functional = _talent(FUNCTIONAL, posting.functional_talent)
     nonfunctional = _talent(NONFUNCTIONAL, posting.nonfunctional_talent)
 
-    resume_text = _resume_text(documents)
-    skill_cases = "\n\n".join(c for c in documents.skill_cases if c.strip())
-    portfolio = (documents.portfolio_text or "").strip()
-    essays = "\n\n".join(f"[{e.get('topic', '')}]\n{e.get('content', '')}" for e in documents.essays if e.get("content"))
+    texts = _item_texts(documents)
+    resume_text, skill_cases, portfolio, essays = (texts[n] for n in (RESUME, SKILL_CASE, PORTFOLIO, ESSAY))
     skill = _skill_score(documents.skills)
 
     resume = _resume(model, embed, search, resume_text, skill, job, functional)
@@ -163,38 +162,58 @@ def build_document_report(
     embed: EmbedClient | None = None,
 ) -> DocumentReport:
     """서류 보고서 전체 (RAG 설계서 4.1): ① 항목 점수 → ② 인재상 적합도 → ③ 강점·확인 필요 → ④ 요약.
-    ②는 ①의 주장 비교로 코드가 만든다. ③④는 LLM이 ①②의 결과만 보고 쓴다. 서류 원문을 다시 넣지 않아
-    앞 단계와 다른 말을 하지 않게 한다."""
+    ②는 인재상 문장마다 LLM이 서류에서 근거 문장을 그대로 옮기고, 코드가 서류에 있는 문장인지 확인한다.
+    ③은 항목 원문과 ①의 결과를, ④는 ①②③의 결과와 항목 점수를 받는다."""
     model = model or get_chat_model()
     items = score_document_items(posting, documents, model=model, search=search, embed=embed)
+    texts = {name: text for name, text in _item_texts(documents).items() if text}
     talents = _talent(FUNCTIONAL, posting.functional_talent) + _talent(NONFUNCTIONAL, posting.nonfunctional_talent)
-    fits = _fits(items, talents)
+    fits, fits_output = _fits(model, talents, texts)
 
     points: list[Point] = []
     points_output: dict[str, dict] = {}
     for item in items:
         if not item.llm_output:  # 내용이 없거나 필수 기술만 본 항목은 쓸 자료가 없다
             continue
-        out = invoke_structured(model, prompts.points(item.name, _item_brief(item)), PointsOutput)
+        out = invoke_structured(model, prompts.points(item.name, texts[item.name], _item_brief(item)), PointsOutput)
         points_output[item.name] = out.model_dump()
         points += [Point(t, item.name, c.strip()) for t, c in (("강점", out.strength), ("확인 필요", out.check)) if c.strip()]
 
     summary = invoke_structured(model, prompts.summary(_report_brief(items, fits, points)), SummaryOutput)
-    return DocumentReport(items, fits, points, summary.summary, {"points": points_output, "summary": summary.model_dump()})
+    llm_output = {"fits": fits_output, "points": points_output, "summary": summary.model_dump()}
+    return DocumentReport(items, fits, points, summary.summary, llm_output)
 
 
-def _fits(items: list[ItemScore], talents: list[SourceSentence]) -> list[Fit]:
-    """인재상 문장마다 '같음'으로 판정되고 그 문장을 근거로 든 서류 내용을 모은다 (루브릭 설계서 10)."""
-    found: dict[str, list[str]] = {t.id: [] for t in talents}
-    for item in items:
-        for match in item.matches.values():
-            for claim, level, sources in match.claims:
-                if level != "같음":
-                    continue
-                for s in sources:
-                    if s.id in found and f"{item.name}: {claim}" not in found[s.id]:
-                        found[s.id].append(f"{item.name}: {claim}")
-    return [Fit(t.text, " / ".join(found[t.id]) or NO_FIT_NOTE) for t in talents]
+def _fits(model, talents: list[SourceSentence], texts: dict[str, str]) -> tuple[list[Fit], list[dict]]:
+    """인재상 문장마다 서류에서 근거 문장을 옮겨 받는다 (루브릭 설계서 10).
+    ①의 주장으로 만들면 결과 수치·태도처럼 주장에서 뺀 내용이 근거가 될 수 없어, 지표·정직함 같은
+    인재상이 늘 '확인되지 않음'이었다 (D3-v3). 옮긴 문장이 서류에 없으면 버린다. 지어낸 근거를 막는다."""
+    if not texts:
+        return [Fit(t.text, NO_FIT_NOTE) for t in talents], []
+    system = prompts.fit_system(texts)  # 서류를 앞부분에 둬 인재상마다 같은 앞부분 계산을 다시 쓴다
+    fits, outputs = [], []
+    for t in talents:
+        out = invoke_structured(model, prompts.judge_fit(system, t.text), FitOutput)
+        kept = [(name, q) for q in out.quotes if (name := _quoted_item(q, texts))]
+        outputs.append({"talent": t.text, "quotes": out.quotes, "kept": len(kept)})
+        evidence = " / ".join(f'{name}: "{_strip_quote(q)}"' for name, q in kept)
+        fits.append(Fit(t.text, evidence or NO_FIT_NOTE))
+    return fits, outputs
+
+
+_QUOTE_CHARS = "\"'“”‘’「」"
+
+
+def _strip_quote(q: str) -> str:
+    return q.strip().strip(_QUOTE_CHARS).strip()
+
+
+def _quoted_item(quote: str, texts: dict[str, str]) -> str | None:
+    """옮긴 문장이 들어 있는 항목 이름. 공백과 따옴표 차이는 무시한다. 너무 짧은 조각은 근거로 보지 않는다."""
+    q = re.sub(r"\s+", "", _strip_quote(quote))
+    if len(q) < 10:
+        return None
+    return next((name for name, text in texts.items() if q in re.sub(r"\s+", "", text)), None)
 
 
 def _item_brief(item: ItemScore) -> str:
@@ -212,13 +231,28 @@ def _item_brief(item: ItemScore) -> str:
 
 
 def _report_brief(items: list[ItemScore], fits: list[Fit], points: list[Point]) -> str:
-    """요약을 쓸 자료. 점수 숫자는 넣지 않는다. 화면이 따로 보여주고, 총점 비율은 코드가 곱한다."""
-    parts = [f"[{i.name}]\n{i.reason}" for i in items]
-    parts.append("[인재상 적합도]\n" + "\n".join(
+    """요약을 쓸 자료. 항목 점수와 회사 일치 축 점수를 넣는다. 점수 없이 쓰게 했더니 회사와 관계없는
+    지원자도 '직무와 잘 부합한다'고 썼다 (D3-v3). 숫자를 문장에 쓰지 말라는 지시는 프롬프트에 있다."""
+    parts = []
+    for i in items:
+        match = ", ".join(f"{AXIS_NAMES[k]} {i.axes[k]:.0f}" for k in i.matches)
+        parts.append(f"[{i.name}] 항목 점수 {i.score:.0f}" + (f" (회사 일치: {match})" if match else "") + f"\n{i.reason}")
+    found = sum(f.evidence != NO_FIT_NOTE for f in fits)
+    parts.append(f"[인재상 적합도] {len(fits)}개 중 {found}개 확인\n" + "\n".join(
         f"- {f.talent_content}: {'확인됨' if f.evidence != NO_FIT_NOTE else '서류에서 확인되지 않음'}" for f in fits
     ))
     parts.append("[강점·확인 필요]\n" + ("\n".join(f"- ({p.point_type}, {p.item}) {p.content}" for p in points) or "- 없음"))
     return "\n\n".join(parts)
+
+
+def _item_texts(documents: ApplicantDocuments) -> dict[str, str]:
+    """항목별 서류 텍스트. 인적사항과 필수 기술 자기평가는 넣지 않는다."""
+    return {
+        RESUME: _resume_text(documents),
+        SKILL_CASE: "\n\n".join(c for c in documents.skill_cases if c.strip()),
+        PORTFOLIO: (documents.portfolio_text or "").strip(),
+        ESSAY: "\n\n".join(f"[{e.get('topic', '')}]\n{e.get('content', '')}" for e in documents.essays if e.get("content")),
+    }
 
 
 def _resume(model, embed, search, text: str, skill: Decimal, job, functional) -> ItemScore:
