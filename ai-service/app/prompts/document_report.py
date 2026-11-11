@@ -8,11 +8,13 @@
 v1: 첫 버전
 v2: 주장을 '실제로 한 일, 쓴 방법, 내린 결정'으로 좁힌다. 소속 정보, 결과 수치, 행동 없는 자기평가는 뺀다.
     v1은 이런 문장을 주장으로 뽑아, 같음 비율인 회사 일치 축이 모두 낮게 나왔다 (D1-v1)
+v3: 강점·확인 필요(항목마다 0~1개씩)와 요약을 더한다. 항목 점수 프롬프트는 v2와 같다.
+    둘 다 서류 원문 대신 ①②의 결과만 받는다. 앞 단계와 다른 말을 하지 않게 하기 위해서다
 """
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
-VERSION = "v2"
+VERSION = "v3"
 
 SYSTEM = """너는 채용 서류 전형에서 지원자의 서류를 채점하는 평가자다.
 - 주어진 자료만 보고 판단한다. 자료에 없는 사실을 지어내지 않는다.
@@ -99,5 +101,40 @@ def judge_claim(system: SystemMessage, claim: str) -> list[BaseMessage]:
 - "결제 버튼을 한 번 누르면 비활성화했다" → {{"level": "문서에 없음", "evidence_ids": []}}
 
 형식: {{"level": "같음", "evidence_ids": ["1-1"]}}"""
+        ),
+    ]
+
+
+def points(item: str, brief: str) -> list[BaseMessage]:
+    """brief: 항목의 축 점수, 채점 이유, 주장별 판정 (chains/document_report._item_brief)."""
+    return [
+        SystemMessage(content=SYSTEM),
+        HumanMessage(
+            content=f"""[평가 항목: {item}]
+{brief}
+
+위 자료만 보고 면접관에게 줄 메모를 JSON으로 출력하라.
+- strength: 이 항목에서 가장 두드러진 강점 하나를 한 문장으로 쓴다. 점수가 높은 축이나 "같음"인 일에서 고른다. 내세울 것이 없으면 빈 문자열이다.
+- check: 면접에서 확인해야 할 점 하나를 한 문장으로 쓴다. "반대"인 일, 점수가 낮은 축, 채점 이유가 지적한 부족한 점에서 고른다. 없으면 빈 문자열이다.
+- 위 자료에 없는 사실을 쓰지 않는다. 점수 숫자를 문장에 쓰지 않는다.
+
+형식: {{"strength": "...", "check": "..."}}"""
+        ),
+    ]
+
+
+def summary(brief: str) -> list[BaseMessage]:
+    """brief: 항목별 채점 이유, 인재상 적합도, 강점·확인 필요 (chains/document_report._report_brief)."""
+    return [
+        SystemMessage(content=SYSTEM),
+        HumanMessage(
+            content=f"""[서류 평가 결과]
+{brief}
+
+위 결과를 바탕으로 이 지원자의 서류를 3~4문장으로 요약해 JSON으로 출력하라.
+- 직무와 맞는 점, 인재상과 맞는 점, 면접에서 확인할 점을 담는다.
+- 위 결과에 없는 사실을 쓰지 않는다. 점수 숫자와 지원자의 이름 같은 인적사항을 쓰지 않는다.
+
+형식: {{"summary": "..."}}"""
         ),
     ]

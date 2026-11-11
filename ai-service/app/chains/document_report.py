@@ -11,7 +11,7 @@
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Callable
 
@@ -30,9 +30,11 @@ from app.schemas.internal import ApplicantDocuments, PostingBrief
 from app.schemas.llm_outputs import (
     ClaimJudgment,
     EssayReadOutput,
+    PointsOutput,
     PortfolioReadOutput,
     ResumeReadOutput,
     SkillCaseReadOutput,
+    SummaryOutput,
 )
 
 RESUME, SKILL_CASE, PORTFOLIO, ESSAY = "이력서", "기술 적용 사례", "포트폴리오", "자기소개"
@@ -45,6 +47,15 @@ _BULLET = re.compile(r"^[-•*]\s*")
 NO_TEXT_NOTE = "서류에 이 항목의 내용이 없어 0점으로 채점했다."
 SKILL_ONLY_NOTE = "공고가 학력·경력·프로젝트를 고르지 않아 필수 기술 점수만으로 채점했다."
 NO_CLAIM_NOTE = "서류에서 지원자가 한 일을 찾지 못해 회사 일치 축을 0점으로 채점했다."
+NO_FIT_NOTE = "서류에서 이 인재상과 맞는 경험을 찾지 못했다."
+
+# 루브릭 설계서 7.3의 축 이름. 강점·확인 필요 프롬프트에 쓴다
+AXIS_NAMES = {
+    "experience": "직무 관련 경험", "skill": "필수 기술 수준", "talent_match": "기능적 인재상 일치",
+    "problem": "문제 정의", "process": "해결 과정·기술 선택 근거", "result": "결과·성과", "doc_match": "회사 업무 일치",
+    "decision": "의사결정 방식", "depth": "기술 깊이",
+    "format": "형식(주장-근거 명확도)", "logic": "논리성", "company_match": "회사 일치도",
+}
 
 
 @dataclass(frozen=True)
@@ -66,6 +77,9 @@ class Match:
     counts: dict[str, int]  # 같음, 반대, 문서에 없음. 근거 번호가 모두 빠진 같음·반대는 문서에 없음으로 센다
     evidence: list[SourceSentence]
     judgments: list[dict]
+    # 주장마다 (주장, 코드가 정한 판정, 번호가 검증된 회사 자료 문장). 거르기 전이다.
+    # 인재상 적합도와 강점·확인 필요가 쓴다
+    claims: list[tuple[str, str, list[SourceSentence]]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -76,6 +90,33 @@ class ItemScore:
     evidence: list[SourceSentence]  # → evidence_sentence(report_id, criteria_id)
     axes: dict[str, Decimal]  # 축 점수. 저장하지 않는다. 평가·디버깅용이다
     llm_output: dict
+    matches: dict[str, Match] = field(default_factory=dict)  # 회사 일치 축 key → 결과
+
+
+@dataclass(frozen=True)
+class Fit:
+    """report_fit 한 줄. 인재상 문장 하나와 그에 맞는 서류 내용."""
+
+    talent_content: str
+    evidence: str
+
+
+@dataclass(frozen=True)
+class Point:
+    """report_point 한 줄."""
+
+    point_type: str  # 강점, 확인 필요
+    item: str  # 관련 평가 항목 이름. API가 criteria_id로 바꾼다
+    content: str
+
+
+@dataclass(frozen=True)
+class DocumentReport:
+    items: list[ItemScore]
+    fits: list[Fit]
+    points: list[Point]
+    summary: str  # stage_report.ai_summary
+    llm_output: dict  # {"points": {항목: 출력}, "summary": 출력}. 평가·디버깅용이다
 
 
 def score_document_items(
@@ -114,6 +155,72 @@ def score_document_items(
     return [resume, *others]
 
 
+def build_document_report(
+    posting: PostingBrief,
+    documents: ApplicantDocuments,
+    model: Runnable | None = None,
+    search: Callable[[list[str]], list[Chunk]] | None = None,
+    embed: EmbedClient | None = None,
+) -> DocumentReport:
+    """서류 보고서 전체 (RAG 설계서 4.1): ① 항목 점수 → ② 인재상 적합도 → ③ 강점·확인 필요 → ④ 요약.
+    ②는 ①의 주장 비교로 코드가 만든다. ③④는 LLM이 ①②의 결과만 보고 쓴다. 서류 원문을 다시 넣지 않아
+    앞 단계와 다른 말을 하지 않게 한다."""
+    model = model or get_chat_model()
+    items = score_document_items(posting, documents, model=model, search=search, embed=embed)
+    talents = _talent(FUNCTIONAL, posting.functional_talent) + _talent(NONFUNCTIONAL, posting.nonfunctional_talent)
+    fits = _fits(items, talents)
+
+    points: list[Point] = []
+    points_output: dict[str, dict] = {}
+    for item in items:
+        if not item.llm_output:  # 내용이 없거나 필수 기술만 본 항목은 쓸 자료가 없다
+            continue
+        out = invoke_structured(model, prompts.points(item.name, _item_brief(item)), PointsOutput)
+        points_output[item.name] = out.model_dump()
+        points += [Point(t, item.name, c.strip()) for t, c in (("강점", out.strength), ("확인 필요", out.check)) if c.strip()]
+
+    summary = invoke_structured(model, prompts.summary(_report_brief(items, fits, points)), SummaryOutput)
+    return DocumentReport(items, fits, points, summary.summary, {"points": points_output, "summary": summary.model_dump()})
+
+
+def _fits(items: list[ItemScore], talents: list[SourceSentence]) -> list[Fit]:
+    """인재상 문장마다 '같음'으로 판정되고 그 문장을 근거로 든 서류 내용을 모은다 (루브릭 설계서 10)."""
+    found: dict[str, list[str]] = {t.id: [] for t in talents}
+    for item in items:
+        for match in item.matches.values():
+            for claim, level, sources in match.claims:
+                if level != "같음":
+                    continue
+                for s in sources:
+                    if s.id in found and f"{item.name}: {claim}" not in found[s.id]:
+                        found[s.id].append(f"{item.name}: {claim}")
+    return [Fit(t.text, " / ".join(found[t.id]) or NO_FIT_NOTE) for t in talents]
+
+
+def _item_brief(item: ItemScore) -> str:
+    """강점·확인 필요를 쓸 자료: 축 점수, 채점 이유, 주장별 판정. 반대면 회사 자료 문장을 함께 보인다."""
+    axes = "\n".join(f"- {AXIS_NAMES[k]}: {v:.0f}" for k, v in item.axes.items())
+    lines = []
+    for match in item.matches.values():
+        for claim, level, sources in match.claims:
+            line = f"- ({level}) {claim}"
+            if level == "반대" and sources:
+                line += f' ← 회사 자료: "{sources[0].text}"'
+            if line not in lines:
+                lines.append(line)
+    return f"[축 점수 (0~100)]\n{axes}\n\n[채점 이유]\n{item.reason}\n\n[서류에서 읽은 일과 회사 자료 비교]\n" + "\n".join(lines)
+
+
+def _report_brief(items: list[ItemScore], fits: list[Fit], points: list[Point]) -> str:
+    """요약을 쓸 자료. 점수 숫자는 넣지 않는다. 화면이 따로 보여주고, 총점 비율은 코드가 곱한다."""
+    parts = [f"[{i.name}]\n{i.reason}" for i in items]
+    parts.append("[인재상 적합도]\n" + "\n".join(
+        f"- {f.talent_content}: {'확인됨' if f.evidence != NO_FIT_NOTE else '서류에서 확인되지 않음'}" for f in fits
+    ))
+    parts.append("[강점·확인 필요]\n" + ("\n".join(f"- ({p.point_type}, {p.item}) {p.content}" for p in points) or "- 없음"))
+    return "\n\n".join(parts)
+
+
 def _resume(model, embed, search, text: str, skill: Decimal, job, functional) -> ItemScore:
     """직무 관련 경험 40 (직무 설명 + 프로젝트 문서) + 필수 기술 20 (코드) + 기능적 인재상 일치 40."""
     if not text:
@@ -128,6 +235,7 @@ def _resume(model, embed, search, text: str, skill: Decimal, job, functional) ->
         RESUME, score, reason, _merge(experience.evidence, talent.evidence),
         {"experience": experience.score, "skill": skill, "talent_match": talent.score},
         {"read": read.model_dump(), "experience": experience.judgments, "talent_match": talent.judgments},
+        {"experience": experience, "talent_match": talent},
     )
 
 
@@ -142,7 +250,10 @@ def _item(
     axes = {key: Decimal(getattr(read, key)) for key in ratios} | {match_key: match.score}
     score = _round(sum(axes[k] * r for k, r in (ratios | {match_key: match_ratio}).items()) / 100)
     reason = f"{read.reason} {_match_note(_MATCH_NAMES[match_key], match)}"
-    return ItemScore(name, score, reason, match.evidence, axes, {"read": read.model_dump(), match_key: match.judgments})
+    return ItemScore(
+        name, score, reason, match.evidence, axes, {"read": read.model_dump(), match_key: match.judgments},
+        {match_key: match},
+    )
 
 
 _MATCH_NAMES = {"doc_match": "회사 업무 일치", "company_match": "회사 일치도"}
@@ -165,7 +276,7 @@ def _match(model, embed: EmbedClient, claims: list[str], sources: list[SourceSen
         return Match(Decimal("0.00"), counts, [], [])
     system = prompts.comparison_system([(s.id, s.text) for s in sources])
     by_id = {s.id: s for s in sources}
-    compared: list[tuple[str, list[SourceSentence]]] = []
+    judged: list[tuple[str, str, list[SourceSentence]]] = []
     judgments = []
     for claim in claims:
         j = invoke_structured(model, prompts.judge_claim(system, claim), ClaimJudgment)
@@ -174,10 +285,10 @@ def _match(model, embed: EmbedClient, claims: list[str], sources: list[SourceSen
         # 같음·반대인데 남은 번호가 없으면 근거를 확인할 수 없다. 문서에 없음으로 센다 (루브릭 설계서 3.3과 같다)
         level = j.level if ids else "문서에 없음"
         counts[level] += 1
-        if level != "문서에 없음":
-            compared.append((claim, [by_id[i] for i in ids]))
+        judged.append((claim, level, [by_id[i] for i in ids] if level != "문서에 없음" else []))
     score = _round(Decimal(counts["같음"] * 100) / len(claims))
-    return Match(score, counts, _filter_evidence(compared, embed), judgments)
+    compared = [(claim, ss) for claim, level, ss in judged if level != "문서에 없음"]
+    return Match(score, counts, _filter_evidence(compared, embed), judgments, judged)
 
 
 def _filter_evidence(compared: list[tuple[str, list[SourceSentence]]], embed: EmbedClient) -> list[SourceSentence]:
