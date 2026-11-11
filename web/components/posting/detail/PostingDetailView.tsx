@@ -167,7 +167,7 @@ export default function PostingDetailView({ postingId }: { postingId: number }) 
           counts={[`제출 ${stats.submitted_count}명`]}
           closedText={`${formatMonthDay(posting.doc_end_at)} 마감 후 이용 가능`}
           evalLabel="서류 전형 평가"
-          onEvaluate={() => router.push(`/admin/postings/${postingId}/document-evaluation`)}
+          onEvaluate={() => router.push(`/admin/postings/${postingId}/document/ranking`)}
         />
         <StageRow
           name="면접 전형"

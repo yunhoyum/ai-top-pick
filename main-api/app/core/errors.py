@@ -25,6 +25,11 @@ class ErrorCode(str, Enum):
     # 이미 제출한 지원서는 고칠 수 없다
     APPLICATION_SUBMITTED = "APPLICATION_SUBMITTED"
     APPLICATION_INVALID = "APPLICATION_INVALID"
+    # 전형이 마감되기 전에는 평가 화면을 열 수 없다 (ADM-013)
+    STAGE_NOT_CLOSED = "STAGE_NOT_CLOSED"
+    APPLICATION_NOT_FOUND = "APPLICATION_NOT_FOUND"
+    # 보고서를 아직 만들지 않았거나 만들지 못했다 (Celery 4장 서류 보고서 작업)
+    REPORT_NOT_FOUND = "REPORT_NOT_FOUND"
 
 
 class AppError(Exception):

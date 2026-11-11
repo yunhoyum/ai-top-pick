@@ -1,6 +1,7 @@
 """DB와 무관한 계산·검증 규칙 (순수 함수)."""
 
 from datetime import datetime
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Protocol
 
 from app.domain.enums import ItemName, PostingWriteStatus, ProgressStatus
@@ -78,3 +79,21 @@ def can_edit_posting(posting) -> bool:
         posting.write_status == PostingWriteStatus.DRAFT.value
         or posting.progress_status == ProgressStatus.BEFORE_RECRUIT.value
     )
+
+
+def is_doc_stage_closed(progress_status: str | None) -> bool:
+    """ADM-013 서류 전형이 마감됐는지. 진행 상태가 '서류 평가' 이후면 마감이다."""
+    return progress_status in PROGRESS_ORDER and PROGRESS_ORDER.index(progress_status) >= PROGRESS_ORDER.index(
+        ProgressStatus.DOC_EVALUATION.value
+    )
+
+
+def calc_weighted(score: Decimal, ratio: int) -> Decimal:
+    """항목 점수(100점 기준) × 비율 ÷ 100. 화면의 '27 / 30'과 총점에 쓴다 (코드베이스 4.2 calc_total_score).
+    반올림은 화면에 보일 때만 한다. 총점은 반올림하지 않은 값을 더한다."""
+    return score * ratio / 100
+
+
+def round1(value: Decimal) -> Decimal:
+    """소수 첫째 자리까지. 파이썬 round()는 0.5를 짝수 쪽으로 보내 ROUND_HALF_UP을 쓴다."""
+    return value.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)

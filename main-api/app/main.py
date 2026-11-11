@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api import auth, postings
 from app.api.applicant import applications, my_applications
+from app.api.admin import evaluation as admin_evaluation
 from app.api.admin import postings as admin_postings
 from app.core.config import get_settings
 from app.core.deps import get_db
@@ -24,6 +25,7 @@ app.add_middleware(
 register_handlers(app)
 app.include_router(auth.router)
 app.include_router(admin_postings.router)
+app.include_router(admin_evaluation.router)
 app.include_router(postings.router)
 app.include_router(applications.router)
 app.include_router(my_applications.router)
