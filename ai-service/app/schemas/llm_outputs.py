@@ -31,3 +31,29 @@ class ClaimJudgment(BaseModel):
 
     level: ClaimLevel
     evidence_ids: list[str]
+
+
+# ---------- 서류 보고서 항목 읽기 (회사 자료 없이, 루브릭 설계서 7.3) ----------
+
+
+class ResumeReadOutput(BaseModel):
+    """이력서. LLM 축은 둘 다 회사 자료와 비교하는 축이라 여기서는 주장만 받는다."""
+
+    claims: list[str]
+    reason: str = Field(min_length=1)
+
+
+class SkillCaseReadOutput(ResumeReadOutput):
+    problem: Score
+    process: Score
+    result: Score
+
+
+class PortfolioReadOutput(ResumeReadOutput):
+    decision: Score
+    depth: Score
+
+
+class EssayReadOutput(ResumeReadOutput):
+    format: Score
+    logic: Score
