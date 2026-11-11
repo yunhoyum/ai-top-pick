@@ -273,23 +273,23 @@ def test_report_builds_fits_and_points_from_judgments_then_asks_summary():
         ("외부 API 타임아웃을 설계해 본 사람", "기술 적용 사례: 확인 중으로 두었다"),  # 반대 주장은 넣지 않는다
         ("모르면 모른다고 말하는 정직함", NO_FIT_NOTE),
     ]
-    pg = "PG 승인 응답이 5초 안에 오지 않으면 결제 상태를 확인 중으로 둔다."
     assert _points(report) == [
         ("강점", "기술 적용 사례", "회사 자료와 맞는 일: '확인 중으로 두었다' (회사 자료: \"외부 API 타임아웃을 설계해 본 사람\")"),
-        ("확인 필요", "기술 적용 사례", f"회사 자료와 다른 일: '바로 실패로 처리했다' (회사 자료: \"{pg}\"). 이렇게 한 이유를 확인한다."),
+        # '반대'라도 회사 자료와 다르다고 단정하지 않는다. D6·D7에서 보인 '반대' 4개가 모두 오판이었다
+        ("확인 필요", "기술 적용 사례", "회사 자료와 맞는 것을 찾지 못한 일: '바로 실패로 처리했다'. 회사 업무와의 관련성을 확인한다."),
     ]
     assert report.summary == "결제 타임아웃 경험이 있다."
 
 
-def test_points_fall_back_to_axis_scores_without_same_or_opposite():
-    # 주장이 모두 '문서에 없음'이면 회사 업무 일치가 0이다. 가장 높은 축(문제 정의 80)이 강점이다
-    model = FakeModel(_case_read(["앱 이미지 로딩을 줄였다", "캐시를 붙였다"]), _claim("문서에 없음", []),
-                      _claim("문서에 없음", []), {"summary": "s"})
+def test_unmatched_claims_are_listed_and_no_strength_without_same_claim():
+    # 축 점수로 만든 강점은 구체 내용이 없거나 틀렸다 (D7-v7). '같음' 주장이 없으면 강점을 내지 않는다
+    claims = ["앱 이미지 로딩을 줄였다", "캐시를 붙였다", "게임을 만들었다"]
+    model = FakeModel(_case_read(claims), *[_claim("문서에 없음", [])] * 3, {"summary": "s"})
     report = _report(model, _docs(skill_cases=[CASE]))
-    assert _points(report) == [
-        ("강점", "기술 적용 사례", "이 항목에서 가장 높게 평가된 부분은 문제 정의이다 (어떤 문제를 풀었는지 분명한지)."),
-        ("확인 필요", "기술 적용 사례", "서류에서 읽은 일 2개 중 회사 자료와 맞는 것이 0개다. 회사 업무와 관련된 경험을 확인한다."),
-    ]
+    assert _points(report) == [(
+        "확인 필요", "기술 적용 사례",
+        "회사 자료와 맞는 것을 찾지 못한 일: '앱 이미지 로딩을 줄였다', '캐시를 붙였다' 외 1개. 회사 업무와의 관련성을 확인한다.",
+    )]
 
 
 def test_weakest_non_match_axis_becomes_check():

@@ -64,9 +64,10 @@ AXIS_LOOKS = {
     "format": "주장마다 근거(경험)가 붙어 있는지", "logic": "근거가 주장을 실제로 뒷받침하는지",
     "company_match": "비기능적 인재상과 맞는지",
 }
-# 강점·확인 필요로 쓸 축 점수 기준 (제안, 2026-11-11). 주장 판정이 없을 때만 쓴다
+# 점수 수준 기준 (제안, 2026-11-11). 확인 필요와 요약 입력(높음·보통·낮음)에 쓴다
 STRENGTH_FROM = 80
 CHECK_BELOW = 60
+MAX_LISTED = 2  # 확인 필요에 보일 '회사 자료와 맞지 않은 일'의 수
 
 
 @dataclass(frozen=True)
@@ -204,36 +205,32 @@ def _points(item: ItemScore) -> list[Point]:
     """항목 하나의 강점·확인 필요를 0~1개씩 만든다 (루브릭 설계서 10).
     LLM이 쓰게 했더니 맞는 문장이 3분의 1이었다. 서류에 없는 말을 덧붙이고, 있는 수치를 없다고 하고,
     회사 문서에 없는 전제를 만들었다 (D5-v5 판정). 그래서 ①의 판정과 축 점수를 문장 틀에 넣는다.
-    - 확인 필요: '반대' 주장 → 가장 낮은 축이 CHECK_BELOW 미만
-    - 강점: '같음' 주장 → 가장 높은 축이 STRENGTH_FROM 이상"""
+    - 강점: '같음' 주장만 쓴다. 축 점수로 만든 강점은 구체 내용이 없거나 틀렸다 (D7-v7 판정 3개 중 맞음 0)
+    - 확인 필요: 회사 일치 축이 CHECK_BELOW 미만이면 회사 자료와 맞지 않은 주장을 보인다 →
+      아니면 가장 낮은 다른 축이 CHECK_BELOW 미만일 때. '반대' 주장은 쓰지 않는다. D6·D7에서 확인 필요로
+      보인 '반대' 4개가 모두 ①의 오판이었다 (점수 계산에는 그대로 쓴다)"""
     judged = [(claim, level, sources) for m in item.matches.values() for claim, level, sources in m.claims]
-    axes = {k: v for k, v in item.axes.items() if k != "skill"}  # 필수 기술은 자기평가라 강점·약점으로 보지 않는다
     points = []
 
     same = next(((c, s) for c, level, s in judged if level == "같음"), None)
-    best = max(axes, key=axes.get, default=None)
     if same:
         claim, sources = same
         points.append(Point("강점", item.name, f"회사 자료와 맞는 일: '{claim}' (회사 자료: \"{sources[0].text}\")"))
-    elif best and axes[best] >= STRENGTH_FROM:
-        points.append(Point("강점", item.name, f"이 항목에서 가장 높게 평가된 부분은 {AXIS_NAMES[best]}이다 ({AXIS_LOOKS[best]})."))
 
-    opposite = next(((c, s) for c, level, s in judged if level == "반대"), None)
-    worst = min(axes, key=axes.get, default=None)
-    if opposite:
-        claim, sources = opposite
+    match_key = min(item.matches, key=lambda k: item.axes[k], default=None)
+    unmatched = [c for c, level, _ in item.matches[match_key].claims if level != "같음"] if match_key else []
+    others = {k: v for k, v in item.axes.items() if k not in item.matches and k != "skill"}  # 필수 기술은 자기평가다
+    worst = min(others, key=others.get, default=None)
+    if match_key and item.axes[match_key] < CHECK_BELOW and unmatched:
+        listed = ", ".join(f"'{c}'" for c in unmatched[:MAX_LISTED])
+        more = f" 외 {len(unmatched) - MAX_LISTED}개" if len(unmatched) > MAX_LISTED else ""
         points.append(Point(
-            "확인 필요", item.name,
-            f"회사 자료와 다른 일: '{claim}' (회사 자료: \"{sources[0].text}\"). 이렇게 한 이유를 확인한다.",
+            "확인 필요", item.name, f"회사 자료와 맞는 것을 찾지 못한 일: {listed}{more}. 회사 업무와의 관련성을 확인한다.",
         ))
-    elif worst and axes[worst] < CHECK_BELOW:
-        if worst in item.matches:
-            counts = item.matches[worst].counts
-            text = (f"서류에서 읽은 일 {sum(counts.values())}개 중 회사 자료와 맞는 것이 {counts['같음']}개다. "
-                    "회사 업무와 관련된 경험을 확인한다.")
-        else:
-            text = f"이 항목에서 가장 약한 부분은 {AXIS_NAMES[worst]}이다 ({AXIS_LOOKS[worst]}). 면접에서 확인한다."
-        points.append(Point("확인 필요", item.name, text))
+    elif worst and others[worst] < CHECK_BELOW:
+        points.append(Point(
+            "확인 필요", item.name, f"이 항목에서 가장 약한 부분은 {AXIS_NAMES[worst]}이다 ({AXIS_LOOKS[worst]}). 면접에서 확인한다.",
+        ))
     return points
 
 
@@ -254,7 +251,7 @@ def _report_brief(items: list[ItemScore], fits: list[Fit], points: list[Point]) 
 
 
 def _band(score: Decimal) -> str:
-    """강점·확인 필요와 같은 기준이다 (STRENGTH_FROM, CHECK_BELOW)."""
+    """확인 필요와 같은 기준이다 (CHECK_BELOW). 높음은 STRENGTH_FROM 이상이다."""
     return "높음" if score >= STRENGTH_FROM else "낮음" if score < CHECK_BELOW else "보통"
 
 
