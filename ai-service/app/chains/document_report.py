@@ -218,11 +218,14 @@ def _points(item: ItemScore) -> list[Point]:
         points.append(Point("강점", item.name, f"회사 자료와 맞는 일: '{claim}' (회사 자료: \"{sources[0].text}\")"))
 
     match_key = min(item.matches, key=lambda k: item.axes[k], default=None)
-    unmatched = [c for c, level, _ in item.matches[match_key].claims if level != "같음"] if match_key else []
+    # 이력서는 같은 주장을 두 축에서 따로 판정한다. 한 축에서라도 '같음'이면 회사 자료와 맞은 일이다.
+    # 낮은 축만 보면 인재상과 맞은 LangGraph 경험을 '찾지 못한 일'로 보였다 (D8-v8 판정)
+    same_claims = {c for c, level, _ in judged if level == "같음"}
+    unmatched = [c for c, _, _ in item.matches[match_key].claims if c not in same_claims] if match_key else []
     others = {k: v for k, v in item.axes.items() if k not in item.matches and k != "skill"}  # 필수 기술은 자기평가다
     worst = min(others, key=others.get, default=None)
     if match_key and item.axes[match_key] < CHECK_BELOW and unmatched:
-        listed = ", ".join(f"'{c}'" for c in unmatched[:MAX_LISTED])
+        listed = ", ".join(f"'{c.rstrip('.')}'" for c in unmatched[:MAX_LISTED])  # 끝 마침표가 "다.'."로 겹친다
         more = f" 외 {len(unmatched) - MAX_LISTED}개" if len(unmatched) > MAX_LISTED else ""
         points.append(Point(
             "확인 필요", item.name, f"회사 자료와 맞는 것을 찾지 못한 일: {listed}{more}. 회사 업무와의 관련성을 확인한다.",

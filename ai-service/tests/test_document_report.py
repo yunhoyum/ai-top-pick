@@ -333,3 +333,18 @@ def test_point_quotes_the_source_most_similar_to_the_claim():
         POSTING, _docs(skill_cases=[CASE]), model=model, search=FakeSearch(), embed=FakeEmbed({talent: 1}),
     )
     assert report.points[0].content == f"회사 자료와 맞는 일: '{claim}' (회사 자료: \"{PG.content}\")"
+
+
+def test_resume_claim_same_on_either_axis_is_not_listed_as_unmatched():
+    # 이력서는 같은 주장을 직무 경험과 기능적 인재상에서 따로 판정한다. 한 축에서라도 같음이면 빼야 한다 (D8-v8)
+    docs = _docs(projects=[{"project_name": "상담 에이전트", "description": "LangGraph로 분기했다. 대시보드를 만들었다."}])
+    model = FakeModel(
+        {"claims": ["LangGraph로 분기했다", "대시보드를 만들었다"], "reason": "r"},
+        _claim("문서에 없음", []), _claim("문서에 없음", []),  # 직무 관련 경험
+        _claim("같음", ["기-1"]), _claim("문서에 없음", []),  # 기능적 인재상 일치
+        {"summary": "s"},
+    )
+    report = _report(model, docs)
+    assert [(p.point_type, p.content) for p in report.points if p.item == "이력서"][1] == (
+        "확인 필요", "회사 자료와 맞는 것을 찾지 못한 일: '대시보드를 만들었다'. 회사 업무와의 관련성을 확인한다.",
+    )
