@@ -314,9 +314,22 @@ def test_summary_sees_scores_points_and_fit_count_but_not_documents():
     _report(model, _docs(skill_cases=[CASE]))
     prompt = model.calls[-1][-1].content
     # 점수 없이 쓰게 했더니 관계없는 지원자도 '직무와 잘 부합한다'고 썼다 (D3-v3)
-    assert "[기술 적용 사례] 항목 점수 79 (회사 일치: 회사 업무 일치 100)" in prompt
+    # 숫자로 줬더니 요약에 '(이력서 점수 57)'처럼 옮겨 썼다 (D6-v6). 높음·보통·낮음으로 준다
+    assert "[기술 적용 사례] 항목 점수 보통 (회사 일치: 회사 업무 일치 높음)" in prompt
+    assert "[이력서] 항목 점수 낮음" in prompt and "79" not in prompt
     assert "[인재상 적합도] 3개 중 1개 확인" in prompt
     assert "외부 API 타임아웃을 설계해 본 사람: 확인됨" in prompt
     assert "결제 장애를 재현하고 원인을 기록하는 사람: 서류에서 확인되지 않음" in prompt
     assert "(강점, 기술 적용 사례) 회사 자료와 맞는 일: '확인 중으로 두었다'" in prompt
     assert "결제 버튼도 한 번만" not in prompt  # 서류 원문은 넣지 않는다
+
+
+def test_point_quotes_the_source_most_similar_to_the_claim():
+    # LLM이 고른 번호 순서대로면 일정표 같은 엉뚱한 문장이 먼저 나왔다 (D6-v6). 주장과 가장 비슷한 문장을 쓴다
+    claim = "확인 중으로 두었다"
+    talent = "결제 장애를 재현하고 원인을 기록하는 사람"
+    model = FakeModel(_case_read([claim]), _claim("같음", ["기-1", "1-1"]), {"summary": "s"})
+    report = build_document_report(
+        POSTING, _docs(skill_cases=[CASE]), model=model, search=FakeSearch(), embed=FakeEmbed({talent: 1}),
+    )
+    assert report.points[0].content == f"회사 자료와 맞는 일: '{claim}' (회사 자료: \"{PG.content}\")"

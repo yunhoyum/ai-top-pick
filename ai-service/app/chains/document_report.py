@@ -238,18 +238,24 @@ def _points(item: ItemScore) -> list[Point]:
 
 
 def _report_brief(items: list[ItemScore], fits: list[Fit], points: list[Point]) -> str:
-    """요약을 쓸 자료. 항목 점수와 회사 일치 축 점수를 넣는다. 점수 없이 쓰게 했더니 회사와 관계없는
-    지원자도 '직무와 잘 부합한다'고 썼다 (D3-v3). 숫자를 문장에 쓰지 말라는 지시는 프롬프트에 있다."""
+    """요약을 쓸 자료. 항목 점수와 회사 일치 축 점수를 높음·보통·낮음으로 넣는다.
+    점수 없이 쓰게 했더니 회사와 관계없는 지원자도 '직무와 잘 부합한다'고 썼고 (D3-v3),
+    숫자로 넣었더니 '(이력서 점수 57)'처럼 숫자를 요약에 옮겨 썼다 (D6-v6)."""
     parts = []
     for i in items:
-        match = ", ".join(f"{AXIS_NAMES[k]} {i.axes[k]:.0f}" for k in i.matches)
-        parts.append(f"[{i.name}] 항목 점수 {i.score:.0f}" + (f" (회사 일치: {match})" if match else "") + f"\n{i.reason}")
+        match = ", ".join(f"{AXIS_NAMES[k]} {_band(i.axes[k])}" for k in i.matches)
+        parts.append(f"[{i.name}] 항목 점수 {_band(i.score)}" + (f" (회사 일치: {match})" if match else "") + f"\n{i.reason}")
     found = sum(f.evidence != NO_FIT_NOTE for f in fits)
     parts.append(f"[인재상 적합도] {len(fits)}개 중 {found}개 확인\n" + "\n".join(
         f"- {f.talent_content}: {'확인됨' if f.evidence != NO_FIT_NOTE else '서류에서 확인되지 않음'}" for f in fits
     ))
     parts.append("[강점·확인 필요]\n" + ("\n".join(f"- ({p.point_type}, {p.item}) {p.content}" for p in points) or "- 없음"))
     return "\n\n".join(parts)
+
+
+def _band(score: Decimal) -> str:
+    """강점·확인 필요와 같은 기준이다 (STRENGTH_FROM, CHECK_BELOW)."""
+    return "높음" if score >= STRENGTH_FROM else "낮음" if score < CHECK_BELOW else "보통"
 
 
 def _item_texts(documents: ApplicantDocuments) -> dict[str, str]:
@@ -329,26 +335,38 @@ def _match(model, embed: EmbedClient, claims: list[str], sources: list[SourceSen
         judged.append((claim, level, [by_id[i] for i in ids] if level != "문서에 없음" else []))
     score = _round(Decimal(counts["같음"] * 100) / len(claims))
     compared = [(claim, ss) for claim, level, ss in judged if level != "문서에 없음"]
-    return Match(score, counts, _filter_evidence(compared, embed), judgments, judged)
+    evidence, ranked = _filter_evidence(compared, embed)
+    # 강점·확인 필요는 근거 중 첫 문장을 보여 준다. LLM이 쓴 순서대로면 일정표·제목 조각 같은
+    # 엉뚱한 문장이 나와 주장과 가장 비슷한 순서로 바꾼다 (D6-v6)
+    judged = [(claim, level, ranked.get(claim, ss)) for claim, level, ss in judged]
+    return Match(score, counts, evidence, judgments, judged)
 
 
-def _filter_evidence(compared: list[tuple[str, list[SourceSentence]]], embed: EmbedClient) -> list[SourceSentence]:
+def _filter_evidence(
+    compared: list[tuple[str, list[SourceSentence]]], embed: EmbedClient
+) -> tuple[list[SourceSentence], dict[str, list[SourceSentence]]]:
     """주장과 유사도가 낮은 근거 문장은 저장하지 않는다. 주장마다 가장 비슷한 1개는 남긴다.
     판정과 점수는 바꾸지 않는다 (면접과 같은 규칙, RAG 설계서 5.5 P11).
-    EXAONE이 번호 칸에 목록 전체를 붙여 써 근거가 수십 개가 되기도 했다 (D2-v2)."""
+    EXAONE이 번호 칸에 목록 전체를 붙여 써 근거가 수십 개가 되기도 했다 (D2-v2).
+    (저장할 근거, 주장 → 유사도가 높은 순으로 정렬한 근거 후보)를 돌려준다."""
     if not compared:
-        return []
+        return [], {}
     threshold = get_settings().EVIDENCE_MIN_SIMILARITY
     texts = list(dict.fromkeys([claim for claim, _ in compared] + [s.text for _, ss in compared for s in ss]))
     # embed-server는 길이 1로 정규화한 벡터를 준다. 내적이 코사인 유사도다
     vectors = dict(zip(texts, embed.embed(texts)))
     picked: dict[str, SourceSentence] = {}
+    ranked: dict[str, list[SourceSentence]] = {}
     for claim, candidates in compared:
-        scored = [(sum(a * b for a, b in zip(vectors[claim], vectors[s.text])), s) for s in candidates]
-        kept = [s for similarity, s in scored if similarity >= threshold] or [max(scored, key=lambda x: x[0])[1]]
+        scored = sorted(
+            ((sum(a * b for a, b in zip(vectors[claim], vectors[s.text])), s) for s in candidates),
+            key=lambda x: x[0], reverse=True,
+        )
+        ranked[claim] = [s for _, s in scored]
+        kept = [s for similarity, s in scored if similarity >= threshold] or [scored[0][1]]
         for s in kept:
             picked.setdefault(s.id, s)
-    return list(picked.values())
+    return list(picked.values()), ranked
 
 
 def _match_note(axis: str, match: Match) -> str:

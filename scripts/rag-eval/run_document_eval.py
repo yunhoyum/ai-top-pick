@@ -98,7 +98,8 @@ def evaluate(posting_id: int) -> tuple[list[dict], list[dict]]:
     return rows, reports
 
 
-_SCORE_NUMBER = re.compile(r"\d+(\.\d+)?\s*점")
+# "85점"과 "점수 85" 둘 다 잡는다. D6-v6 요약의 "(이력서 점수 57)"을 앞의 식이 놓쳤다
+_SCORE_NUMBER = re.compile(r"\d+(\.\d+)?\s*점|점수\s*\d+")
 
 
 def check_texts(reports: list[dict]) -> dict:

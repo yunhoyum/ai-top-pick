@@ -19,11 +19,13 @@ v5: 인재상 적합도를 v3의 코드 방식으로 되돌린다. v4의 인용 
     옮긴 문장의 69%가 원문과 달랐으며, 남은 근거도 절반이 엉뚱했다 (D4-v4). 강점·확인 필요, 요약은 v4와 같다
 v6: 강점·확인 필요 프롬프트를 뺀다. 코드가 ①의 판정과 축 점수로 만든다(chains/document_report._points).
     LLM 문장은 사람 판정에서 맞음이 24개 중 8개였다(D5-v5). 요약은 v4와 같다
+v7: 요약 입력의 점수를 높음(80 이상)·보통·낮음(60 미만)으로 준다. 숫자로 줬더니 '(이력서 점수 57)'처럼
+    요약에 옮겨 썼다 (D6-v6). 강점·확인 필요의 회사 자료 문장은 주장과 가장 비슷한 것으로 고른다(코드)
 """
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
-VERSION = "v6"
+VERSION = "v7"
 
 SYSTEM = """너는 채용 서류 전형에서 지원자의 서류를 채점하는 평가자다.
 - 주어진 자료만 보고 판단한다. 자료에 없는 사실을 지어내지 않는다.
@@ -118,7 +120,7 @@ def summary(brief: str) -> list[BaseMessage]:
     return [
         SystemMessage(content=SYSTEM),
         HumanMessage(
-            content=f"""[서류 평가 결과] (점수는 0~100)
+            content=f"""[서류 평가 결과] (점수는 높음·보통·낮음)
 {brief}
 
 위 결과를 바탕으로 이 지원자의 서류를 3~4문장으로 요약해 JSON으로 출력하라.
