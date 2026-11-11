@@ -25,6 +25,8 @@ class RankingRow(BaseModel):
     total: Decimal | None  # 소수 첫째 자리
     scores: list[WeightedScore]
     has_opinion: bool
+    opinion: str | None  # 화면 20 관리자 의견 열
+    result: str | None  # 서류 전형 결과 (합격, 불합격). 합격자를 확정하기 전에는 None
     # '완료'면 보고서가 있다. 그 밖에는 서류 보고서 작업 상태(대기, 실행 중, 실패) 또는 '없음'
     report_status: str
 
@@ -41,6 +43,7 @@ class RankingOut(BaseModel):
     position_name: str | None
     doc_end_at: datetime | None
     criteria: list[CriteriaRatio]
+    confirmed: bool  # 서류 합격자를 확정했는지 (ADM-025)
     summary: RankingSummary
     rows: list[RankingRow]  # 총점 내림차순, 보고서가 없는 지원자는 끝에
 
@@ -89,3 +92,72 @@ class OpinionIn(BaseModel):
 
 class OpinionOut(BaseModel):
     opinion: str | None
+
+
+class PassIn(BaseModel):
+    """화면 20 합격자 확정. 고른 지원서는 합격, 나머지 평가 대상은 불합격이다 (ADM-025)."""
+
+    application_ids: list[int] = Field(min_length=1)
+
+
+class PassOut(BaseModel):
+    passed: int
+    failed: int
+
+
+# ---------- 화면 19 지원자 자료 원본 (ADM-022) ----------
+
+
+class SourceEducation(BaseModel):
+    school_name: str | None
+    major: str | None
+    period: str | None
+
+
+class SourceCareer(BaseModel):
+    company_name: str | None
+    job_role: str | None
+    period: str | None
+
+
+class SourceProject(BaseModel):
+    project_name: str | None
+    period: str | None
+    description: str | None
+
+
+class SourceSkill(BaseModel):
+    skill_name: str
+    score: int | None
+
+
+class SourceCase(BaseModel):
+    skill_name: str | None
+    content: str | None
+
+
+class SourceEssay(BaseModel):
+    topic: str
+    content: str | None
+
+
+class SourcePortfolio(BaseModel):
+    file_name: str
+    file_size: int | None
+
+
+class SourceDocumentsOut(BaseModel):
+    application_id: int
+    posting_id: int
+    position_name: str | None
+    doc_end_at: datetime | None
+    name: str | None
+    phone: str | None
+    email: str | None
+    educations: list[SourceEducation]
+    careers: list[SourceCareer]
+    projects: list[SourceProject]
+    skills: list[SourceSkill]
+    cases: list[SourceCase]
+    essays: list[SourceEssay]
+    portfolio: SourcePortfolio | None

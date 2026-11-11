@@ -292,6 +292,70 @@
   gap: 10px;
 }
 
+.rankHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rankLink {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--accent-600);
+}
+
+.rankLink:hover {
+  text-decoration: underline;
+}
+
+.rankList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 4px 16px;
+  list-style: none;
+  border-radius: 10px;
+  background: var(--gray-50);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.rankRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.rankRow:last-child {
+  border-bottom: none;
+}
+
+.rankNo {
+  flex: 0 0 20px;
+  font-weight: 700;
+  color: var(--primary-700);
+}
+
+.rankName {
+  flex: 1 0 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--gray-900);
+}
+
+.rankScore {
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--gray-900);
+}
+
 .rankEmpty {
   display: flex;
   flex-direction: column;

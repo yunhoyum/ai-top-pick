@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Badge from "@/components/common/Badge";
 import Button from "@/components/common/Button";
@@ -29,6 +30,7 @@ function Stat({ label, value, unit, tone }: { label: string; value: string; unit
 
 // 화면 17 서류 지원자 순위 (ADM-023). 관리자 의견은 결과 보고서 화면에서 등록한다
 export default function RankingView({ postingId }: { postingId: number }) {
+  const router = useRouter();
   const [ranking, setRanking] = useState<Ranking | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -56,8 +58,7 @@ export default function RankingView({ postingId }: { postingId: number }) {
             {position} · 서류 전형 마감 {formatFullDate(ranking.doc_end_at)}
           </p>
         </div>
-        {/* 화면 20 합격자 선정은 아직 없다 */}
-        <Button type="button" inline disabled title="준비 중입니다">
+        <Button type="button" inline onClick={() => router.push(`/admin/postings/${postingId}/document/selection`)}>
           합격자 선정
         </Button>
       </header>

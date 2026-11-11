@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from app.services import document_report_batch as batch
 from test_applications import _open_posting
 from test_document_report_batch import FakeClient, _apply, _job_id, _result
-from test_postings import _login, _sql, admin  # noqa: F401  (admin은 fixture)
+from test_postings import PDF, _login, _sql, admin  # noqa: F401  (admin은 fixture)
 
 NO_FIT = "서류에서 이 인재상과 맞는 경험을 찾지 못했다."
 
@@ -34,12 +34,12 @@ def ranked(client, pid):
     low = _apply(client, pid)
     high = _apply(client, pid)
     pending = _apply(client, pid)
-    _apply(client, pid, java=2)
+    shortfall = _apply(client, pid, java=2)
     batch.start_document_reports(pid)
     _report_for(pid, low)  # 70×0.3 + 64.5×0.3 = 21 + 19.35 = 40.35 → 40.4
     _report_for(pid, high, score="80.00")  # 21 + 24 = 45.0
     _close(pid)
-    return {"low": low, "high": high, "pending": pending}
+    return {"low": low, "high": high, "pending": pending, "shortfall": shortfall}
 
 
 def _ranking(c, pid):
@@ -112,3 +112,72 @@ def test_opinion_is_saved_and_shown_in_ranking_and_report(admin, pid, ranked):
     # 비우면 지운다
     assert admin.put(url, json={"opinion": " "}).json() == {"opinion": None}
     assert _ranking(admin, pid).json()["summary"]["opinion_count"] == 0
+
+
+# ---------- 화면 20 합격자 선정 ----------
+
+
+def _pass(c, pid, ids):
+    return c.post(f"/api/admin/postings/{pid}/stages/document/pass", json={"application_ids": ids})
+
+
+def _stage(aid, stage):
+    rows = _sql("select result from application_stage where application_id = :a and stage_type = :s", a=aid, s=stage)
+    return rows[0][0] if rows else "없음"
+
+
+def test_confirm_pass_marks_selected_pass_and_others_fail_once(admin, pid, ranked):
+    before = _ranking(admin, pid).json()
+    assert before["confirmed"] is False and [r["result"] for r in before["rows"]] == [None, None, None]
+
+    r = _pass(admin, pid, [ranked["high"]])
+    assert r.status_code == 200 and r.json() == {"passed": 1, "failed": 2}
+    assert (_stage(ranked["high"], "서류"), _stage(ranked["low"], "서류"), _stage(ranked["pending"], "서류")) == ("합격", "불합격", "불합격")
+    assert _stage(ranked["shortfall"], "서류") == "필수 기술 미달"  # 그대로 둔다
+    # 합격자만 면접 전형 행이 생긴다 (결과는 비어 있다)
+    assert (_stage(ranked["high"], "면접"), _stage(ranked["low"], "면접")) == (None, "없음")
+
+    after = _ranking(admin, pid).json()
+    assert after["confirmed"] is True and [r["result"] for r in after["rows"]] == ["합격", "불합격", "불합격"]
+    again = _pass(admin, pid, [ranked["low"]])
+    assert again.status_code == 409 and again.json()["code"] == "STAGE_ALREADY_CONFIRMED"
+
+
+def test_confirm_pass_rejects_non_targets_and_empty_selection(admin, pid, ranked):
+    r = _pass(admin, pid, [ranked["shortfall"]])
+    assert r.status_code == 422 and r.json()["code"] == "APPLICATION_INVALID"
+    assert _pass(admin, pid, []).status_code == 422
+    assert _ranking(admin, pid).json()["confirmed"] is False
+
+
+def test_ranking_rows_carry_opinion_text(admin, pid, ranked):
+    admin.put(f"/api/admin/applications/{ranked['low']}/stages/document/opinion", json={"opinion": "협업 확인"})
+    rows = _ranking(admin, pid).json()["rows"]
+    assert [r["opinion"] for r in rows] == [None, "협업 확인", None]
+
+
+# ---------- 화면 19 지원자 자료 원본 ----------
+
+
+def test_source_documents_show_submitted_resume_essays_and_portfolio(admin, pid, ranked):
+    r = admin.get(f"/api/admin/applications/{ranked['low']}/documents")
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert (d["name"], d["phone"], d["email"]) == ("김지원", "010-1234-5678", "applicant@example.com")
+    assert d["educations"] == [{"school_name": "한국대", "major": "컴퓨터", "period": "2020.03 ~ 2026.02"}]
+    assert d["skills"] == [{"skill_name": "Java", "score": 3}, {"skill_name": "SQL", "score": 4}]
+    assert d["cases"] == [{"skill_name": "Java", "content": "주문 API를 개선했습니다."}]
+    assert d["essays"] == [{"topic": "지원 동기", "content": "동기"}, {"topic": "성격의 장단점", "content": "장단점"}]
+    assert d["portfolio"]["file_name"] == "포트.pdf"
+
+
+def test_portfolio_file_is_served_inline(admin, pid, ranked):
+    r = admin.get(f"/api/admin/applications/{ranked['low']}/portfolio/file")
+    assert r.status_code == 200 and r.content == PDF
+    assert r.headers["content-type"] == "application/pdf" and r.headers["content-disposition"].startswith("inline")
+
+
+def test_other_admin_cannot_see_source_documents(client, pid, ranked):
+    other = _login(TestClient(client.app))
+    assert other.get(f"/api/admin/applications/{ranked['low']}/documents").status_code == 404
+    assert other.get(f"/api/admin/applications/{ranked['low']}/portfolio/file").status_code == 404

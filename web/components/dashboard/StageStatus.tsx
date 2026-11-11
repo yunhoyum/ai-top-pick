@@ -1,13 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import { interviewStage } from "@/lib/posting";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import Badge from "@/components/common/Badge";
+import { ApiError, apiFetch } from "@/lib/api";
+import { formatTotal } from "@/lib/evaluation";
+import { docStage, interviewStage } from "@/lib/posting";
+import type { Ranking } from "@/types/evaluation";
 import type { PostingStats } from "@/types/posting";
 import styles from "./Dashboard.module.css";
 
 type Stage = "doc" | "interview";
 
 type Props = {
+  postingId: number;
   progress: string | null;
   stats: PostingStats;
 };
@@ -24,11 +30,28 @@ function Tile({ label, value, tone }: { label: string; value: string; tone?: "re
   );
 }
 
+// 상위 순위에 보여줄 인원 (Figma 92:2985)
+const TOP_COUNT = 5;
+
 // 전형 현황: 서류 전형과 면접 전형의 지원자 수와 상위 순위 (ADM-003).
 // 처음에는 지금 진행 중인 전형을 보여주고, 칩으로 바꿔 볼 수 있다. 공고를 바꾸면 다시 처음 상태가 되도록 key로 새로 만든다
-export default function StageStatus({ progress, stats }: Props) {
+export default function StageStatus({ postingId, progress, stats }: Props) {
   const interviewStarted = interviewStage(progress).started;
+  const docClosed = docStage(progress).closed;
   const [stage, setStage] = useState<Stage>(interviewStarted ? "interview" : "doc");
+  const [ranking, setRanking] = useState<Ranking | null>(null);
+  const [rankingError, setRankingError] = useState<string | null>(null);
+
+  // 서류 전형이 마감되면 화면 17과 같은 순위를 불러온다
+  useEffect(() => {
+    if (!docClosed) return;
+    apiFetch<Ranking>(`/api/admin/postings/${postingId}/stages/document/ranking`)
+      .then(setRanking)
+      .catch((e) => setRankingError(e instanceof ApiError ? e.message : "서버에 연결하지 못했습니다."));
+  }, [postingId, docClosed]);
+
+  // 보고서가 나온(순위가 매겨진) 지원자만 보인다. 면접 평가는 아직 없다
+  const top = stage === "doc" ? (ranking?.rows.filter((r) => r.rank !== null).slice(0, TOP_COUNT) ?? []) : [];
   const name = stage === "doc" ? "서류 전형" : "면접 전형";
   // 면접 전형이 시작되기 전에는 아직 집계할 수 없다
   const interviewValue = (n: number) => (interviewStarted ? String(n) : "-");
@@ -68,11 +91,40 @@ export default function StageStatus({ progress, stats }: Props) {
       </div>
 
       <div className={styles.rank}>
-        <p className={styles.blockTitle}>상위 순위</p>
-        <div className={styles.rankEmpty}>
-          <p className={styles.rankTitle}>{name} 종료 후 상위 순위가 표시됩니다</p>
-          <p className={styles.rankDesc}>마감 시 AI가 결과 보고서와 순위를 자동 생성합니다</p>
+        <div className={styles.rankHead}>
+          <p className={styles.blockTitle}>상위 순위</p>
+          {top.length > 0 && ranking && (
+            <>
+              <Badge tone={ranking.confirmed ? "gray" : "amber"}>
+                {ranking.confirmed ? "합격자 선정 완료" : "합격자 선정 대기"}
+              </Badge>
+              <Link href={`/admin/postings/${postingId}/document/ranking`} className={styles.rankLink}>
+                전체 순위 보기 ›
+              </Link>
+            </>
+          )}
         </div>
+        {top.length > 0 ? (
+          <ol className={styles.rankList}>
+            {top.map((r) => (
+              <li key={r.application_id} className={styles.rankRow}>
+                <span className={styles.rankNo}>{r.rank}</span>
+                <span className={styles.rankName}>{r.applicant_name ?? "(이름 없음)"}</span>
+                <span className={styles.rankScore}>{formatTotal(r.total!)}점</span>
+              </li>
+            ))}
+          </ol>
+        ) : stage === "doc" && docClosed ? (
+          <div className={styles.rankEmpty}>
+            <p className={styles.rankTitle}>{rankingError ?? "AI가 결과 보고서를 생성하고 있습니다"}</p>
+            {!rankingError && <p className={styles.rankDesc}>보고서가 나오면 상위 순위가 표시됩니다</p>}
+          </div>
+        ) : (
+          <div className={styles.rankEmpty}>
+            <p className={styles.rankTitle}>{name} 종료 후 상위 순위가 표시됩니다</p>
+            <p className={styles.rankDesc}>마감 시 AI가 결과 보고서와 순위를 자동 생성합니다</p>
+          </div>
+        )}
       </div>
     </section>
   );

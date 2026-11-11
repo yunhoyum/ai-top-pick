@@ -110,7 +110,7 @@ export default function DashboardView() {
           </section>
 
           <div className={styles.rowB}>
-            <StageStatus key={selectedId} progress={data.review.posting.progress_status} stats={data.stats} />
+            <StageStatus key={selectedId} postingId={selectedId} progress={data.review.posting.progress_status} stats={data.stats} />
             <ErrorCheck postingId={selectedId} posting={data.review.posting} stats={data.stats} />
           </div>
         </>

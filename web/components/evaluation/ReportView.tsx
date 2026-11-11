@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Badge from "@/components/common/Badge";
 import Button from "@/components/common/Button";
@@ -31,6 +32,7 @@ function PointList({ points, dot }: { points: ReportPoint[]; dot: string }) {
 
 // 화면 18 서류 전형 결과 보고서 (ADM-021), 관리자 의견 (ADM-024)
 export default function ReportView({ postingId, applicationId }: { postingId: number; applicationId: number }) {
+  const router = useRouter();
   const [report, setReport] = useState<DocumentReport | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [opinion, setOpinion] = useState("");
@@ -80,8 +82,12 @@ export default function ReportView({ postingId, applicationId }: { postingId: nu
             {report.position_name ?? "(제목 없음)"} · 서류 전형 마감 {formatFullDate(report.doc_end_at)}
           </p>
         </div>
-        {/* 화면 19 지원자 자료 원본은 아직 없다 */}
-        <Button type="button" variant="secondary" inline disabled title="준비 중입니다">
+        <Button
+          type="button"
+          variant="secondary"
+          inline
+          onClick={() => router.push(`/admin/postings/${postingId}/document/applications/${applicationId}/source`)}
+        >
           원본 보기
         </Button>
       </header>

@@ -30,6 +30,9 @@ class ErrorCode(str, Enum):
     APPLICATION_NOT_FOUND = "APPLICATION_NOT_FOUND"
     # 보고서를 아직 만들지 않았거나 만들지 못했다 (Celery 4장 서류 보고서 작업)
     REPORT_NOT_FOUND = "REPORT_NOT_FOUND"
+    # 서류 합격자는 한 번만 확정한다. 면접 질문 생성이 이미 시작됐을 수 있다 (코드베이스 6.5)
+    STAGE_ALREADY_CONFIRMED = "STAGE_ALREADY_CONFIRMED"
+    PORTFOLIO_NOT_FOUND = "PORTFOLIO_NOT_FOUND"
 
 
 class AppError(Exception):

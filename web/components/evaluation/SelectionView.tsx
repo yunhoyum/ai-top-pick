@@ -1,0 +1,188 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+import Badge from "@/components/common/Badge";
+import Button from "@/components/common/Button";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
+import { ApiError, apiFetch } from "@/lib/api";
+import { formatTotal, reportStatusLabel } from "@/lib/evaluation";
+import { formatFullDate } from "@/lib/format";
+import type { Ranking } from "@/types/evaluation";
+import styles from "./Evaluation.module.css";
+
+const errorMessage = (e: unknown) => (e instanceof ApiError ? e.message : "서버에 연결하지 못했습니다.");
+
+// 화면 20 서류 전형 합격자 선정 (ADM-025). 한 번 확정하면 바꿀 수 없다
+export default function SelectionView({ postingId }: { postingId: number }) {
+  const [ranking, setRanking] = useState<Ranking | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+
+  const load = useCallback(
+    () =>
+      apiFetch<Ranking>(`/api/admin/postings/${postingId}/stages/document/ranking`)
+        .then(setRanking)
+        .catch((e) => setLoadError(errorMessage(e))),
+    [postingId],
+  );
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  function toggle(id: number) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function onConfirm() {
+    setBusy(true);
+    setConfirmError(null);
+    try {
+      await apiFetch(`/api/admin/postings/${postingId}/stages/document/pass`, {
+        method: "POST",
+        body: JSON.stringify({ application_ids: [...selected] }),
+      });
+      setConfirming(false);
+      await load();
+    } catch (e) {
+      setConfirmError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loadError) return <p className={styles.loadError}>{loadError}</p>;
+  if (!ranking) return null;
+
+  const { rows, confirmed } = ranking;
+  const position = ranking.position_name ?? "(제목 없음)";
+  const passedCount = confirmed ? rows.filter((r) => r.result === "합격").length : selected.size;
+  return (
+    <div className={styles.page}>
+      <Link href={`/admin/postings/${postingId}`} className={styles.back}>
+        ‹ {position}
+      </Link>
+
+      <header className={styles.header}>
+        <div className={styles.headText}>
+          <h1 className={styles.title}>서류 전형 합격자 선정</h1>
+          <p className={styles.subtitle}>
+            {position} · 서류 전형 마감 {formatFullDate(ranking.doc_end_at)}
+          </p>
+        </div>
+      </header>
+
+      <p className={`${styles.notice} ${styles.noticeNavy}`}>
+        <img src="/admin/dot-navy.svg" alt="" width={6} height={6} className={styles.dot} />
+        {confirmed
+          ? "서류 합격자를 확정했습니다. 지원자는 서류 합격자 발표 일시부터 결과 조회에서 본인 결과만 확인합니다."
+          : // AI 면접 질문 생성은 아직 연결하지 않았다 (면접 질문 생성 설계 뒤)
+            "합격자를 확정하면 합격자의 면접 전형이 시작됩니다. 지원자는 결과 조회에서 본인 결과만 확인합니다. 확정한 뒤에는 바꿀 수 없습니다."}
+      </p>
+
+      <div className={styles.selectBar}>
+        <span className={styles.selectLabel}>{confirmed ? "확정한 합격자" : "선택한 합격자"}</span>
+        <span className={styles.selectCount}>{passedCount}명</span>
+        {!confirmed && (
+          <>
+            <Button type="button" variant="ghost" inline disabled={selected.size === 0} onClick={() => setSelected(new Set())}>
+              선택 초기화
+            </Button>
+            <Button type="button" inline disabled={selected.size === 0} onClick={() => setConfirming(true)}>
+              합격자 확정
+            </Button>
+          </>
+        )}
+      </div>
+
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <colgroup>
+            <col style={{ width: 80 }} />
+            <col style={{ width: 64 }} />
+            <col style={{ width: 160 }} />
+            <col style={{ width: 90 }} />
+            <col />
+            <col style={{ width: 96 }} />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>{confirmed ? "결과" : "선택"}</th>
+              <th>순위</th>
+              <th>지원자</th>
+              <th>총점</th>
+              <th>관리자 의견</th>
+              <th>보고서</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const name = row.applicant_name ?? "(이름 없음)";
+              return (
+                <tr key={row.application_id}>
+                  <td>
+                    {/* 확정한 뒤에는 바꿀 수 없어 체크박스 대신 결과를 보여 준다 */}
+                    {confirmed ? (
+                      <Badge tone={row.result === "합격" ? "teal" : "gray"}>{row.result ?? "-"}</Badge>
+                    ) : (
+                      <input
+                        type="checkbox"
+                        className={styles.checkbox}
+                        aria-label={`${name} 합격`}
+                        checked={selected.has(row.application_id)}
+                        onChange={() => toggle(row.application_id)}
+                      />
+                    )}
+                  </td>
+                  <td className={styles.rank}>{row.rank ?? "-"}</td>
+                  <td className={styles.name}>{name}</td>
+                  <td className={styles.total}>{row.total ? formatTotal(row.total) : "-"}</td>
+                  <td className={styles.opinionCell} title={row.opinion ?? undefined}>
+                    {row.opinion ?? <span className={styles.muted}>-</span>}
+                  </td>
+                  <td>
+                    {row.rank !== null ? (
+                      <Link
+                        href={`/admin/postings/${postingId}/document/applications/${row.application_id}/report`}
+                        className={styles.reportLink}
+                      >
+                        보기 ›
+                      </Link>
+                    ) : (
+                      <span className={styles.muted}>{reportStatusLabel(row.report_status)}</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {rows.length === 0 && <p className={styles.empty}>평가 대상 지원자가 없습니다.</p>}
+      </div>
+
+      {confirming && (
+        <ConfirmDialog
+          title={`서류 합격자 ${selected.size}명을 확정하시겠습니까?`}
+          message={`선택하지 않은 ${rows.length - selected.size}명은 불합격이 됩니다. 확정한 뒤에는 바꿀 수 없습니다.`}
+          confirmLabel="합격자 확정"
+          busy={busy}
+          error={confirmError}
+          onConfirm={onConfirm}
+          onCancel={() => {
+            setConfirming(false);
+            setConfirmError(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
