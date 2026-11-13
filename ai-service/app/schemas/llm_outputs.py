@@ -61,3 +61,26 @@ class EssayReadOutput(ResumeReadOutput):
 
 class SummaryOutput(BaseModel):
     summary: str = Field(min_length=1)
+
+
+# ---------- 면접 질문 생성 (AI Agent 설계서 2.1) ----------
+
+
+class QuestionOutput(BaseModel):
+    """T-02·T-05·T-06·T-08 질문 하나."""
+
+    question: str = Field(min_length=1)
+
+
+class QueryOutput(BaseModel):
+    """T-04 고친 검색어."""
+
+    query: str = Field(min_length=1)
+
+
+class QuestionValidation(BaseModel):
+    """T-03·T-07 검증 결과. 통과면 failure_type은 비운다. 인성 질문에는 evidence가 없다 (설계서 3.10)."""
+
+    is_valid: bool
+    failure_type: Literal["evidence", "question", "overlap"] | None = None
+    feedback: str = ""

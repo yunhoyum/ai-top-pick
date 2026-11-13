@@ -3,7 +3,7 @@
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # ---------- 3.1 공통 타입 ----------
 
@@ -64,6 +64,22 @@ class ReportResult(BaseModel):
     fits: list[FitItem]
     points: list[PointItem]
     summary: str  # → stage_report.ai_summary
+
+
+# ---------- 3.2 질문 생성 ----------
+
+
+class QuestionGenRequest(BaseModel):
+    application_id: int
+    posting: PostingBrief
+    documents: ApplicantDocuments
+    job_count: int = Field(ge=0)  # calc_question_counts 결과
+    personality_count: int = Field(ge=0)
+
+
+class QuestionGenResponse(BaseModel):
+    job: list[str]
+    personality: list[str]
 
 
 # ---------- 3.3 서류 보고서 ----------
