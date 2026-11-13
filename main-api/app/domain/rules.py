@@ -97,3 +97,11 @@ def calc_weighted(score: Decimal, ratio: int) -> Decimal:
 def round1(value: Decimal) -> Decimal:
     """소수 첫째 자리까지. 파이썬 round()는 0.5를 짝수 쪽으로 보내 ROUND_HALF_UP을 쓴다."""
     return value.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+
+
+def calc_question_counts(question_count: int, company_count: int, job_ratio: int) -> tuple[int, int]:
+    """SYS-006 (직무 질문 수, 인성 질문 수). AI 질문 수 = 출제 문제 개수 − 기업 질문 수.
+    직무 = AI 질문 수 × 직무 비율, 소수 첫째 자리에서 반올림. 인성 = AI 질문 수 − 직무."""
+    ai_count = max(question_count - company_count, 0)
+    job = int((Decimal(ai_count) * job_ratio / 100).quantize(Decimal(1), rounding=ROUND_HALF_UP))
+    return job, ai_count - job

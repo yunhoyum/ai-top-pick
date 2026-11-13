@@ -45,6 +45,18 @@ def build_document_report_payload(db: Session, application_id: int) -> dict:
     }
 
 
+def build_question_payload(db: Session, application_id: int, job_count: int, personality_count: int) -> dict:
+    """QuestionGenRequest (규약 3.2). 질문 수는 calc_question_counts 결과다."""
+    application = db.get(Application, application_id)
+    return {
+        "application_id": application_id,
+        "posting": posting_brief(db.get(JobPosting, application.posting_id)),
+        "documents": applicant_documents(db, application),
+        "job_count": job_count,
+        "personality_count": personality_count,
+    }
+
+
 def posting_brief(posting: JobPosting) -> dict:
     """PostingBrief. 직무 설명·인재상은 검색하지 않고 전문을 넣는다 (벡터 DB 설계서 2.3)."""
     return {

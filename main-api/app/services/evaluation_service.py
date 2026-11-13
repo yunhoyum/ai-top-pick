@@ -32,7 +32,7 @@ from app.models.member import Member
 from app.models.posting import EssayTopic, EvalCriteria, JobPosting, PostingEvalRatio, Skill
 from app.models.report import ReportFit, ReportPoint, ReportScore, StageReport
 from app.repositories.posting_repo import PostingRepo
-from app.services import file_service
+from app.services import file_service, job_queue
 from app.services.application_service import _format_period
 from app.schemas.evaluation import (
     CriteriaRatio,
@@ -172,7 +172,7 @@ class EvaluationService:
     async def confirm_pass(self, admin: Member, posting_id: int, application_ids: list[int]) -> PassOut:
         """ADM-025 서류 합격자 확정. 고른 지원서는 '합격', 나머지 평가 대상은 '불합격'이다(필수 기술 미달은 그대로).
         합격자마다 면접 전형 행을 만든다. 한 번만 확정할 수 있다.
-        합격자마다 '면접 질문 생성' 작업을 등록하는 일은 면접 질문 생성 설계 뒤에 붙인다 (코드베이스 6.5)."""
+        합격자마다 '면접 질문 생성' 작업(SYS-006)을 등록하고, 확정을 저장한 뒤 보낸다."""
         await self._closed_posting(admin, posting_id)
         rows = await self._ranking_rows(posting_id, await self._criteria(posting_id))
         if any(r.result in CONFIRMED_RESULTS for r in rows):
@@ -195,7 +195,13 @@ class EvaluationService:
                 .values(application_id=application_id, stage_type=INTERVIEW)
                 .on_conflict_do_nothing(index_elements=["application_id", "stage_type"])
             )
+        job_ids = [
+            await job_queue.request(self.db, JobType.INTERVIEW_QUESTIONS.value, posting_id, application_id)
+            for application_id in sorted(selected)
+        ]
         await self.db.commit()
+        for job_id in job_ids:
+            job_queue.send(JobType.INTERVIEW_QUESTIONS.value, job_id)
         return PassOut(passed=len(selected), failed=len(targets - selected))
 
     async def get_source_documents(self, admin: Member, application_id: int) -> SourceDocumentsOut:

@@ -1,4 +1,4 @@
-"""ai-service(PC2) 내부 API 호출 ('6. 내부 API·WebSocket 규약' 3장). worker가 보고서를 만들 때 쓴다."""
+"""ai-service(PC2) 내부 API 호출 ('6. 내부 API·WebSocket 규약' 3장). worker가 보고서와 면접 질문을 만들 때 쓴다."""
 
 import httpx
 
@@ -17,5 +17,11 @@ class AiServiceClient:
     def create_document_report(self, payload: dict) -> dict:
         """DocumentReportRequest → ReportResult (규약 3.3)."""
         r = self._client.post("/internal/reports/document", json=payload)
+        r.raise_for_status()
+        return r.json()
+
+    def generate_questions(self, payload: dict) -> dict:
+        """QuestionGenRequest → QuestionGenResponse (규약 3.2)."""
+        r = self._client.post("/internal/questions/generate", json=payload)
         r.raise_for_status()
         return r.json()
