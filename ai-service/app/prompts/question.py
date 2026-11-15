@@ -12,11 +12,13 @@ v3: 겹침 기준을 좁힌다. 같은 기술 = 질문이 바탕으로 삼은 �
 v4: 생성이 based_on(서류 문장 그대로)과 question(한 문장)을 따로 낸다. 코드가 based_on이 서류에 있는지 본다.
     Q4-v4에서 근거 확인이 23번 떨어졌다. 직무는 문장을 옮기지 않고 요약했고, 인성은 자기소개서 대신 인재상을 옮겼다.
 v5: 서류 문장에 번호를 붙이고 based_on은 번호만 고르게 한다 (벡터 DB 설계서 8.4와 같은 방식).
+    Q5-v5에서 근거 실패 0. 인성 5번은 같은 문장을 세 번 다시 골라 세 지원자 모두 fallback으로 갔다.
+v6: 확정 질문이 이미 쓴 문장에 '(이미 사용)'을 붙이고 고르지 않게 한다.
 """
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
-VERSION = "v5"
+VERSION = "v6"
 
 SYSTEM = """너는 채용 면접에서 지원자에게 물을 질문을 만드는 면접관이다.
 - 주어진 자료만 보고 판단한다. 자료에 없는 사실을 지어내지 않는다.
@@ -66,7 +68,7 @@ def generate_job(numbered_document: str, chunks: list[str], job_description: str
 {_list(confirmed)}
 {_feedback(feedback)}
 지원자 서류의 경험 하나를 회사 프로젝트 문서의 업무와 이어 묻는 직무 질문 하나를 만들어 JSON으로 출력하라.
-- based_on: [지원자 서류]에서 질문의 바탕이 된 문장의 번호 하나. 지원자가 실제로 한 일이 드러난 문장을 고른다. 번호만 쓴다.
+- based_on: [지원자 서류]에서 질문의 바탕이 된 문장의 번호 하나. 지원자가 실제로 한 일이 드러난 문장을 고른다. '(이미 사용)'이 붙은 문장은 고르지 않는다. 번호만 쓴다.
 - question: based_on의 경험을 회사 업무에 어떻게 쓰거나 바꿀지 묻는 질문 한 문장. 물음표 하나로 끝난다.
   - 경험을 설명하는 문장을 앞에 붙이지 않는다. 경험은 based_on이 보여 준다.
 {_FORM}
@@ -163,7 +165,7 @@ def generate_personality(numbered_essays: str, nonfunctional_talent: str, confir
 {_list(confirmed)}
 {_feedback(feedback)}
 비기능적 인재상 중 하나를 골라, 지원자가 그 태도를 보여 준 경험을 묻는 인성 질문 하나를 만들어 JSON으로 출력하라.
-- based_on: [지원자 자기소개서]에서 질문의 바탕이 된 문장의 번호 하나. 지원자가 실제로 겪은 일이 드러난 문장을 고른다. 번호만 쓴다.
+- based_on: [지원자 자기소개서]에서 질문의 바탕이 된 문장의 번호 하나. 지원자가 실제로 겪은 일이 드러난 문장을 고른다. '(이미 사용)'이 붙은 문장은 고르지 않는다. 번호만 쓴다.
 - question: based_on의 경험에서 그 태도를 어떻게 보였는지 묻는 질문 한 문장. 물음표 하나로 끝난다.
   - 경험을 설명하는 문장을 앞에 붙이지 않는다. 경험은 based_on이 보여 준다.
 {_FORM}

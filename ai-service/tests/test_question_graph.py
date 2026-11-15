@@ -1,6 +1,7 @@
 """SYS-006 질문 생성 그래프 테스트. LLM은 작업 종류(생성·검증·검색어 수정)마다 정해 둔 출력을 차례로 내주는 가짜다."""
 
 import json
+import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -231,7 +232,16 @@ def test_same_base_sentence_is_overlap_by_code_without_llm():
     _, personality, _ = _run(model, job=0, personality=2, docs=_docs(essays=essays))
     assert personality == ["인성1", "인성3"]
     assert [k for k, _ in model.calls] == ["generate", "validate", "generate", "generate", "validate", "overlap"]
-    assert "같은 서류 문장을 바탕으로 한다" in [t for k, t in model.calls if k == "generate"][2]
+    generates = [t for k, t in model.calls if k == "generate"]
+    assert "같은 서류 문장을 바탕으로 한다" in generates[2]
+    # 둘째 인성 질문을 만들 때부터 첫째가 쓴 1번 문장에 표시가 붙는다
+    marked = re.compile(r"^\[\d+\] .*\(이미 사용\)$", re.M)
+    assert not marked.search(generates[0]) and re.search(r"^\[1\] .*\(이미 사용\)$", generates[1], re.M)
+
+
+def test_used_sentences_are_marked():
+    text, _ = numbered("주문 API를 만들었습니다. 캐시로 응답을 줄였습니다.", {"주문 API를 만들었습니다."})
+    assert text == "[1] 주문 API를 만들었습니다. (이미 사용)\n[2] 캐시로 응답을 줄였습니다."
 
 
 def test_generation_after_rewrite_still_shows_original_document():

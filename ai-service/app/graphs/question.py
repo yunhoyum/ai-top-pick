@@ -54,10 +54,15 @@ _LABEL = re.compile(r"\[[^\]]+\]")  # 프롬프트 자료 표시가 새어 나�
 _NUMBER = re.compile(r"\d+")
 
 
-def numbered(text: str) -> tuple[str, list[str]]:
-    """서류를 문장으로 나눠 [1] [2] … 번호를 붙인다. (프롬프트에 넣을 글, 문장 목록)."""
+USED_MARK = " (이미 사용)"
+
+
+def numbered(text: str, used: frozenset[str] | set[str] = frozenset()) -> tuple[str, list[str]]:
+    """서류를 문장으로 나눠 [1] [2] … 번호를 붙인다. (프롬프트에 넣을 글, 문장 목록).
+    확정 질문이 이미 바탕으로 쓴 문장에는 USED_MARK를 붙인다. feedback만으로는 같은 번호를 다시 골랐다 (평가 Q5)."""
     sentences = split_sentences(text)
-    return "\n".join(f"[{i}] {s}" for i, s in enumerate(sentences, start=1)) or "(없음)", sentences
+    lines = [f"[{i}] {s}{USED_MARK if s in used else ''}" for i, s in enumerate(sentences, start=1)]
+    return "\n".join(lines) or "(없음)", sentences
 
 
 def pick_sentence(based_on: str | int, sentences: list[str]) -> str:
@@ -188,7 +193,7 @@ def build_question_graph(model: Runnable, search: Search):
         p = state["posting"]
         try:
             # 서류는 원래 항목을 보여 준다. 고친 검색어는 검색에만 쓴다 (based_on을 서류 문장에서 고르게)
-            text, sentences = numbered(state["original_query"])
+            text, sentences = numbered(state["original_query"], set(state["confirmed_bases"]))
             out = call(prompts.generate_job(text, state["chunks"], p.job_description, p.functional_talent,
                                             state["confirmed"], state["feedback"]), GroundedQuestion)
             return {"question": out.question.strip(), "based_on": pick_sentence(out.based_on, sentences)}
@@ -237,7 +242,8 @@ def build_question_graph(model: Runnable, search: Search):
 
     def generate_personality(state: QuestionState) -> dict:
         try:
-            text, sentences = numbered(state["essays"]) if state["documents"].essays else ("(없음)", [])
+            text, sentences = (numbered(state["essays"], set(state["confirmed_bases"])) if state["documents"].essays
+                               else ("(없음)", []))
             out = call(prompts.generate_personality(text, state["posting"].nonfunctional_talent,
                                                     state["confirmed"], state["feedback"]), GroundedQuestion)
             return {"question": out.question.strip(), "based_on": pick_sentence(out.based_on, sentences)}
