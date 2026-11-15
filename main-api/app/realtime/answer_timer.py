@@ -59,7 +59,8 @@ class AnswerTimer:
             silence_at = last_speech + silence_sec if (last_speech is not None and silence_sec) else None
             msg = await self._next(min(deadline, silence_at) if silence_at else deadline)
             if msg is None:
-                return "silence" if silence_at is not None and silence_at < deadline and time.monotonic() >= silence_at else "timeout"
+                # 어느 시각을 목표로 기다렸는지로 정한다. 지금 시각과 비교하면 대기가 조금 일찍 깨어날 때 timeout이 된다
+                return "silence" if silence_at is not None and silence_at < deadline else "timeout"
             if msg is DISCONNECTED:
                 return "disconnect"
             if msg.get("type") == SPEECH["type"]:
