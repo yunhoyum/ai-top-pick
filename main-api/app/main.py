@@ -30,6 +30,7 @@ app.include_router(postings.router)
 app.include_router(applications.router)
 app.include_router(my_applications.router)
 app.include_router(interview.router)
+app.include_router(interview.video_router)
 app.include_router(ws_interview.router)
 
 

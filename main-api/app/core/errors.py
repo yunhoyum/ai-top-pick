@@ -35,6 +35,8 @@ class ErrorCode(str, Enum):
     PORTFOLIO_NOT_FOUND = "PORTFOLIO_NOT_FOUND"
     # 면접에 들어갈 수 없다: 서류 불합격, 면접 기간 밖, 질문 준비 전, 장치 확인 실패, 이미 완료·중단 (코드베이스 6.6)
     INTERVIEW_NOT_AVAILABLE = "INTERVIEW_NOT_AVAILABLE"
+    # 본인의 진행 중 응시가 아니거나 그 응시의 질문이 아니다 (답변 영상 업로드)
+    INTERVIEW_NOT_FOUND = "INTERVIEW_NOT_FOUND"
 
 
 class AppError(Exception):

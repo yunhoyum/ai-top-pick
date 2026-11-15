@@ -33,3 +33,9 @@ class SessionOut(BaseModel):
     status: str
     # 이미 시작한 응시에 다시 들어왔는지 (재접속)
     resumed: bool
+
+
+class VideoOut(BaseModel):
+    """답변 영상 저장 결과 (APP-016)."""
+
+    video_path: str

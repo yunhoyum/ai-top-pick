@@ -20,6 +20,19 @@ class Settings(BaseSettings):
     # ---------- 파일 저장 ----------
     STORAGE_ROOT: str = "/data/storage"
     MAX_PDF_MB: int = 20
+    # 답변 영상 1개 크기 상한 (제안)
+    MAX_VIDEO_MB: int = 200
+
+    # ---------- 실시간 면접 (아키텍처 7, 7.1) ----------
+    # Deepgram 키는 main-api만 가진다. 브라우저 음성은 main-api가 중계한다
+    DEEPGRAM_API_KEY: str = ""
+    DEEPGRAM_URL: str = "wss://api.deepgram.com/v1/listen"
+    # 한국어 확인(2026-11-15): nova-3·nova-2 모두 동작. nova-3는 문장부호를 붙인다
+    DEEPGRAM_MODEL: str = "nova-3"
+    # 첫 단어 이후 이만큼 말이 없으면 답변을 끝낸다 (APP-016)
+    SILENCE_END_SEC: float = 10.0
+    # 답변이 끝난 뒤 영상 업로드를 기다리는 최대 시간 (제안). 넘기면 영상 없이 진행한다
+    VIDEO_UPLOAD_WAIT_SEC: float = 60.0
 
     # ---------- 회사 문서 임베딩 (벡터 DB 설계서 4장) ----------
     EMBED_URL: str = "http://embed-server:8000"

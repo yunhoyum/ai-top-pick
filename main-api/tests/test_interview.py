@@ -1,4 +1,4 @@
-"""AI 화상 면접 응시 (실시간 면접 1단계: APP-014·015·016·018, SYS-011). ai-service는 가짜다."""
+"""AI 화상 면접 응시 (실시간 면접 1·2단계: APP-014·015·016·018, SYS-004·011). ai-service·Deepgram은 가짜다."""
 
 import base64
 
@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from app.api import ws_interview
+from app.core.config import get_settings
 from test_applications import _open_posting, applicant, pid  # noqa: F401  (fixture)
 from test_my_applications import _stage, _submitted, _timeline
 from test_postings import _login, _sql, admin  # noqa: F401  (fixture)
@@ -117,6 +118,43 @@ def test_my_applications_gives_application_id(applicant, ready):
 
 
 # ---------- 면접 WebSocket (화면 24) ----------
+EVALUATION = {
+    "segments": [{"time_offset_sec": 0, "raw_text": "AP 캐시를 썼습니다.", "corrected_text": "API 캐시를 썼습니다."},
+                 {"time_offset_sec": 4, "raw_text": "빨라졌습니다.", "corrected_text": "빨라졌습니다."}],
+    "duration_sec": 6, "filler_count": 1, "silence_sec": 3.5, "response_delay_sec": 0.5,
+}
+WORDS = [{"word": "AP", "start": 0.5, "end": 0.9}]
+
+
+class FakeRelay:
+    """Deepgram 가짜. 음성 조각마다 중간 자막을 내고, 닫으면 확정 원문을 준다."""
+
+    made: list["FakeRelay"] = []
+
+    def __init__(self, on_result):
+        self.on_result, self.chunks, self.closed = on_result, [], False
+        FakeRelay.made.append(self)
+
+    async def connect(self):
+        pass
+
+    async def send_audio(self, chunk):
+        self.chunks.append(chunk)
+        await self.on_result(f"자막{len(self.chunks)}", False)
+
+    async def close(self):
+        self.closed = True
+        return ("AP 캐시를 썼습니다." if self.chunks else ""), (WORDS if self.chunks else [])
+
+
+@pytest.fixture(autouse=True)
+def fake_relay(monkeypatch):
+    """실제 Deepgram에 붙지 않게 한다. 영상을 올리지 않는 테스트는 기다리지 않고 넘어간다."""
+    FakeRelay.made = []
+    monkeypatch.setattr(ws_interview, "get_relay_factory", lambda: FakeRelay)
+    monkeypatch.setattr(get_settings(), "VIDEO_UPLOAD_WAIT_SEC", 0.1)
+
+
 class FakeAi:
     """ai-service 가짜. 질문을 차례로 제시하고, 마지막 답변 뒤에 종료한다."""
 
@@ -135,7 +173,7 @@ class FakeAi:
     async def submit_answer(self, session_id, payload):
         self.answers.append(payload)
         i = len(self.answers)
-        return {"evaluation": None, "actions": [self._present(i) if i < len(self.qids) else {"type": "end"}]}
+        return {"evaluation": EVALUATION, "actions": [self._present(i) if i < len(self.qids) else {"type": "end"}]}
 
     async def aclose(self):
         pass
@@ -236,3 +274,69 @@ def test_socket_starts_even_if_portfolio_file_is_missing(monkeypatch, applicant,
     with _socket(applicant, sid) as ws:
         assert ws.receive_json()["type"] == "connected"
     assert fake.starts[0]["documents"]["portfolio_text"] is None
+
+
+# ---------- 답변 저장 (2단계: 음성 중계·영상·STT) ----------
+def _video(c, sid, qid, data=b"webm-data", ctype="video/webm"):
+    return c.post(f"/api/interview/sessions/{sid}/questions/{qid}/video", files={"file": ("a.webm", data, ctype)})
+
+
+def test_answer_audio_is_relayed_and_answer_is_saved_with_video(monkeypatch, applicant, ready):
+    aid, qids = ready
+    monkeypatch.setattr(get_settings(), "VIDEO_UPLOAD_WAIT_SEC", 5.0)
+    sid = _enter(applicant, aid).json()["session_id"]
+    fake = FakeAi(qids[:1])
+    monkeypatch.setattr(ws_interview, "get_ai_client", lambda: fake)
+    with _socket(applicant, sid) as ws:
+        ws.receive_json(), ws.receive_json(), ws.receive_bytes()
+        ws.send_bytes(b"before-answer")  # 답변 시간 전 음성은 보내지 않는다
+        ws.send_json({"type": "question_audio_ended", "question_id": qids[0]})
+        assert ws.receive_json()["phase"] == "think"
+        assert ws.receive_json()["phase"] == "answer"
+        ws.send_bytes(b"opus1")
+        assert ws.receive_json() == {"type": "transcript", "text": "자막1", "is_final": False}
+        ws.send_json({"type": "answer_done", "question_id": qids[0]})
+        assert ws.receive_json()["reason"] == "button"
+        assert ws.receive_json()["type"] == "evaluating"
+        assert _video(applicant, sid, qids[0]).json() == {"video_path": f"interviews/{sid}/{qids[0]}.webm"}
+        assert ws.receive_json()["type"] == "interview_end"
+    assert FakeRelay.made[0].chunks == [b"opus1"] and FakeRelay.made[0].closed
+    sent = fake.answers[0]
+    assert (sent["raw_text"], sent["words"], sent["answer_start_sec"], sent["video_path"]) == (
+        "AP 캐시를 썼습니다.", WORDS, 0.0, f"interviews/{sid}/{qids[0]}.webm")
+    answer = _sql("select answer_id, video_path, duration_sec, filler_count, silence_sec, response_delay_sec, answer_status "
+                  "from interview_answer where session_id = :s", s=sid)
+    assert [tuple(r[1:]) for r in answer] == [(f"interviews/{sid}/{qids[0]}.webm", 6, 1, 3.5, 0.5, "유효")]
+    assert _sql("select time_offset_sec, raw_text, corrected_text from stt_record where answer_id = :a order by stt_id",
+                a=answer[0][0]) == [(0, "AP 캐시를 썼습니다.", "API 캐시를 썼습니다."), (4, "빨라졌습니다.", "빨라졌습니다.")]
+
+
+def test_answer_ends_after_silence_following_speech(monkeypatch, applicant, ready):
+    aid, qids = ready
+    _sql("update job_posting set answer_time_sec = 5 where posting_id = (select posting_id from application where application_id = :a)", a=aid)
+    monkeypatch.setattr(get_settings(), "SILENCE_END_SEC", 0.3)
+    sid = _enter(applicant, aid).json()["session_id"]
+    fake = FakeAi(qids[:1])
+    monkeypatch.setattr(ws_interview, "get_ai_client", lambda: fake)
+    with _socket(applicant, sid) as ws:
+        ws.receive_json(), ws.receive_json(), ws.receive_bytes()
+        ws.send_json({"type": "question_audio_ended", "question_id": qids[0]})
+        ws.receive_json(), ws.receive_json()
+        ws.send_bytes(b"opus1")
+        assert ws.receive_json()["type"] == "transcript"
+        assert ws.receive_json()["reason"] == "silence"  # 답변 시간 5초보다 먼저 끝난다
+        ws.receive_json()  # evaluating
+        assert ws.receive_json()["type"] == "interview_end"
+    assert fake.answers[0]["end_reason"] == "silence" and fake.answers[0]["video_path"] is None
+
+
+def test_video_upload_is_own_in_progress_session_and_webm_only(client, applicant, ready):
+    aid, qids = ready
+    sid = _enter(applicant, aid).json()["session_id"]
+    other = _login(TestClient(client.app), "지원자")
+    assert _video(other, sid, qids[0]).status_code == 404
+    assert _video(applicant, sid, 999999999).status_code == 404  # 이 응시의 질문이 아니다
+    assert _video(applicant, sid, qids[0], ctype="video/mp4").status_code == 422
+    assert _video(applicant, sid, qids[0]).status_code == 200
+    _sql("update interview_session set status = '완료' where session_id = :s", s=sid)
+    assert _video(applicant, sid, qids[0]).status_code == 404

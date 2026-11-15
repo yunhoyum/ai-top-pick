@@ -1,24 +1,29 @@
 """AI 화상 면접 응시 (코드베이스 1. main-api 6.6 InterviewService).
 
 실시간 면접 1단계: 안내(22), 응시 입구(23), 그래프 시작 요청 본문, 질문 공개 표시, 응시 완료.
-답변 저장(persist_answer)·영상(save_answer_video)은 2단계, 표정 재처리는 3단계, 중단(suspend_session)은 5단계에서 넣는다.
+2단계: 답변 영상 저장(save_answer_video), 답변·STT 저장(persist_answer).
+점수 저장은 3단계, 표정 재처리는 3단계, 중단(suspend_session)은 5단계에서 넣는다.
 """
 
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from fastapi import UploadFile
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.errors import AppError, ErrorCode
-from app.domain.enums import JobStatus, JobType, SessionStatus, StageResult, StageType
+from app.domain.enums import JobStatus, JobType, SessionStatus, StageResult, StageType, ValidStatus
 from app.domain.rules import is_interview_open
 from app.models.application import Application, ApplicationStage
 from app.models.batch import BatchJob
-from app.models.interview import InterviewSession
+from app.models.interview import InterviewAnswer, InterviewQuestion, InterviewSession, SttRecord
 from app.models.member import Member
 from app.models.posting import EvalCriteria, JobPosting, PostingEvalRatio
+from app.realtime import upload_registry
 from app.repositories.interview_repo import InterviewRepo
-from app.schemas.interview import InterviewGuide, SessionOut
+from app.schemas.interview import InterviewGuide, SessionOut, VideoOut
+from app.services import file_service
 from app.workers.payloads import applicant_documents, posting_brief
 
 
@@ -182,4 +187,50 @@ class InterviewService:
         session = await self.db.get(InterviewSession, session_id)
         session.status = SessionStatus.COMPLETED.value
         session.ended_at = now or datetime.now(timezone.utc)
+        await self.db.commit()
+
+    async def save_answer_video(self, member: Member, session_id: int, question_id: int, upload: UploadFile) -> VideoOut:
+        """APP-016 답변 영상(webm) 저장. 본인의 '진행 중' 응시와 그 지원서의 질문만 받는다.
+        저장을 마치면 답변을 기다리는 WebSocket에 알린다 (UploadRegistry)."""
+        session = await self.get_own_session(member, session_id)
+        owns = session is not None and await self.db.scalar(
+            select(InterviewQuestion.question_id).where(
+                InterviewQuestion.question_id == question_id, InterviewQuestion.application_id == session.application_id
+            )
+        )
+        if not owns:
+            raise AppError(404, ErrorCode.INTERVIEW_NOT_FOUND, "응시 중인 질문을 찾을 수 없습니다.")
+        if not (upload.content_type or "").startswith("video/webm"):
+            raise AppError(422, ErrorCode.FILE_INVALID, "webm 영상만 올릴 수 있습니다.")
+        limit = get_settings().MAX_VIDEO_MB * 1024 * 1024
+        data = await upload.read(limit + 1)
+        if len(data) > limit:
+            raise AppError(413, ErrorCode.FILE_TOO_LARGE, f"영상은 {get_settings().MAX_VIDEO_MB}MB 이하여야 합니다.")
+        path = f"interviews/{session_id}/{question_id}.webm"
+        file_service.save(path, data)
+        upload_registry.notify(session_id, question_id, path)
+        return VideoOut(video_path=path)
+
+    async def persist_answer(self, session_id: int, question_id: int, video_path: str | None, evaluation: dict) -> None:
+        """답변과 구간별 STT를 저장한다 (워크플로우 5-6). 점수는 실시간 면접 3단계에서 채운다.
+        같은 질문에 이미 저장한 답변이 있으면(저장 직후 끊겨 다시 답한 경우) 무효로 돌리고 새로 저장한다."""
+        await self.db.execute(
+            update(InterviewAnswer)
+            .where(InterviewAnswer.session_id == session_id, InterviewAnswer.question_id == question_id,
+                   InterviewAnswer.answer_status == ValidStatus.VALID.value)
+            .values(answer_status=ValidStatus.INVALID.value)
+        )
+        answer = InterviewAnswer(
+            session_id=session_id, question_id=question_id, video_path=video_path,
+            duration_sec=evaluation["duration_sec"], filler_count=evaluation["filler_count"],
+            silence_sec=evaluation["silence_sec"], response_delay_sec=evaluation["response_delay_sec"],
+            answer_status=ValidStatus.VALID.value,
+        )
+        self.db.add(answer)
+        await self.db.flush()
+        self.db.add_all(
+            SttRecord(answer_id=answer.answer_id, time_offset_sec=seg["time_offset_sec"],
+                      raw_text=seg["raw_text"], corrected_text=seg["corrected_text"])
+            for seg in evaluation["segments"]
+        )
         await self.db.commit()

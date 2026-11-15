@@ -1,9 +1,10 @@
 """면접 WebSocket 처리 (코드베이스 1. main-api 8장 InterviewSocketHandler, 내부 API 규약 1장).
 
-실시간 면접 1단계 흐름:
+흐름:
   인증 → 응시 확인 → ai-service /start → [질문 + 음성 전송 → 음성 종료 → 생각 시간 → 답변 시간
-  → '답변 완료' 또는 시간 종료 → ai-service /answer] 반복 → 종료(응시 '완료')
-음성 중계(Deepgram)·영상 업로드 대기는 2단계, 표정 재처리는 3단계, 문의는 5단계에서 넣는다.
+  (브라우저 음성 → Deepgram → 자막) → '답변 완료'·무발화·시간 종료 → 영상 업로드 대기
+  → ai-service /answer → 답변·STT 저장] 반복 → 종료(응시 '완료')
+표정 재처리는 3단계, 문의는 5단계에서 넣는다.
 연결이 끊기면 응시는 '진행 중'으로 둔다. 다시 연결하면 같은 체크포인트로 이어간다 (아키텍처 9.3).
 """
 
@@ -13,11 +14,16 @@ import json
 import logging
 from datetime import datetime, timedelta, timezone
 
+from typing import Callable
+
 from fastapi import WebSocket, WebSocketDisconnect
 
 from app.clients.ai_service import AsyncAiServiceClient
+from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
-from app.realtime.answer_timer import DISCONNECTED, AnswerTimer
+from app.realtime import upload_registry
+from app.realtime.answer_timer import DISCONNECTED, SPEECH, AnswerTimer
+from app.realtime.deepgram_relay import DeepgramRelay, OnResult
 from app.realtime.ws_auth import authenticate_handshake
 from app.services.interview_service import InterviewService
 
@@ -34,8 +40,13 @@ def _iso(at: datetime) -> str:
 
 
 class InterviewSocketHandler:
-    def __init__(self, ws: WebSocket, session_id: int, ai: AsyncAiServiceClient):
+    def __init__(
+        self, ws: WebSocket, session_id: int, ai: AsyncAiServiceClient,
+        relay_factory: Callable[[OnResult], DeepgramRelay] = DeepgramRelay,
+    ):
         self.ws, self.session_id, self.ai = ws, session_id, ai
+        self.relay_factory = relay_factory
+        self.relay: DeepgramRelay | None = None  # 답변 시간에만 열려 있다
         self.events: asyncio.Queue = asyncio.Queue()
         self.order: dict[str, int] = {}  # qkey → 순번 (질문 진행 목록 표시용)
         self.settings: dict = {}
@@ -72,13 +83,19 @@ class InterviewSocketHandler:
             reader.cancel()
 
     async def _read(self) -> None:
-        """브라우저 메시지를 events 큐에 넣는다. 바이너리(음성)는 2단계(Deepgram 중계)에서 쓴다."""
+        """브라우저 메시지를 events 큐에 넣는다. 바이너리(음성 조각)는 답변 시간에만 Deepgram으로 보낸다."""
         try:
             while True:
                 msg = await self.ws.receive()
                 if msg["type"] == "websocket.disconnect":
                     break
-                if msg.get("text"):
+                if msg.get("bytes"):
+                    if self.relay is not None:
+                        try:
+                            await self.relay.send_audio(msg["bytes"])
+                        except Exception as e:
+                            log.warning("면접 %s 음성 중계 실패: %s", self.session_id, e)
+                elif msg.get("text"):
                     try:
                         await self.events.put(json.loads(msg["text"]))
                     except json.JSONDecodeError:
@@ -119,17 +136,47 @@ class InterviewSocketHandler:
         if not await timer.start_think(self.settings["think_time_sec"]):
             return None
         answer_ends = datetime.now(timezone.utc) + timedelta(seconds=self.settings["answer_time_sec"])
+        upload_registry.forget(self.session_id, qid)
+        await self.open_relay()
         await self.ws.send_json({"type": "phase", "phase": "answer", "ends_at": _iso(answer_ends)})
-        reason = await timer.start_answer(self.settings["answer_time_sec"])
+        reason = await timer.start_answer(self.settings["answer_time_sec"], get_settings().SILENCE_END_SEC)
+        raw_text, words = await self.close_relay()
         if reason == "disconnect":
             return None
         await self.ws.send_json({"type": "answer_end", "question_id": qid, "reason": reason})
         await self.ws.send_json({"type": "evaluating", "question_id": qid})
-        # 1단계: STT·영상 없이 보낸다 (2단계에서 원문·단어 시각·영상 경로를 채운다)
-        resp = await self.ai.submit_answer(
-            self.session_id, {"qkey": question["qkey"], "question_id": qid, "bindings": [], "end_reason": reason}
-        )
+        # 답변이 끝나면 브라우저가 영상을 올린다. 오지 않으면 영상 없이 진행한다
+        video_path = await upload_registry.wait(self.session_id, qid, get_settings().VIDEO_UPLOAD_WAIT_SEC)
+        if video_path is None:
+            log.warning("면접 %s 질문 %s 영상이 오지 않았다", self.session_id, qid)
+        resp = await self.ai.submit_answer(self.session_id, {
+            "qkey": question["qkey"], "question_id": qid, "bindings": [], "end_reason": reason,
+            # Deepgram 단어 시각은 스트림 시작(=답변 시간 시작) 기준이다
+            "raw_text": raw_text, "words": words, "answer_start_sec": 0.0, "video_path": video_path,
+        })
+        async with AsyncSessionLocal() as db:
+            await InterviewService(db).persist_answer(self.session_id, qid, video_path, resp["evaluation"])
         return resp["actions"]
+
+    async def open_relay(self) -> None:
+        """답변 시간 동안 Deepgram을 연다. 열지 못해도 면접은 이어간다(원문 없이 평가)."""
+        async def on_result(text: str, is_final: bool) -> None:
+            await self.events.put(SPEECH)
+            await self.ws.send_json({"type": "transcript", "text": text, "is_final": is_final})
+
+        relay = self.relay_factory(on_result)
+        try:
+            await relay.connect()
+            self.relay = relay
+        except Exception as e:
+            log.warning("면접 %s Deepgram 연결 실패: %s", self.session_id, e)
+
+    async def close_relay(self) -> tuple[str, list[dict]]:
+        """음성 전달을 멈추고 남은 인식 결과를 받는다."""
+        relay, self.relay = self.relay, None
+        if relay is None:
+            return "", []
+        return await relay.close()
 
     async def send_question(self, question: dict, audio_b64: str | None) -> None:
         """질문 JSON 다음에 음성(wav)을 바이너리로 보낸다 (규약 1.2). is_revealed를 저장한다."""
