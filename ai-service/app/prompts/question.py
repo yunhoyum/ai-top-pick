@@ -22,11 +22,13 @@ v8: 생성을 두 호출로 나눈다. pick_base가 번호만 고르고, write_j
     Q8-v8에서 고른 문장과 질문이 맞지 않는 경우 4 → 2. 한 이야기를 문장별로 쪼개 두 번 묻거나(인성 4·5),
     다른 서류 항목에 쓴 같은 경험(WebP)을 두 번 물었다.
 v9: 프롬프트는 v8과 같다. 코드가 같은 경험을 막는다 (graphs/question.py unused_essays, similar_base_overlap).
+    Q9-v9에서 막힌 질문이 대안 없이 fallback으로 갔다 (통과 14 → 10). 중복 질문이 지어낸 fallback 질문으로 바뀌었다.
+v10: 프롬프트는 v8과 같다. 유사도 겹침을 빼고, 단락 빼기는 다른 단락이 남을 때만 한다.
 """
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
-VERSION = "v9"
+VERSION = "v10"
 
 SYSTEM = """너는 채용 면접에서 지원자에게 물을 질문을 만드는 면접관이다.
 - 주어진 자료만 보고 판단한다. 자료에 없는 사실을 지어내지 않는다.

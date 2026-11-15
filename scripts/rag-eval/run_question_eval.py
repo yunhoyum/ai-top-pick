@@ -21,7 +21,6 @@ from pathlib import Path
 
 sys.path[:0] = ["/src"]
 
-from app.clients.embed import EmbedClient
 from app.core.llm import get_chat_model
 from app.graphs.question import _STEPS_PER_QUESTION, build_queries, build_question_graph, essays_text
 from app.prompts import question as prompts
@@ -67,8 +66,7 @@ def run_applicant(graph, posting: PostingBrief, documents: ApplicantDocuments, j
 
 def main(posting_id: int, experiment: str, job_count: int, personality_count: int) -> None:
     posting = PostingBrief(posting_id=posting_id, **EVAL["posting"])
-    graph = build_question_graph(get_chat_model(), lambda q: [c.content for c in search_company_docs(posting_id, [q])],
-                                 EmbedClient().embed)
+    graph = build_question_graph(get_chat_model(), lambda q: [c.content for c in search_company_docs(posting_id, [q])])
     results = []
     for a in EVAL["applicants"]:
         started = time.perf_counter()
@@ -88,9 +86,6 @@ def main(posting_id: int, experiment: str, job_count: int, personality_count: in
         # 겹침 중 같은 바탕 문장으로 코드가 판정한 것 (프롬프트 v5부터). 나머지는 LLM 판정
         "겹침 코드 판정": sum(s.get("failure_type") == "overlap" and "같은 서류 문장" in (s.get("feedback") or "")
                         for q in all_q for s in q["steps"]),
-        # 바탕 문장 유사도로 코드가 판정한 것 (프롬프트 v9부터)
-        "겹침 유사도 판정": sum(s.get("failure_type") == "overlap" and "바탕 경험이 비슷하다" in (s.get("feedback") or "")
-                         for q in all_q for s in q["steps"]),
         "지원자당 시간(초)": [r["seconds"] for r in results],
         "질문당 시간 중앙(초)": sorted(q["seconds"] for q in all_q)[len(all_q) // 2] if all_q else None,
     }
