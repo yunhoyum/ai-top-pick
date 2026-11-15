@@ -298,7 +298,7 @@ def test_answer_audio_is_relayed_and_answer_is_saved_with_video(monkeypatch, app
         ws.send_json({"type": "answer_done", "question_id": qids[0]})
         assert ws.receive_json()["reason"] == "button"
         assert ws.receive_json()["type"] == "evaluating"
-        assert _video(applicant, sid, qids[0]).json() == {"video_path": f"interviews/{sid}/{qids[0]}.webm"}
+        assert _video(applicant, sid, qids[0]).status_code == 204
         assert ws.receive_json()["type"] == "interview_end"
     assert FakeRelay.made[0].chunks == [b"opus1"] and FakeRelay.made[0].closed
     sent = fake.answers[0]
@@ -337,6 +337,6 @@ def test_video_upload_is_own_in_progress_session_and_webm_only(client, applicant
     assert _video(other, sid, qids[0]).status_code == 404
     assert _video(applicant, sid, 999999999).status_code == 404  # 이 응시의 질문이 아니다
     assert _video(applicant, sid, qids[0], ctype="video/mp4").status_code == 422
-    assert _video(applicant, sid, qids[0]).status_code == 200
+    assert _video(applicant, sid, qids[0]).status_code == 204
     _sql("update interview_session set status = '완료' where session_id = :s", s=sid)
     assert _video(applicant, sid, qids[0]).status_code == 404

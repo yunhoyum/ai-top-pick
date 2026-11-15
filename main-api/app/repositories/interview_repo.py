@@ -6,7 +6,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.enums import SessionStatus, ValidStatus
-from app.models.interview import InterviewQuestion, InterviewSession
+from app.models.interview import InterviewAnswer, InterviewQuestion, InterviewSession, SttRecord
 from app.models.posting import CompanyQuestion
 
 
@@ -43,4 +43,25 @@ class InterviewRepo:
     async def mark_revealed(self, question_id: int) -> None:
         await self.db.execute(
             update(InterviewQuestion).where(InterviewQuestion.question_id == question_id).values(is_revealed=True)
+        )
+
+    async def invalidate_answer(self, session_id: int, question_id: int) -> None:
+        """그 질문의 유효 답변을 '무효'로 바꾼다."""
+        await self.db.execute(
+            update(InterviewAnswer)
+            .where(InterviewAnswer.session_id == session_id, InterviewAnswer.question_id == question_id,
+                   InterviewAnswer.answer_status == ValidStatus.VALID.value)
+            .values(answer_status=ValidStatus.INVALID.value)
+        )
+
+    async def insert_answer(self, answer: InterviewAnswer) -> InterviewAnswer:
+        self.db.add(answer)
+        await self.db.flush()
+        return answer
+
+    async def insert_stt_records(self, answer_id: int, segments: list[dict]) -> None:
+        self.db.add_all(
+            SttRecord(answer_id=answer_id, time_offset_sec=seg["time_offset_sec"],
+                      raw_text=seg["raw_text"], corrected_text=seg["corrected_text"])
+            for seg in segments
         )

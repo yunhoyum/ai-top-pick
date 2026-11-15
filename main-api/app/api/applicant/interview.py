@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db, require_applicant
 from app.models.member import Member
-from app.schemas.interview import EnterSessionRequest, InterviewGuide, SessionOut, VideoOut
+from app.schemas.interview import EnterSessionRequest, InterviewGuide, SessionOut
 from app.services.interview_service import InterviewService
 
 router = APIRouter(prefix="/api/applications/{application_id}/interview", tags=["interview"])
@@ -27,10 +27,10 @@ async def enter_session(
 video_router = APIRouter(prefix="/api/interview/sessions/{session_id}", tags=["interview"])
 
 
-@video_router.post("/questions/{question_id}/video", response_model=VideoOut)
+@video_router.post("/questions/{question_id}/video", status_code=204)
 async def upload_answer_video(
     session_id: int, question_id: int, file: UploadFile,
     member: Member = Depends(require_applicant), db: AsyncSession = Depends(get_db),
 ):
     """APP-016 화면 24 답변 영상. 답변이 끝나면 브라우저가 올린다 (아키텍처 7-7)."""
-    return await InterviewService(db).save_answer_video(member, session_id, question_id, file)
+    await InterviewService(db).save_answer_video(member, session_id, question_id, file)
