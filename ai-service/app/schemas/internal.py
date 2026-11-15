@@ -149,7 +149,7 @@ class AnswerRequest(BaseModel):  # 2.3
     raw_text: str = ""  # Deepgram 원문 (보정 전). 2단계(STT)부터 채운다
     words: list[Word] = []
     answer_start_sec: float = 0.0  # 답변 시간 시작 시점 = 생각 시간 종료
-    video_path: str = ""  # STORAGE_ROOT 기준 상대 경로. 2단계(영상)부터 채운다
+    video_path: str | None = None  # STORAGE_ROOT 기준 상대 경로. 영상이 오지 않으면 None
     end_reason: Literal["button", "silence", "timeout"]
 
 
@@ -165,17 +165,30 @@ class AnswerEvaluation(BaseModel):  # → interview_answer (규약 2.3)
     filler_count: int
     silence_sec: Decimal
     response_delay_sec: Decimal
-    # 아래는 실시간 면접 3단계(채점)에서 채운다. 그 전에는 None이다
-    main_expression: str | None = None
+    main_expression: str | None = None  # 표정 분석이 실패하면 None → actions에 await_expression
     expression_ratio: dict[str, float] | None = None
-    content_score: Decimal | None = None
-    content_reason: str | None = None
-    speech_score: Decimal | None = None
-    expression_score: Decimal | None = None
-    answer_score: Decimal | None = None
+    content_score: Decimal
+    content_reason: str
+    speech_score: Decimal
+    expression_score: Decimal | None = None  # 표정이 없으면 None
+    answer_score: Decimal | None = None  # 표정 재분석을 기다리는 중이면 None (/expression이 준다)
     evidence: list[EvidenceSentence] = []
 
 
 class AnswerResponse(BaseModel):
     evaluation: AnswerEvaluation
+    actions: list[Action]
+
+
+class ExpressionRequest(BaseModel):  # 2.5
+    qkey: str
+    answer_id: int
+    main_expression: str | None = None  # worker가 다시 분석해 저장한 값. 재분석도 실패하면 None
+    expression_ratio: dict[str, float] | None = None
+    bindings: list[Binding] = []
+
+
+class ExpressionResponse(BaseModel):
+    expression_score: Decimal | None  # 재분석도 실패하면 None
+    answer_score: Decimal  # 표정이 None이면 내용·발화만으로 계산
     actions: list[Action]

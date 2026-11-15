@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     # Deepgram 한국어는 '음'은 남기고 '어'는 빼고 적었다 (2026-11-15 확인, 아키텍처 14)
     FILLER_WORDS: list[str] = ["음", "어", "아", "으", "흠"]
 
+    # ---------- 표정 분석 (vision-server, PC1. SYS-005) ----------
+    VISION_URL: str = ""
+    # 영상에서 몇 초마다 한 프레임을 볼지 (제안). 60초 영상이 CPU로 약 3초 걸린다 (RAG 설계서 6장)
+    VISION_FRAME_INTERVAL_SEC: float = 1.0
+    VISION_TIMEOUT_SEC: float = 60.0
+
     # ---------- 회사 문서 검색 (벡터 DB 설계서 8장) ----------
     # 검색어를 나누는 길이. worker의 CHUNK_MAX_TOKENS와 같게 둔다
     QUERY_MAX_TOKENS: int = 256

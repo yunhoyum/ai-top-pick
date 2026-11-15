@@ -5,6 +5,7 @@
 
 import math
 import re
+from decimal import Decimal
 
 from app.schemas.internal import Word
 
@@ -58,3 +59,12 @@ def split_segments(words: list[Word], answer_start_sec: float = 0.0) -> list[dic
         {"time_offset_sec": int(max(0.0, seg[0].start - answer_start_sec)), "raw_text": " ".join(w.word for w in seg)}
         for seg in segments
     ]
+
+
+def calc_speech_score(filler_count: int, silence_sec: float, response_delay_sec: float, has_words: bool) -> Decimal:
+    """100에서 간투사 1회당 3, 침묵 3초(버림)당 5, 응답 지연 10초 이상이면 10을 뺀다. 최저 0.
+    첫 단어가 없으면 0점이다. 말을 하지 않아 감점할 값이 없어 100점이 되는 것을 막는다 (루브릭 설계서 4.2)."""
+    if not has_words:
+        return Decimal("0.00")
+    score = 100 - 3 * filler_count - 5 * math.floor(silence_sec / 3) - (10 if response_delay_sec >= 10 else 0)
+    return Decimal(max(0, score)).quantize(Decimal("0.01"))
