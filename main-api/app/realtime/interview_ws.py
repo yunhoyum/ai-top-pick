@@ -26,6 +26,7 @@ log = logging.getLogger(__name__)
 # 브라우저가 질문 음성 재생 종료를 알려 주지 않을 때 기다리는 최대 시간 (제안)
 AUDIO_END_MAX_SEC = 60.0
 POLICY_VIOLATION = 1008  # 인증 실패·남의 응시
+INTERNAL_ERROR = 1011  # 서버 오류
 
 
 def _iso(at: datetime) -> str:
@@ -47,7 +48,12 @@ class InterviewSocketHandler:
                 # 연결을 수락하기 전에 닫는다 (본문 5.5)
                 await self.ws.close(code=POLICY_VIOLATION)
                 return
-            payload = await InterviewService(db).build_start_payload(session)
+            try:
+                payload = await InterviewService(db).build_start_payload(session)
+            except Exception:
+                log.exception("면접 %s 시작 본문을 만들지 못했다", self.session_id)
+                await self.ws.close(code=INTERNAL_ERROR)
+                return
         await self.ws.accept()
         self.settings = payload["settings"]
         self.order = {q["qkey"]: i for i, q in enumerate(payload["questions"], start=1)}

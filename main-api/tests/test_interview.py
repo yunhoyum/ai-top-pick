@@ -220,3 +220,19 @@ def test_socket_rejects_without_login_or_others_session(monkeypatch, client, app
         with pytest.raises(WebSocketDisconnect):
             with _socket(c, sid) as ws:
                 ws.receive_json()
+
+
+def test_socket_starts_even_if_portfolio_file_is_missing(monkeypatch, applicant, ready):
+    """포트폴리오 글은 대체 질문(5단계)에만 쓴다. 파일이 없어도 면접은 시작한다 (실제 시연에서 500으로 막혔다)."""
+    import os
+    from app.services import file_service
+
+    aid, qids = ready
+    path = _sql("select file_path from portfolio where application_id = :a", a=aid)[0][0]
+    os.remove(file_service.resolve(path))
+    sid = _enter(applicant, aid).json()["session_id"]
+    fake = FakeAi(qids)
+    monkeypatch.setattr(ws_interview, "get_ai_client", lambda: fake)
+    with _socket(applicant, sid) as ws:
+        assert ws.receive_json()["type"] == "connected"
+    assert fake.starts[0]["documents"]["portfolio_text"] is None

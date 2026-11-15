@@ -111,7 +111,10 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
       if (!ended) setError((e) => e ?? "면접 서버와 연결이 끊겼습니다. 다시 접속하면 이어서 진행합니다.");
     };
     return () => {
+      // 화면을 떠날 때(개발 모드에서 두 번 그릴 때 포함) 닫는다. 끊김 안내를 띄우지 않게 처리기를 뗀다
       ended = true;
+      ws.onclose = null;
+      ws.onmessage = null;
       ws.close();
     };
   }, [applicationId, sessionId, router]);

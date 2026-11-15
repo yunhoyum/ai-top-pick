@@ -151,8 +151,11 @@ class InterviewService:
             }
             for q, company in rows
         ]
-        # 지원자 서류는 AI 직무 질문을 대체할 때 쓴다 (5단계). worker와 같은 함수로 만든다
-        documents = await self.db.run_sync(lambda s: applicant_documents(s, s.get(Application, application.application_id)))
+        # 지원자 서류는 AI 직무 질문을 대체할 때 쓴다 (5단계). worker와 같은 함수로 만든다.
+        # 포트폴리오 파일이 없어도 면접은 시작한다
+        documents = await self.db.run_sync(
+            lambda s: applicant_documents(s, s.get(Application, application.application_id), missing_portfolio_ok=True)
+        )
         return {
             "session_id": session.session_id,
             "posting_id": posting.posting_id,

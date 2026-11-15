@@ -3,6 +3,7 @@
 ai-service는 업무 테이블을 읽지 않는다. 그래서 worker가 읽어서 넘긴다 (아키텍처 4.1-3).
 """
 
+import logging
 from datetime import date
 
 from sqlalchemy import select
@@ -31,6 +32,8 @@ from app.models.posting import (
 )
 from app.services import file_service
 from app.workers.pdf_text import extract_text
+
+log = logging.getLogger(__name__)
 
 
 def build_document_report_payload(db: Session, application_id: int) -> dict:
@@ -68,8 +71,9 @@ def posting_brief(posting: JobPosting) -> dict:
     }
 
 
-def applicant_documents(db: Session, application: Application) -> dict:
+def applicant_documents(db: Session, application: Application, missing_portfolio_ok: bool = False) -> dict:
     """ApplicantDocuments. 학력·경력·프로젝트는 공고가 고른 문항만 넣는다 (ADM-007).
+    missing_portfolio_ok: 포트폴리오 파일이 없으면 오류 대신 글 없이 둔다 (면접 시작. 보고서 작업은 오류로 남긴다).
     필수 기술은 공고가 정한 기술의 자기평가만 넣는다. 이력서 필수 기술 축이 그 평균이다 (루브릭 설계서 7.3)."""
     aid, pid = application.application_id, application.posting_id
     selected = set(
@@ -128,7 +132,11 @@ def applicant_documents(db: Session, application: Application) -> dict:
     ]
     portfolio = db.scalar(select(Portfolio).where(Portfolio.application_id == aid))
     # ai-service는 PC2에 있어 파일을 읽지 못한다. worker가 PC1 디스크에서 추출해 넣는다 (Celery 5장)
-    portfolio_text = extract_text(file_service.resolve(portfolio.file_path)) if portfolio else None
+    portfolio_path = file_service.resolve(portfolio.file_path) if portfolio else None
+    if portfolio_path is not None and missing_portfolio_ok and not portfolio_path.exists():
+        log.warning("지원서 %s의 포트폴리오 파일이 없어 글 없이 보낸다", aid)
+        portfolio_path = None
+    portfolio_text = extract_text(portfolio_path) if portfolio_path else None
 
     return {
         # 인적사항은 점수에 넣지 않는다 (루브릭 설계서 7.3). 규약 형식을 맞추려고 보낸다
