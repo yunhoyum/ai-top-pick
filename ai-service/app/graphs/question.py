@@ -14,6 +14,8 @@ LLM 호출 실패(연결 오류, 형식 검증 실패)는 검증 실패와 같�
 생성은 두 호출이다 (평가 Q8): 문장마다 번호를 붙인 서류에서 바탕 문장 번호를 고르고(pick_base),
   고른 문장 하나만 보고 질문을 쓴다(write_job·write_personality). 이미 쓴 문장은 번호 목록에서 뺀다 (Q7).
   번호가 틀리면 쓰지 않고 question 실패, 같은 문장을 바탕으로 한 확정 질문이 있으면 LLM 없이 overlap 실패다.
+  같은 경험도 코드가 막는다 (Q9): 인성은 이미 쓴 자기소개서 단락을 통째로 빼고, 바탕 문장끼리 KURE 유사도가
+  SAME_EXPERIENCE_SIMILARITY 이상이면 overlap 실패다.
 fallback 질문은 검증하지 않고 바로 확정한다 (2026-11-13 결정). 단, 이미 확정된 질문과 문장이 같으면 template으로 간다.
   인성 fallback은 입력이 비기능적 인재상뿐이라 같은 문장이 다시 나온다 (평가 Q2-v2에서 한 지원자에게 같은 질문 2개).
 검증은 두 단계다 (프롬프트 v2): 적절성을 먼저 보고, 통과하면 확정 질문과 한 쌍씩 겹침을 묻는다. 처음 겹친 쌍에서 멈춘다.
@@ -88,6 +90,36 @@ def same_base_overlap(state: "QuestionState") -> str | None:
     return None
 
 
+# 바탕 문장끼리 KURE 유사도가 이 값 이상이면 같은 경험으로 본다 (제안, 평가 Q9).
+# Q7·Q8 바탕 문장 56쌍: 다른 서류 항목에 쓴 같은 경험(WebP) 0.78, 서로 다른 경험 쌍은 최대 0.56
+SAME_EXPERIENCE_SIMILARITY = 0.70
+
+Embed = Callable[[list[str]], list[list[float]]]  # 글 → 길이 1로 정규화된 벡터 (embed-server)
+
+
+def similar_base_overlap(state: "QuestionState", embed: Embed | None) -> str | None:
+    """바탕 문장이 확정 질문의 바탕 문장과 같은 경험이면 feedback (코드 판정). 임베딩이 실패하면 보지 않는다."""
+    pairs = [(q, base) for q, base in zip(state["confirmed"], state["confirmed_bases"]) if base]
+    if embed is None or not state["based_on"] or not pairs:
+        return None
+    try:
+        new, *olds = embed([state["based_on"]] + [base for _, base in pairs])
+    except Exception as e:
+        log.warning("바탕 문장 임베딩 실패, 유사도 겹침은 건너뜀: %s", e)
+        return None
+    for (q, _), old in zip(pairs, olds):
+        if sum(a * b for a, b in zip(new, old)) >= SAME_EXPERIENCE_SIMILARITY:
+            return f"이미 확정된 질문 '{q}'와 바탕 경험이 비슷하다. 다른 경험의 문장을 고른다."
+    return None
+
+
+def unused_essays(documents: ApplicantDocuments, used: set[str]) -> str:
+    """확정 질문이 바탕으로 쓴 문장이 있는 자기소개서 단락(주제 하나)을 통째로 뺀 글 (평가 Q9).
+    한 이야기를 문장별로 쪼개 두 번 묻지 않게 한다. 문장 유사도로는 가르지 못했다 (같은 이야기 0.53~0.62)."""
+    paragraphs = [f"[{e['topic']}]\n{e['content']}" for e in documents.essays if (e.get("content") or "").strip()]
+    return "\n\n".join(p for p in paragraphs if not used & set(split_sentences(p)))
+
+
 def form_problem(question: str) -> str | None:
     """질문 형식이 틀렸으면 고칠 점 한 문장, 맞으면 None."""
     if question.count("?") >= 2:
@@ -160,7 +192,9 @@ def build_template_question(state: QuestionState) -> str:
     return next((q for q in candidates if q not in used), FIXED_QUESTION)
 
 
-def build_question_graph(model: Runnable, search: Search):
+def build_question_graph(model: Runnable, search: Search, embed: Embed | None = None):
+    """embed가 없으면 바탕 문장 유사도 겹침(similar_base_overlap)을 보지 않는다."""
+
     def call(messages, schema):
         return invoke_structured(model, messages, schema)
 
@@ -201,6 +235,8 @@ def build_question_graph(model: Runnable, search: Search):
         p = state["posting"]
         # 서류는 원래 항목을 보여 준다. 고친 검색어는 검색에만 쓴다 (바탕 문장을 서류에서 고르게)
         text, sentences = numbered(state["original_query"], set(state["confirmed_bases"]))
+        if not sentences:  # 고를 문장이 남지 않았다. LLM을 부르지 않는다
+            return {"question": None, "based_on": ""}
         try:
             base = pick_sentence(call(prompts.pick_base(text, state["confirmed"], state["feedback"], "직무"),
                                       BasePick).based_on, sentences)
@@ -225,7 +261,7 @@ def build_question_graph(model: Runnable, search: Search):
             return failed(state, "question", "")
         if problem := form_problem(state["question"]):
             return failed(state, "question", problem)
-        if overlap := same_base_overlap(state):
+        if overlap := same_base_overlap(state) or similar_base_overlap(state, embed):
             return failed(state, "overlap", overlap)
         p = state["posting"]
         try:
@@ -259,7 +295,11 @@ def build_question_graph(model: Runnable, search: Search):
     def generate_personality(state: QuestionState) -> dict:
         base = ""
         if state["documents"].essays:  # 자기소개서가 없으면 고를 문장이 없다. 그때는 문장 없이 쓴다
-            text, sentences = numbered(state["essays"], set(state["confirmed_bases"]))
+            used = set(state["confirmed_bases"])
+            # 이미 쓴 문장이 있는 단락은 통째로 뺀다 (한 이야기를 쪼개 두 번 묻지 않게, 평가 Q9)
+            text, sentences = numbered(unused_essays(state["documents"], used), used)
+            if not sentences:  # 고를 단락이 남지 않았다. LLM을 부르지 않는다
+                return {"question": None, "based_on": ""}
             try:
                 base = pick_sentence(call(prompts.pick_base(text, state["confirmed"], state["feedback"], "인성"),
                                           BasePick).based_on, sentences)
@@ -282,7 +322,7 @@ def build_question_graph(model: Runnable, search: Search):
             return failed(state, "question", "")
         if problem := form_problem(state["question"]):
             return failed(state, "question", problem)
-        if overlap := same_base_overlap(state):
+        if overlap := same_base_overlap(state) or similar_base_overlap(state, embed):
             return failed(state, "overlap", overlap)
         try:
             v = call(prompts.validate_personality(state["question"], state["essays"], state["posting"].nonfunctional_talent),
@@ -374,9 +414,9 @@ _STEPS_PER_QUESTION = 1 + 4 * MAX_RETRIES + 3
 
 
 def generate_questions(posting: PostingBrief, documents: ApplicantDocuments, job_count: int, personality_count: int,
-                       model: Runnable, search: Search) -> tuple[list[str], list[str]]:
+                       model: Runnable, search: Search, embed: Embed | None = None) -> tuple[list[str], list[str]]:
     """(직무 질문, 인성 질문). 개수는 요청과 같다."""
-    graph = build_question_graph(model, search)
+    graph = build_question_graph(model, search, embed)
     state = graph.invoke(
         {"posting": posting, "documents": documents, "essays": essays_text(documents),
          "queries": build_queries(documents, job_count), "personality_count": personality_count,

@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends
 
+from app.clients.embed import EmbedClient
 from app.core.internal_auth import verify_internal_token
 from app.core.llm import get_chat_model
 from app.graphs.question import generate_questions
@@ -20,5 +21,6 @@ def generate(req: QuestionGenRequest) -> QuestionGenResponse:
         req.posting, req.documents, req.job_count, req.personality_count,
         model=get_chat_model(),
         search=lambda query: [c.content for c in search_company_docs(posting_id, [query])],
+        embed=EmbedClient().embed,  # 바탕 문장 유사도 겹침 (평가 Q9)
     )
     return QuestionGenResponse(job=job, personality=personality)

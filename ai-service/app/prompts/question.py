@@ -19,11 +19,14 @@ v7: 이미 쓴 문장은 번호 목록에서 빼고, 주제 줄은 번호 없이
     Q7-v7에서 15개 모두 통과, fallback 0. 고른 문장과 질문이 따로 놀았다 (지원 동기 문장을 고르고 다른 경험을 물음).
 v8: 생성을 두 호출로 나눈다. pick_base가 번호만 고르고, write_job·write_personality는 고른 문장 하나만 보고 쓴다
     (설계서 1.3 '작업 하나당 호출 하나').
+    Q8-v8에서 고른 문장과 질문이 맞지 않는 경우 4 → 2. 한 이야기를 문장별로 쪼개 두 번 묻거나(인성 4·5),
+    다른 서류 항목에 쓴 같은 경험(WebP)을 두 번 물었다.
+v9: 프롬프트는 v8과 같다. 코드가 같은 경험을 막는다 (graphs/question.py unused_essays, similar_base_overlap).
 """
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
-VERSION = "v8"
+VERSION = "v9"
 
 SYSTEM = """너는 채용 면접에서 지원자에게 물을 질문을 만드는 면접관이다.
 - 주어진 자료만 보고 판단한다. 자료에 없는 사실을 지어내지 않는다.

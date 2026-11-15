@@ -9,7 +9,8 @@ from langchain_core.messages import AIMessage
 from app.api import questions
 from app.core.config import get_settings
 from app.graphs.question import (FIXED_QUESTION, MAX_QUESTION_CHARS, NOT_GROUNDED, build_queries, form_problem,
-                                 generate_questions, numbered, pick_sentence, same_base_overlap)
+                                 generate_questions, numbered, pick_sentence, same_base_overlap,
+                                 similar_base_overlap, unused_essays)
 from app.main import app
 from app.schemas.internal import ApplicantDocuments, PostingBrief
 
@@ -235,15 +236,66 @@ def test_unknown_sentence_number_skips_writing_and_validation():
     assert NOT_GROUNDED in model.texts("pick")[1]
 
 
-def test_used_sentence_is_removed_from_the_next_list():
-    essays = [{"topic": "지원 동기", "content": "결제 장애를 끝까지 추적했습니다. 원인을 숫자로 확인했습니다."}]
-    # 인성 2개: 둘째를 고를 때는 첫째가 쓴 문장이 목록에 없어서 1번이 다른 문장이다
+def test_used_essay_paragraph_is_removed_from_the_next_list():
+    essays = [{"topic": "어려운 문제", "content": "결제 장애를 끝까지 추적했습니다. 원인을 숫자로 확인했습니다."},
+              {"topic": "협업", "content": "결정 이유를 문서로 남겼습니다."}]
+    # 인성 2개: 둘째를 고를 때는 첫째가 쓴 문장이 있는 단락('어려운 문제')이 통째로 빠진다
     model = FakeModel(generate=[_q("인성1"), _q("인성2")], validate=[PASS, PASS], overlap=[NO_OVERLAP])
     _, personality, _ = _run(model, job=0, personality=2, docs=_docs(essays=essays))
     assert personality == ["인성1", "인성2"]
     first, second = model.texts("pick")
-    assert "[지원 동기]\n[1] 결제 장애를 끝까지 추적했습니다.\n[2] 원인을" in first  # 주제 줄에는 번호가 없다
-    assert "[지원 동기]\n[1] 원인을 숫자로 확인했습니다." in second and "결제 장애를 끝까지" not in second
+    assert "[어려운 문제]\n[1] 결제 장애를 끝까지 추적했습니다.\n[2] 원인을" in first  # 주제 줄에는 번호가 없다
+    assert "[협업]\n[1] 결정 이유를 문서로 남겼습니다." in second and "어려운 문제" not in second
+
+
+def test_no_paragraph_left_goes_to_fallback_without_llm_pick():
+    essays = [{"topic": "어려운 문제", "content": "결제 장애를 끝까지 추적했습니다. 원인을 숫자로 확인했습니다."}]
+    model = FakeModel(generate=[_q("인성1"), _q("인성 fallback")], validate=[PASS])
+    _, personality, _ = _run(model, job=0, personality=2, docs=_docs(essays=essays))
+    assert personality == ["인성1", "인성 fallback"]
+    assert len(model.texts("pick")) == 1  # 둘째는 고를 단락이 없어 고르기를 부르지 않는다
+
+
+def test_unused_essays():
+    docs = _docs(essays=[{"topic": "A", "content": "가는 갔다. 나는 났다."}, {"topic": "B", "content": "다는 달렸다."}])
+    assert unused_essays(docs, set()) == "[A]\n가는 갔다. 나는 났다.\n\n[B]\n다는 달렸다."
+    assert unused_essays(docs, {"나는 났다."}) == "[B]\n다는 달렸다."
+
+
+class FakeEmbed:
+    """글 → 정해 둔 벡터. 없는 글은 서로 직교하는 벡터를 준다."""
+
+    def __init__(self, vectors):
+        self.vectors, self.calls = vectors, []
+
+    def __call__(self, texts):
+        self.calls.append(texts)
+        return [self.vectors.get(t, [0.0, 0.0, 1.0 / (1 + i)]) for i, t in enumerate(texts)]
+
+
+def test_similar_base_overlap():
+    embed = FakeEmbed({"새 문장": [1.0, 0.0, 0.0], "비슷한 문장": [0.8, 0.6, 0.0], "다른 문장": [0.0, 1.0, 0.0]})
+    state = {"based_on": "새 문장", "confirmed": ["앞 질문", "뒤 질문"], "confirmed_bases": ["다른 문장", "비슷한 문장"]}
+    assert "'뒤 질문'와 바탕 경험이 비슷하다" in similar_base_overlap(state, embed)  # 0.8 ≥ 0.70
+    assert similar_base_overlap(state | {"confirmed_bases": ["다른 문장", ""]}, embed) is None  # fallback 바탕은 빈 문자열
+    assert similar_base_overlap(state, None) is None
+
+    def broken(texts):
+        raise ConnectionError("embed-server")
+
+    assert similar_base_overlap(state, broken) is None  # 임베딩이 실패하면 보지 않는다
+
+
+def test_similar_base_sentence_is_overlap_without_llm_overlap_check():
+    docs = _docs(skill_cases=["캐시로 주문 API 응답을 줄였습니다."], portfolio_text="주문 API를 캐시로 빠르게 했습니다.",
+                 essays=[])
+    embed = FakeEmbed({"캐시로 주문 API 응답을 줄였습니다.": [1.0, 0.0], "주문 API를 캐시로 빠르게 했습니다.": [0.9, 0.436]})
+    model = FakeModel(generate=[_q("직무1"), _q("직무2"), _q("직무3"), _q("직무4"), _q("fallback")], validate=[PASS] * 4)
+    job, _ = generate_questions(POSTING, docs, 2, 0, model, FakeSearch(), embed)
+    # 둘째 검색어(포트폴리오)의 바탕 문장이 첫째와 비슷해 3번 모두 LLM 겹침 검사 없이 떨어지고 fallback으로 간다
+    assert job == ["직무1", "fallback"]
+    assert "overlap" not in model.kinds()
+    assert "바탕 경험이 비슷하다" in model.texts("generate")[2]
 
 
 def test_same_base_sentence_is_overlap_by_code():
@@ -325,7 +377,7 @@ def api(monkeypatch):
     get_settings.cache_clear()
     seen = {}
 
-    def fake(posting, documents, job_count, personality_count, model, search):
+    def fake(posting, documents, job_count, personality_count, model, search, embed=None):
         seen.update(posting_id=posting.posting_id, counts=(job_count, personality_count))
         return ["직무1", "직무2"], ["인성1"]
 
