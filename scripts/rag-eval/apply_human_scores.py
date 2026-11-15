@@ -81,14 +81,19 @@ def main(posting_id: int) -> None:
     if missing:
         raise SystemExit("문서에서 찾지 못한 근거 문장:\n" + "\n".join(f"  {a}: {s}" for a, s in missing))
 
-    data["version"] = "v3"
-    data["description"] = re.sub(r"평가셋 v[\d.]+", "평가셋 v3", data["description"])
+    data["version"] = "v4"
+    data["description"] = re.sub(r"평가셋 v[\d.]+", "평가셋 v4", data["description"])
     # 다시 실행해도 변경 기록이 한 번만 남게 한다
     if "v2.1 → v3" not in data["changes"]:
         data["changes"] += (
             " v2.1 → v3 (2026-11-10): 면접 답변을 30개로 늘리고(A10~A30) 답변마다 기준 점수(reference)를 넣었다. "
             "기대 근거 상태(expect)는 기준 점수에서 정한다. 기준 점수는 AI가 매긴 초안이고, 사람이 확인한 답변은 "
             "human_reviewed로 표시한다. 판단에 쓴 문서 문장을 정답 문장에 더했다."
+        )
+    if "v3 → v4" not in data["changes"]:
+        data["changes"] += (
+            " v3 → v4 (2026-11-15): 질문과 동떨어진 답변 6개(A31~A36)를 더했다. 기존 답변을 다른 질문에 붙였다. "
+            "기준 적합성은 10, 구체성·일치 단계는 원래 답변과 같다. 실제 면접(세션 241·257)에서 동떨어진 답변이 85점을 받았다."
         )
     EVAL.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 

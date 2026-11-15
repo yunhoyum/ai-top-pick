@@ -65,6 +65,7 @@ def _errors(result, ref: dict, expect: str) -> dict:
         "reference_level": ref_level,
         "level_ok": result.doc_match_level == ref_level if ref_level else None,
         "human_reviewed": ref["human_reviewed"],
+        "off_topic": ref.get("memo", "").startswith("[동떨어진 답변]"),
     }
 # 평가셋에 없는 공고라 직무 설명을 여기 둔다
 JOB_DESCRIPTION = (
@@ -200,6 +201,13 @@ def report(rows: list[dict]) -> dict:
             values = [r[key] for r in scored if r[key] is not None]
             errors[key] = statistics.mean(values) if values else None
             print(f"{label} 평균 {errors[key]:.1f}점 ({len(values)}개)" if values else f"{label} 없음")
+        # 질문과 동떨어진 답변 (평가셋 v4, 기준 메모가 '[동떨어진 답변]'으로 시작)
+        off = [r for r in scored if r.get("off_topic")]
+        if off:
+            errors["off_topic_relevance"] = statistics.mean(r["llm"]["read"]["relevance"] for r in off)
+            errors["off_topic_score"] = statistics.mean(float(r["score"]) for r in off)
+            print(f"  동떨어진 답변 {len(off)}개: LLM 적합성 평균 {errors['off_topic_relevance']:.1f} (기준 10), "
+                  f"내용 점수 평균 {errors['off_topic_score']:.1f}")
         judged = [r["level_ok"] for r in scored if r["level_ok"] is not None]
         errors["level_agreement"] = sum(judged) / len(judged) if judged else None
         print(f"일치 단계 일치율 {errors['level_agreement']:.1%} ({sum(judged)}/{len(judged)})" if judged else "일치 단계 비교 없음")
