@@ -10,6 +10,7 @@
 template은 LLM 없이 만들어 실패하지 않는다. 그래서 질문 수는 항상 요청과 같다.
 
 LLM 호출 실패(연결 오류, 형식 검증 실패)는 검증 실패와 같이 retry_count에 센다 (2026-11-13, 제안).
+형식(질문 수·문장 수·길이·자료 표시)은 LLM 검증 전에 코드가 본다 (form_problem, 평가 Q3).
 fallback 질문은 검증하지 않고 바로 확정한다 (2026-11-13 결정). 단, 이미 확정된 질문과 문장이 같으면 template으로 간다.
   인성 fallback은 입력이 비기능적 인재상뿐이라 같은 문장이 다시 나온다 (평가 Q2-v2에서 한 지원자에게 같은 질문 2개).
 검증은 두 단계다 (프롬프트 v2): 적절성을 먼저 보고, 통과하면 확정 질문과 한 쌍씩 겹침을 묻는다. 처음 겹친 쌍에서 멈춘다.
@@ -39,6 +40,24 @@ FIXED_QUESTION = "본인의 강점이 드러난 경험을 말씀해 주세요."
 
 _SKILL_NAME = re.compile(r"^\[([^\]]+)\]")  # worker가 기술 적용 사례를 '[기술명] 내용'으로 보낸다
 _BULLET = re.compile(r"^\s*(?:[-•*·]|\d+[.)])\s*")
+
+# 형식 검사 (평가 Q3). LLM 검증 전에 코드로 본다. EXAONE은 '질문 하나, 한두 문장' 규칙을 자주 어기고 검증도 놓쳤다
+MAX_QUESTION_CHARS = 200  # 2분 안에 답할 질문 길이 (제안. Q1-v1 평균 209자)
+_SENTENCE_END = re.compile(r"[.?!](?=\s|$)")
+_LABEL = re.compile(r"\[[^\]]+\]")  # 프롬프트 자료 표시가 새어 나온 것 ([비기능적 인재상] 등)
+
+
+def form_problem(question: str) -> str | None:
+    """질문 형식이 틀렸으면 고칠 점 한 문장, 맞으면 None."""
+    if question.count("?") >= 2:
+        return "질문이 둘 이상이다. 물음표가 하나인 질문 하나로 쓴다."
+    if len(_SENTENCE_END.findall(question)) >= 3:
+        return "문장이 너무 많다. 한두 문장으로 줄인다."
+    if len(question) > MAX_QUESTION_CHARS:
+        return f"질문이 너무 길다. {MAX_QUESTION_CHARS}자 이내로 줄인다."
+    if _LABEL.search(question):
+        return "질문에 대괄호 자료 표시가 들어갔다. 표시 없이 쓴다."
+    return None
 
 Search = Callable[[str], list[str]]  # 검색어 → 청크 본문 목록 (그 공고의 회사 문서만)
 
@@ -146,6 +165,8 @@ def build_question_graph(model: Runnable, search: Search):
     def validate(state: QuestionState) -> dict:
         if state["question"] is None:
             return failed(state, "question", "")
+        if problem := form_problem(state["question"]):
+            return failed(state, "question", problem)
         p = state["posting"]
         try:
             v = call(prompts.validate_job(state["question"], state["query"], state["chunks"], p.job_description,
@@ -186,6 +207,8 @@ def build_question_graph(model: Runnable, search: Search):
     def validate_personality(state: QuestionState) -> dict:
         if state["question"] is None:
             return failed(state, "question", "")
+        if problem := form_problem(state["question"]):
+            return failed(state, "question", problem)
         try:
             v = call(prompts.validate_personality(state["question"], state["essays"], state["posting"].nonfunctional_talent),
                      QuestionValidation)

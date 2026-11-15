@@ -8,7 +8,7 @@ from langchain_core.messages import AIMessage
 
 from app.api import questions
 from app.core.config import get_settings
-from app.graphs.question import FIXED_QUESTION, build_queries, generate_questions
+from app.graphs.question import FIXED_QUESTION, MAX_QUESTION_CHARS, build_queries, form_problem, generate_questions
 from app.main import app
 from app.schemas.internal import ApplicantDocuments, PostingBrief
 
@@ -173,6 +173,27 @@ def test_fallback_same_as_confirmed_question_goes_to_template():
                       validate=fails * 2)
     _, personality, _ = _run(model, job=0, personality=2)
     assert personality == ["같은 질문", "'모르면 모른다고 말하는 정직함'에 해당하는 본인의 경험을 말씀해 주세요."]
+
+
+@pytest.mark.parametrize("question, ok", [
+    ("주문 API 캐시를 왜 그렇게 설계하셨나요?", True),
+    ("캐시를 쓰셨습니다. 회사 결제 서버에는 어떻게 적용하시겠습니까?", True),
+    ("캐시를 왜 쓰셨나요? 결과는 어땠나요?", False),  # 질문 둘
+    ("캐시를 쓰셨습니다. 결제 서버가 있습니다. 어떻게 적용하시겠습니까?", False),  # 세 문장
+    ("가" * (MAX_QUESTION_CHARS + 1), False),
+    ("[비기능적 인재상]의 정직함을 보여준 경험을 말씀해 주세요.", False),
+    ("버전 1.5를 쓴 이유를 말씀해 주세요.", True),  # 숫자 사이 마침표는 문장 끝이 아니다
+])
+def test_form_problem(question, ok):
+    assert (form_problem(question) is None) == ok
+
+
+def test_form_failure_skips_llm_validation_and_regenerates_with_reason():
+    model = FakeModel(generate=[_q("왜 쓰셨나요? 결과는요?"), _q("왜 쓰셨나요?")], validate=[PASS])
+    job, _, _ = _run(model)
+    assert job == ["왜 쓰셨나요?"]
+    assert [k for k, _ in model.calls] == ["generate", "generate", "validate"]  # 첫 질문은 LLM 검증 없이 떨어진다
+    assert "질문이 둘 이상이다" in [t for k, t in model.calls if k == "generate"][1]
 
 
 # ---------- fallback 실패 → 템플릿 ----------
