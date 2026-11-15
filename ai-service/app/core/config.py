@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     # 간투사 목록 (ai-service 6장 count_fillers). '그', '저'처럼 뜻이 있는 낱말과 겹치는 것은 넣지 않는다.
     # Deepgram 한국어는 '음'은 남기고 '어'는 빼고 적었다 (2026-11-15 확인, 아키텍처 14)
     FILLER_WORDS: list[str] = ["음", "어", "아", "으", "흠"]
+    # STT 보정문과 원문의 글자 유사도가 이보다 낮으면 보정이 답변을 다시 쓴 것으로 보고 원문을 쓴다 (제안).
+    # 바른 보정은 0.95 이상, 다시 쓴 보정은 0.35~0.75였다 (2026-11-15 e2e)
+    STT_MIN_SIMILARITY: float = 0.85
 
     # ---------- 표정 분석 (vision-server, PC1. SYS-005) ----------
     VISION_URL: str = ""
