@@ -153,7 +153,29 @@ class AnswerRequest(BaseModel):  # 2.3
     end_reason: Literal["button", "silence", "timeout"]
 
 
+class SttSegment(BaseModel):  # → stt_record
+    time_offset_sec: int
+    raw_text: str
+    corrected_text: str
+
+
+class AnswerEvaluation(BaseModel):  # → interview_answer (규약 2.3)
+    segments: list[SttSegment]
+    duration_sec: int
+    filler_count: int
+    silence_sec: Decimal
+    response_delay_sec: Decimal
+    # 아래는 실시간 면접 3단계(채점)에서 채운다. 그 전에는 None이다
+    main_expression: str | None = None
+    expression_ratio: dict[str, float] | None = None
+    content_score: Decimal | None = None
+    content_reason: str | None = None
+    speech_score: Decimal | None = None
+    expression_score: Decimal | None = None
+    answer_score: Decimal | None = None
+    evidence: list[EvidenceSentence] = []
+
+
 class AnswerResponse(BaseModel):
-    # 규약은 AnswerEvaluation이다. 실시간 면접 1단계는 평가가 없어 None이다. 3단계(채점)에서 채운다
-    evaluation: dict | None = None
+    evaluation: AnswerEvaluation
     actions: list[Action]

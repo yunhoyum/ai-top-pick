@@ -8,6 +8,7 @@ thread_id는 session-{session_id}다. 재접속·재시험은 같은 체크포�
 
 import base64
 
+from langchain_core.runnables import Runnable
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
@@ -26,8 +27,8 @@ class NotWaitingError(Exception):
     """답변을 받을 상태가 아니거나, 답변한 질문이 지금 질문이 아니다."""
 
 
-def build_interview_graph(checkpointer: BaseCheckpointSaver, tts: Tts):
-    nodes = make_nodes(tts)
+def build_interview_graph(checkpointer: BaseCheckpointSaver, tts: Tts, model: Runnable, fillers: list[str]):
+    nodes = make_nodes(tts, model, fillers)
     g = StateGraph(InterviewState)
     for name, fn in nodes.items():
         g.add_node(name, fn)
@@ -81,12 +82,12 @@ def start_or_resume(graph, req: StartInterviewRequest, tts: Tts) -> list[dict]:
     return [{"type": "end"}]  # 이미 끝난 면접
 
 
-def submit_answer(graph, session_id: int, req: AnswerRequest) -> list[dict]:
-    """답변으로 interrupt를 풀고 다음 행동을 돌려준다."""
+def submit_answer(graph, session_id: int, req: AnswerRequest) -> tuple[dict, list[dict]]:
+    """답변으로 interrupt를 풀고 (답변 평가, 다음 행동)을 돌려준다."""
     config = graph_config(session_id)
     current = _waiting_question(graph, config)
     if current is None or current["qkey"] != req.qkey:
         raise NotWaitingError(req.qkey)
     # bindings(새 질문의 question_id 짝)는 꼬리질문·대체 질문이 생기는 4·5단계에서 반영한다
     state = graph.invoke(Command(resume={"type": "answer", **req.model_dump()}), config)
-    return state["actions"]
+    return state["last_evaluation"], state["actions"]

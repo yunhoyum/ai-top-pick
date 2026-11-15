@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     INTERNAL_TOKEN: str
     # tts-server (PC2). 면접 질문 음성 (SYS-011)
     TTS_URL: str = ""
+    # 간투사 목록 (ai-service 6장 count_fillers). '그', '저'처럼 뜻이 있는 낱말과 겹치는 것은 넣지 않는다.
+    # Deepgram 한국어는 '음'은 남기고 '어'는 빼고 적었다 (2026-11-15 확인, 아키텍처 14)
+    FILLER_WORDS: list[str] = ["음", "어", "아", "으", "흠"]
 
     # ---------- 회사 문서 검색 (벡터 DB 설계서 8장) ----------
     # 검색어를 나누는 길이. worker의 CHUNK_MAX_TOKENS와 같게 둔다

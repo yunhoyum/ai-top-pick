@@ -1,9 +1,11 @@
-"""면접 그래프·내부 API 테스트 (실시간 면접 1단계). TTS는 가짜, 체크포인터는 메모리다."""
+"""면접 그래프·내부 API 테스트 (실시간 면접 1·2단계). TTS·LLM은 가짜, 체크포인터는 메모리다."""
 
 import base64
+import json
 
 import pytest
 from fastapi.testclient import TestClient
+from langchain_core.messages import AIMessage
 from langgraph.checkpoint.memory import InMemorySaver
 
 from app.api import interview
@@ -40,14 +42,35 @@ class FakeTts:
         return f"wav:{text}".encode()
 
 
-def _answer(qkey, question_id, end_reason="button"):
-    return AnswerRequest(qkey=qkey, question_id=question_id, end_reason=end_reason)
+class FakeLlm:
+    """STT 보정 가짜. 'AP '를 'API '로 고친다. 받은 프롬프트를 기록한다."""
+
+    def __init__(self):
+        self.prompts = []
+
+    def invoke(self, messages):
+        text = messages[-1].content
+        self.prompts.append(text)
+        block = text.split("[음성 인식 구간]\n")[1].split("\n\n")[0]
+        raws = [line.split("] ", 1)[1] for line in block.splitlines()]
+        return AIMessage(content=json.dumps({"corrected": [r.replace("AP ", "API ") for r in raws]}, ensure_ascii=False))
+
+
+FILLERS = ["음", "어"]
+
+
+def _answer(qkey, question_id, end_reason="button", **over):
+    return AnswerRequest(qkey=qkey, question_id=question_id, end_reason=end_reason, **over)
+
+
+def _build(saver, tts, llm=None):
+    return builder.build_interview_graph(saver, tts, llm or FakeLlm(), FILLERS)
 
 
 @pytest.fixture
 def setup():
     tts, saver = FakeTts(), InMemorySaver()
-    return builder.build_interview_graph(saver, tts), tts, saver
+    return _build(saver, tts), tts, saver
 
 
 def test_start_presents_first_question_with_audio(setup):
@@ -61,11 +84,11 @@ def test_start_presents_first_question_with_audio(setup):
 def test_answers_go_through_all_questions_then_end(setup):
     graph, tts, _ = setup
     builder.start_or_resume(graph, StartInterviewRequest(**BODY), tts)
-    second = builder.submit_answer(graph, 5, _answer("q11", 11))
+    _, second = builder.submit_answer(graph, 5, _answer("q11", 11))
     assert [(a["type"], a["question"]["qkey"]) for a in second] == [("present", "q12")]  # 이전 요청의 행동은 다시 오지 않는다
-    third = builder.submit_answer(graph, 5, _answer("q12", 12, "timeout"))
+    _, third = builder.submit_answer(graph, 5, _answer("q12", 12, "timeout"))
     assert third[0]["question"]["qkey"] == "q13"
-    assert builder.submit_answer(graph, 5, _answer("q13", 13)) == [{"type": "end"}]
+    assert builder.submit_answer(graph, 5, _answer("q13", 13))[1] == [{"type": "end"}]
     state = graph.get_state(builder.graph_config(5)).values
     assert state["answered"] == ["q11", "q12", "q13"] and state["queue"] == []
 
@@ -75,7 +98,7 @@ def test_reconnect_presents_the_waiting_question_again_without_advancing(setup):
     builder.start_or_resume(graph, StartInterviewRequest(**BODY), tts)
     builder.submit_answer(graph, 5, _answer("q11", 11))
     # 서버가 다시 떠도(같은 체크포인터로 그래프를 새로 만듦) 같은 응시를 이어간다
-    graph2 = builder.build_interview_graph(saver, tts)
+    graph2 = _build(saver, tts)
     actions = builder.start_or_resume(graph2, StartInterviewRequest(**(BODY | {"resume": True})), tts)
     assert [(a["type"], a["question"]["qkey"]) for a in actions] == [("present", "q12")]
     assert tts.texts.count("모른다고 말한 경험은?") == 2  # 다시 제시한 질문도 다시 읽어준다 (SYS-011)
@@ -139,7 +162,7 @@ def test_api_start_and_answer(api):
     assert r.json()["actions"][0]["question"]["qkey"] == "q11"
     r = api.post("/internal/interview/5/answer", json={"qkey": "q11", "question_id": 11, "end_reason": "silence"}, headers=H)
     assert r.status_code == 200, r.text
-    assert r.json()["evaluation"] is None and r.json()["actions"][0]["question"]["qkey"] == "q12"
+    assert r.json()["evaluation"]["segments"] == [] and r.json()["actions"][0]["question"]["qkey"] == "q12"
 
 
 def test_api_errors(api):
@@ -148,3 +171,53 @@ def test_api_errors(api):
     api.post("/internal/interview/5/start", json=BODY, headers=H)
     r = api.post("/internal/interview/5/answer", json={"qkey": "q13", "question_id": 13, "end_reason": "button"}, headers=H)
     assert r.status_code == 409
+
+
+# ---------- 답변 평가 (2단계: STT 보정·발화 수치) ----------
+
+
+WORDS = [  # 답변 시간 시작 2.0초. 첫 단어 2.5초 → 응답 지연 0.5초. '캐시를'과 '그' 사이 4초 침묵
+    {"word": "음,", "start": 2.5, "end": 2.9}, {"word": "AP", "start": 3.0, "end": 3.4},
+    {"word": "응답을", "start": 3.5, "end": 4.0}, {"word": "캐시로", "start": 4.1, "end": 4.6},
+    {"word": "줄였습니다.", "start": 4.7, "end": 5.5}, {"word": "그", "start": 9.5, "end": 9.7},
+    {"word": "결과", "start": 9.8, "end": 10.2}, {"word": "빨라졌습니다.", "start": 10.3, "end": 11.0},
+]
+
+
+def test_answer_is_corrected_by_segment_and_measured(setup):
+    graph, tts, _ = setup
+    llm = FakeLlm()
+    graph = _build(InMemorySaver(), tts, llm)
+    builder.start_or_resume(graph, StartInterviewRequest(**BODY), tts)
+    raw = "음, AP 응답을 캐시로 줄였습니다. 그 결과 빨라졌습니다."
+    evaluation, _ = builder.submit_answer(graph, 5, _answer("q11", 11, raw_text=raw, words=WORDS, answer_start_sec=2.0))
+    assert evaluation["segments"] == [
+        {"time_offset_sec": 0, "raw_text": "음, AP 응답을 캐시로 줄였습니다.", "corrected_text": "음, API 응답을 캐시로 줄였습니다."},
+        {"time_offset_sec": 7, "raw_text": "그 결과 빨라졌습니다.", "corrected_text": "그 결과 빨라졌습니다."},
+    ]
+    assert (evaluation["filler_count"], evaluation["silence_sec"], evaluation["response_delay_sec"], evaluation["duration_sec"]) == (1, 4.0, 0.5, 9)
+    assert "캐시를 왜 썼나요?" in llm.prompts[0]  # 질문을 문맥으로 준다
+
+
+def test_no_words_skips_llm(setup):
+    graph, tts, _ = setup
+    llm = FakeLlm()
+    graph = _build(InMemorySaver(), tts, llm)
+    builder.start_or_resume(graph, StartInterviewRequest(**BODY), tts)
+    evaluation, _ = builder.submit_answer(graph, 5, _answer("q11", 11, end_reason="timeout"))
+    assert evaluation == {"segments": [], "duration_sec": 0, "filler_count": 0, "silence_sec": 0, "response_delay_sec": 0.0}
+    assert llm.prompts == []
+
+
+class BrokenLlm:
+    def invoke(self, messages):
+        return AIMessage(content="형식이 아닌 출력")
+
+
+def test_correction_failure_keeps_raw_text(setup):
+    graph, tts, _ = setup
+    graph = _build(InMemorySaver(), tts, BrokenLlm())
+    builder.start_or_resume(graph, StartInterviewRequest(**BODY), tts)
+    evaluation, actions = builder.submit_answer(graph, 5, _answer("q11", 11, raw_text="AP 응답", words=WORDS[1:3]))
+    assert [s["corrected_text"] for s in evaluation["segments"]] == ["AP 응답을"]
+    assert actions[0]["question"]["qkey"] == "q12"  # 보정이 실패해도 면접은 이어진다
