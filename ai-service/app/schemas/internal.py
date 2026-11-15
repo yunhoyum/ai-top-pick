@@ -167,8 +167,8 @@ class AnswerEvaluation(BaseModel):  # → interview_answer (규약 2.3)
     response_delay_sec: Decimal
     main_expression: str | None = None  # 표정 분석이 실패하면 None → actions에 await_expression
     expression_ratio: dict[str, float] | None = None
-    content_score: Decimal
-    content_reason: str
+    content_score: Decimal | None  # 내용 채점이 끝까지 실패하면 None (답변 점수도 None)
+    content_reason: str | None
     speech_score: Decimal
     expression_score: Decimal | None = None  # 표정이 없으면 None
     answer_score: Decimal | None = None  # 표정 재분석을 기다리는 중이면 None (/expression이 준다)
@@ -190,5 +190,5 @@ class ExpressionRequest(BaseModel):  # 2.5
 
 class ExpressionResponse(BaseModel):
     expression_score: Decimal | None  # 재분석도 실패하면 None
-    answer_score: Decimal  # 표정이 None이면 내용·발화만으로 계산
+    answer_score: Decimal | None  # 표정이 None이면 내용·발화만으로 계산. 내용 채점이 실패했으면 None
     actions: list[Action]

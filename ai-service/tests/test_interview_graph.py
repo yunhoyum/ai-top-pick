@@ -67,13 +67,16 @@ CHUNK = Chunk(chunk_id=7, source_type="프로젝트 문서", source_id=3, seq=0,
 class Fakes:
     """검색·vision·내용 채점·질문 주제 판정 가짜. 받은 인자를 기록한다."""
 
-    def __init__(self, frames=None, vision_error=False):
+    def __init__(self, frames=None, vision_error=False, score_error=False, answer_search_error=False):
         self.searches, self.scored, self.topics = [], [], []
+        self.score_error, self.answer_search_error = score_error, answer_search_error
         self.frames = frames if frames is not None else [{"emotion": "neutral"}] * 8 + [{"emotion": "fear"}] * 2
         self.vision_error = vision_error
 
     def search(self, posting_id, texts):
         self.searches.append((posting_id, texts))
+        if self.answer_search_error and len(self.searches) > 1:  # 질문 검색은 되고 답변 검색만 실패
+            raise RuntimeError("embed down")
         return [CHUNK]
 
     def analyze(self, video_path):
@@ -87,6 +90,8 @@ class Fakes:
 
     def score_content(self, question, answer, question_context, answer_context, job, model=None, topic=None):
         self.scored.append({"answer": answer, "qc": question_context, "ac": answer_context, "job": job, "topic": topic})
+        if self.score_error:
+            raise RuntimeError("LLM 형식 오류")
         evidence = [EvidenceSentence("프로젝트 문서", 3, 7, "캐시로 응답을 줄였다.")]
         return ContentScore(Decimal("70.00"), "캐시 이유가 분명하다.", EvidenceStatus.FOUND, evidence, {})
 
@@ -357,3 +362,13 @@ def test_api_expression(api):
     api.post("/internal/interview/5/start", json=BODY, headers=H)
     r = api.post("/internal/interview/5/expression", json={"qkey": "q11", "answer_id": 1}, headers=H)
     assert r.status_code == 409
+
+
+@pytest.mark.parametrize("failure", ["score_error", "answer_search_error"])
+def test_content_scoring_failure_keeps_interview_going_without_answer_score(failure):
+    """내용 채점이 끝까지 실패하면 답변 점수 없이 다음 질문으로 간다 (AI Agent 설계서 2.4)."""
+    graph, _ = _scored_setup(**{failure: True})
+    evaluation, actions = builder.submit_answer(graph, 5, _scored_answer(video_path=VIDEO))
+    assert (evaluation["content_score"], evaluation["content_reason"], evaluation["answer_score"]) == (None, None, None)
+    assert (evaluation["speech_score"], evaluation["expression_score"]) == (Decimal("92.00"), Decimal("80.00"))
+    assert actions[0]["question"]["qkey"] == "q12"

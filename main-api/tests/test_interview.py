@@ -169,9 +169,9 @@ def fake_relay(monkeypatch):
 class FakeAi:
     """ai-service 가짜. 질문을 차례로 제시하고, 마지막 답변 뒤에 종료한다."""
 
-    def __init__(self, qids, fail_expression=False):
+    def __init__(self, qids, fail_expression=False, evaluation=None):
         self.qids, self.starts, self.answers, self.expressions = qids, [], [], []
-        self.fail_expression = fail_expression
+        self.fail_expression, self.evaluation = fail_expression, evaluation or EVALUATION
 
     def _present(self, i):
         q = self.qids[i]
@@ -188,7 +188,7 @@ class FakeAi:
         if self.fail_expression:
             return {"evaluation": FAILED_EXPRESSION,
                     "actions": [{"type": "await_expression", "question": self._present(i - 1)["question"]}]}
-        return {"evaluation": EVALUATION, "actions": self._next(i)}
+        return {"evaluation": self.evaluation, "actions": self._next(i)}
 
     def _next(self, i):
         return [self._present(i) if i < len(self.qids) else {"type": "end"}]
@@ -463,3 +463,15 @@ def test_expression_wait_times_out(monkeypatch, applicant, ready):
     with _socket(applicant, sid) as ws:
         _one_answer(ws, qids[0])
     assert fake.expressions[0]["main_expression"] is None
+
+
+def test_answer_without_content_score_is_saved(monkeypatch, applicant, ready):
+    """ai-service의 내용 채점이 끝까지 실패하면 내용 점수·답변 점수가 비어 온다. 그대로 저장하고 면접을 이어간다."""
+    aid, qids = ready
+    sid = _enter(applicant, aid).json()["session_id"]
+    failed = EVALUATION | {"content_score": None, "content_reason": None, "answer_score": None, "evidence": []}
+    monkeypatch.setattr(ws_interview, "get_ai_client", lambda: FakeAi(qids[:1], evaluation=failed))
+    with _socket(applicant, sid) as ws:
+        _one_answer(ws, qids[0])
+    row = _answer_row(sid)
+    assert (row[2], row[3], row[4], row[6]) == (None, None, 92, None)

@@ -95,11 +95,14 @@ def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
         return {"last_input": value, "actions": []}
 
     def _content(state: InterviewState, answer_text: str) -> tuple[ContentScore | None, list[dict]]:
-        """보정된 답변으로 회사 문서를 검색하고 내용 점수를 낸다. 답변이 없으면 (None, [])."""
-        if not answer_text:
-            return None, []
+        """보정된 답변으로 회사 문서를 검색하고 내용 점수를 낸다. 검색이나 채점이 끝까지 실패하면 (None, []).
+        이때는 답변 점수 없이 면접을 이어간다. 꼬리질문도 만들지 않는다 (AI Agent 설계서 2.4)."""
         current = state["current"]
-        answer_context = deps.search(state["posting_id"], [answer_text])
+        try:
+            answer_context = deps.search(state["posting_id"], [answer_text])
+        except Exception:
+            log.exception("질문 %s 답변 검색 실패. 내용 점수 없이 진행한다", current["qkey"])
+            return None, []
         future = _topics.pop((state["session_id"], current["qkey"]), None)
         topic = None
         if future is not None:
@@ -107,10 +110,14 @@ def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
                 topic = future.result()
             except Exception:
                 log.warning("질문 %s 주제 판정 실패. 채점 때 다시 판정한다", current["qkey"])
-        score = deps.score_content(
-            current["text"], answer_text, _chunks(state.get("question_context", [])), answer_context,
-            state["posting"]["job_description"], model=deps.model, topic=topic,
-        )
+        try:
+            score = deps.score_content(
+                current["text"], answer_text, _chunks(state.get("question_context", [])), answer_context,
+                state["posting"]["job_description"], model=deps.model, topic=topic,
+            )
+        except Exception:
+            log.exception("질문 %s 내용 채점 실패. 내용 점수 없이 진행한다", current["qkey"])
+            score = None
         return score, [asdict(c) for c in answer_context]
 
     def _expression(video_path: str | None) -> tuple[str | None, dict | None]:
@@ -132,7 +139,8 @@ def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
         with ThreadPoolExecutor(max_workers=1) as pool:
             expression = pool.submit(_expression, video_path)
             segments = correct_transcript(deps.model, state["current"]["text"], split_segments(words, start))
-            content, answer_context = _content(state, " ".join(s["corrected_text"] for s in segments))
+            answer_text = " ".join(s["corrected_text"] for s in segments)
+            content, answer_context = _content(state, answer_text) if answer_text else (None, [])
             main_expression, ratio = expression.result()
         filler_count = count_fillers(answer.get("raw_text", ""), fillers=deps.fillers)
         silence = calc_silence(words)
@@ -145,9 +153,9 @@ def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
             "response_delay_sec": delay,
             "main_expression": main_expression,
             "expression_ratio": ratio,
-            # 답변이 없으면 답변 내용 없음 0점 (루브릭 설계서 3.3)
-            "content_score": content.score if content else Decimal("0.00"),
-            "content_reason": content.reason if content else NO_CLAIM_NOTE,
+            # 답변이 없으면 답변 내용 없음 0점 (루브릭 설계서 3.3). 채점이 실패하면 None
+            "content_score": content.score if content else (None if answer_text else Decimal("0.00")),
+            "content_reason": content.reason if content else (None if answer_text else NO_CLAIM_NOTE),
             "speech_score": calc_speech_score(filler_count, silence, delay, bool(words)),
             "expression_score": None,
             "answer_score": None,
@@ -175,10 +183,11 @@ def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
         return {"last_evaluation": evaluation, "actions": []}
 
     def score_answer(state: InterviewState) -> dict:
-        """표정 점수와 답변 점수를 낸다 (SYS-007). 표정이 없으면 내용·발화 비율을 늘려 계산한다."""
+        """표정 점수와 답변 점수를 낸다 (SYS-007). 표정이 없으면 내용·발화 비율을 늘려 계산한다.
+        내용 채점이 실패했으면 답변 점수는 없다 (AI Agent 설계서 2.4)."""
         e = state["last_evaluation"]
         expression = calc_expression_score(e["expression_ratio"]) if e.get("expression_ratio") else None
-        answer = calc_answer_score(
+        answer = None if e["content_score"] is None else calc_answer_score(
             Decimal(str(e["content_score"])), expression, Decimal(str(e["speech_score"])), state["settings"]["ratios"]
         )
         return {"last_evaluation": e | {"expression_score": expression, "answer_score": answer}}
