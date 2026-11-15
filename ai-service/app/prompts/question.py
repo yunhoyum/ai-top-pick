@@ -8,11 +8,13 @@ v1: 첫 버전 (2026-11-13). EXAONE 평가 Q1-v1에서 15개 모두 첫 검증�
 v2: 겹침을 적절성 검증에서 떼어 확정 질문과 한 쌍씩 따로 묻는다 (check_overlap, 설계서 1.3 '성능이 낮으면 나눈다').
     Q2-v2에서 겹침 25번. 회사 업무 주제가 같거나 '문제 해결 능력'처럼 일반 역량이 같아도 겹친다고 봤다.
 v3: 겹침 기준을 좁힌다. 같은 기술 = 질문이 바탕으로 삼은 지원자의 경험·기술이 같음. 일반 역량은 같은 역량으로 보지 않는다.
+    Q3-v3(형식 코드 검사)에서 feedback을 줘도 길이·질문 수를 고치지 못해 직무 9개 중 6개가 fallback으로 갔다.
+v4: 생성이 based_on(서류 문장 그대로)과 question(한 문장)을 따로 낸다. 코드가 based_on이 서류에 있는지 본다.
 """
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
-VERSION = "v3"
+VERSION = "v4"
 
 SYSTEM = """너는 채용 면접에서 지원자에게 물을 질문을 만드는 면접관이다.
 - 주어진 자료만 보고 판단한다. 자료에 없는 사실을 지어내지 않는다.
@@ -61,13 +63,15 @@ def generate_job(query: str, chunks: list[str], job_description: str, functional
 [이미 확정된 질문]
 {_list(confirmed)}
 {_feedback(feedback)}
-지원자 서류에 쓴 경험을 회사 프로젝트 문서의 업무와 이어 묻는 직무 질문 하나를 만들어 JSON으로 출력하라.
-- 지원자가 실제로 한 일을 회사 업무에 어떻게 쓰거나 바꿀지, 왜 그렇게 했는지 묻는다.
+지원자 서류의 경험 하나를 회사 프로젝트 문서의 업무와 이어 묻는 직무 질문 하나를 만들어 JSON으로 출력하라.
+- based_on: [지원자 서류]에서 질문의 바탕이 된 문장 하나를 글자 그대로 옮긴다. 고치거나 줄이지 않는다.
+- question: based_on의 경험을 회사 업무에 어떻게 쓰거나 바꿀지 묻는 질문 한 문장. 물음표 하나로 끝난다.
+  - 경험을 설명하는 문장을 앞에 붙이지 않는다. 경험은 based_on이 보여 준다.
 {_FORM}
 {_OVERLAP}
   겹치지 않게 다른 기술이나 다른 역량을 묻는다.
 
-형식: {{"question": "..."}}"""
+형식: {{"based_on": "...", "question": "...?"}}"""
         ),
     ]
 
@@ -156,12 +160,14 @@ def generate_personality(essays: str, nonfunctional_talent: str, confirmed: list
 {_list(confirmed)}
 {_feedback(feedback)}
 비기능적 인재상 중 하나를 골라, 지원자가 그 태도를 보여 준 경험을 묻는 인성 질문 하나를 만들어 JSON으로 출력하라.
-- 자기소개서에 쓴 경험이 있으면 그 경험을 짚어 묻는다.
+- based_on: [지원자 자기소개서]에서 질문의 바탕이 된 문장 하나를 글자 그대로 옮긴다. 고치거나 줄이지 않는다.
+- question: based_on의 경험에서 그 태도를 어떻게 보였는지 묻는 질문 한 문장. 물음표 하나로 끝난다.
+  - 경험을 설명하는 문장을 앞에 붙이지 않는다. 경험은 based_on이 보여 준다.
 {_FORM}
 {_OVERLAP}
   겹치지 않게 다른 인재상이나 다른 역량을 묻는다.
 
-형식: {{"question": "..."}}"""
+형식: {{"based_on": "...", "question": "...?"}}"""
         ),
     ]
 

@@ -67,8 +67,15 @@ class SummaryOutput(BaseModel):
 
 
 class QuestionOutput(BaseModel):
-    """T-02·T-05·T-06·T-08 질문 하나."""
+    """T-05·T-08 fallback 질문 하나."""
 
+    question: str = Field(min_length=1)
+
+
+class GroundedQuestion(BaseModel):
+    """T-02·T-06 질문 하나와 그 바탕이 된 지원자 서류 문장 (프롬프트 v4). 코드가 문장이 서류에 있는지 확인한다."""
+
+    based_on: str = Field(min_length=1)
     question: str = Field(min_length=1)
 
 
