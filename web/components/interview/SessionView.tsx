@@ -5,6 +5,8 @@ import { useEffect, useRef, useState } from "react";
 import Badge from "@/components/common/Badge";
 import Button from "@/components/common/Button";
 import BrandLogo from "@/components/layout/BrandLogo";
+import { useAnswerRecorder } from "@/hooks/useAnswerRecorder";
+import { useMicStream } from "@/hooks/useMicStream";
 import { apiFetch } from "@/lib/api";
 import { connectInterview } from "@/lib/ws";
 import type { InterviewGuide, ServerMessage } from "@/types/interview";
@@ -24,11 +26,15 @@ function mmss(sec: number): string {
 
 // 화면 24 화상 면접 화면 (APP-016, SYS-011)
 // 질문을 받으면 글을 보여 주고 음성을 재생한다. 재생이 끝나면 서버에 알리고, 서버가 생각·답변 시간을 정한다
-// 실시간 면접 1단계: 답변 음성 중계·자막(Deepgram), 녹화·업로드, 기술 문의는 아직 없다
+// 답변 시간에는 음성을 서버로 보내 자막을 받고(Deepgram), 답변을 녹화해 끝나면 올린다
+// 기술 문의는 실시간 면접 5단계에서 연다
 export default function SessionView({ applicationId, sessionId }: { applicationId: number; sessionId: number }) {
   const router = useRouter();
   const wsRef = useRef<WebSocket | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const { start: startMic, stop: stopMic } = useMicStream(streamRef);
+  const { start: startRecording, stop: stopRecording } = useAnswerRecorder(streamRef);
   const [guide, setGuide] = useState<InterviewGuide | null>(null);
   const [question, setQuestion] = useState<Question | null>(null);
   const [asked, setAsked] = useState<Record<number, string>>({}); // 순번 → 이번 접속에서 받은 질문 글
@@ -37,23 +43,30 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
   const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState<string | null>(null);
   const [cameraOn, setCameraOn] = useState(false);
+  // 이번 답변의 자막. 확정 문장과 아직 바뀔 수 있는 중간 결과
+  const [finals, setFinals] = useState<string[]>([]);
+  const [interim, setInterim] = useState("");
 
   useEffect(() => {
     apiFetch<InterviewGuide>(`/api/applications/${applicationId}/interview/guide`).then(setGuide).catch(() => {});
   }, [applicationId]);
 
-  // 내 화면 (녹화는 2단계에서)
+  // 내 화면. 같은 스트림으로 녹화하고 음성을 보낸다
   useEffect(() => {
     let stream: MediaStream | null = null;
     navigator.mediaDevices
-      .getUserMedia({ video: true })
+      .getUserMedia({ video: true, audio: true })
       .then((s) => {
         stream = s;
+        streamRef.current = s;
         if (videoRef.current) videoRef.current.srcObject = s;
         setCameraOn(true);
       })
       .catch(() => setCameraOn(false));
-    return () => stream?.getTracks().forEach((t) => t.stop());
+    return () => {
+      streamRef.current = null;
+      stream?.getTracks().forEach((t) => t.stop());
+    };
   }, []);
 
   useEffect(() => {
@@ -62,6 +75,18 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
     let current: Question | null = null;
     let ended = false;
     const send = (msg: object) => ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify(msg));
+    // 답변이 끝나면 녹화를 멈추고 영상을 올린다. 서버는 영상이 올라올 때까지 기다렸다가 평가로 넘긴다
+    const finishAnswer = (questionId: number) => {
+      stopMic();
+      stopRecording().then((video) => {
+        if (!video) return;
+        const form = new FormData();
+        form.append("file", video, "answer.webm");
+        apiFetch(`/api/interview/sessions/${sessionId}/questions/${questionId}/video`, { method: "POST", body: form }).catch(
+          () => {},
+        );
+      });
+    };
 
     ws.onmessage = (ev) => {
       if (ev.data instanceof ArrayBuffer) {
@@ -85,12 +110,30 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
           setAsked((a) => ({ ...a, [msg.seq]: msg.text }));
           setPhase("audio");
           setEndsAt(null);
+          setFinals([]);
+          setInterim("");
           break;
         case "phase":
           setPhase(msg.phase);
           setEndsAt(msg.ends_at);
+          if (msg.phase === "answer") {
+            startMic(ws);
+            startRecording();
+          }
+          break;
+        case "transcript":
+          if (msg.is_final) {
+            setFinals((f) => [...f, msg.text]);
+            setInterim("");
+          } else {
+            setInterim(msg.text);
+          }
           break;
         case "answer_end":
+          finishAnswer(msg.question_id);
+          setPhase("evaluating");
+          setEndsAt(null);
+          break;
         case "evaluating":
           setPhase("evaluating");
           setEndsAt(null);
@@ -115,9 +158,11 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
       ended = true;
       ws.onclose = null;
       ws.onmessage = null;
+      stopMic();
+      stopRecording();
       ws.close();
     };
-  }, [applicationId, sessionId, router]);
+  }, [applicationId, sessionId, router, startMic, stopMic, startRecording, stopRecording]);
 
   // 남은 시간 표시
   useEffect(() => {
@@ -146,6 +191,13 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
         <BrandLogo />
         <span className={styles.barDivider} />
         <span className={styles.barTitle}>{guide?.position_name ?? ""} · AI 화상 면접</span>
+        {phase === "answer" && (
+          <span className={styles.rec}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/interview/rec-dot.svg" alt="" />
+            녹화 중
+          </span>
+        )}
         {/* 문의(챗봇)는 실시간 면접 5단계에서 연다 */}
         <Button type="button" variant="secondary" inline disabled title="준비 중입니다">
           기술 문의
@@ -225,10 +277,26 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
           <section className={`${styles.card} ${styles.transcript}`}>
             <div className={styles.cardHead}>
               <h2 className={styles.cardTitle}>실시간 답변 기록</h2>
+              {phase === "answer" && (
+                <span className={styles.live}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/interview/live-dot.svg" alt="" />
+                  음성 인식 중
+                </span>
+              )}
             </div>
             <p className={styles.smallNote}>말과 다르게 기록되는 부분은 LLM이 수정하여 저장됩니다.</p>
-            {/* 답변 음성 인식(Deepgram)은 실시간 면접 2단계에서 연다 */}
-            <p className={styles.smallNote}>답변 기록은 준비 중입니다.</p>
+            {finals.map((text, i) => (
+              <p key={i} className={styles.line}>
+                {text}
+              </p>
+            ))}
+            {interim && <p className={`${styles.line} ${styles.lineInterim}`}>{interim}</p>}
+            {!finals.length && !interim && (
+              <p className={styles.smallNote}>
+                {phase === "answer" ? "말씀하시면 여기에 기록됩니다." : "답변 시간이 시작되면 기록됩니다."}
+              </p>
+            )}
           </section>
 
           <section className={`${styles.card} ${styles.progress}`}>

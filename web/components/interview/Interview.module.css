@@ -481,6 +481,35 @@
   color: var(--gray-500);
 }
 
+.line {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--gray-50);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--gray-700);
+}
+
+/* 중간 인식 결과. 확정되면 바뀔 수 있다 */
+.lineInterim {
+  color: var(--gray-500);
+}
+
+.rec {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--red-600);
+}
+
+.rec img {
+  width: 8px;
+  height: 8px;
+}
+
 .progress {
   gap: 4px;
 }

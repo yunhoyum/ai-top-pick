@@ -25,6 +25,8 @@ export type ServerMessage =
   | { type: "connected"; session_id: number }
   | { type: "question"; question_id: number; seq: number; total: number; text: string; think_sec: number; answer_sec: number }
   | { type: "phase"; phase: "think" | "answer"; ends_at: string }
+  // 답변 음성 인식 결과 (Deepgram). is_final이 거짓이면 중간 결과라 바뀔 수 있다
+  | { type: "transcript"; text: string; is_final: boolean }
   | { type: "answer_end"; question_id: number; reason: "button" | "silence" | "timeout" }
   | { type: "evaluating"; question_id: number }
   | { type: "interview_end"; answered_count: number; ended_at: string }
