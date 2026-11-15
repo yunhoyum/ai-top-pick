@@ -49,12 +49,13 @@ def run_applicant(graph, posting: PostingBrief, documents: ApplicantDocuments, j
         cur["seconds"] = round(cur["seconds"] + now - last, 1)
         step = {"node": node, "seconds": round(now - last, 1)}
         update = update or {}
-        for key in ("question", "failure_type", "feedback", "retry_count", "query"):
+        for key in ("question", "based_on", "failure_type", "feedback", "retry_count", "query"):
             if key in update and node not in START_NODES:
                 step[key] = update[key]
         cur["steps"].append(step)
         if node == "append":
             cur["question"] = (update.get("job") or update.get("personality"))[-1]
+            cur["based_on"] = next((s["based_on"] for s in reversed(cur["steps"]) if s.get("based_on")), "")
             nodes = [s["node"] for s in cur["steps"]]
             cur["path"] = "template" if "template" in nodes else (
                 "fallback" if {"fallback", "fallback_personality"} & set(nodes) else "통과")
@@ -95,11 +96,12 @@ def main(posting_id: int, experiment: str, job_count: int, personality_count: in
     with review.open("w", encoding="utf-8-sig", newline="") as f:
         w = csv.writer(f)
         w.writerow(["지원자", "순번", "유형", "경로", "검증 횟수", "검색어(앞 80자)", "질문",
-                    "[판정] 적절 (맞음/애매/틀림)", "[판정] 같은 지원자의 다른 질문과 겹침 (예/아니오)", "[메모]"])
+                    "바탕 문장(based_on, 통과한 질문만)", "[판정] 적절 (맞음/애매/틀림)", "[판정] 같은 지원자의 다른 질문과 겹침 (예/아니오)", "[메모]"])
         for r in results:
             for i, q in enumerate(r["questions"], start=1):
                 w.writerow([r["applicant"], i, q["type"], q.get("path"), q.get("attempts"),
-                            (q.get("query") or "").replace("\n", " ")[:80], q.get("question"), "", "", ""])
+                            (q.get("query") or "").replace("\n", " ")[:80], q.get("question"),
+                            q.get("based_on", "") if q.get("path") == "통과" else "", "", "", ""])
     print(f"저장: {out.name}, {review.name}")
 
 
