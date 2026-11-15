@@ -9,8 +9,7 @@ from langchain_core.messages import AIMessage
 from app.api import questions
 from app.core.config import get_settings
 from app.graphs.question import (FIXED_QUESTION, MAX_QUESTION_CHARS, NOT_GROUNDED, build_queries, form_problem,
-                                 generate_questions, numbered, pick_sentence, same_base_overlap,
-                                 unused_essays)
+                                 generate_questions, numbered, pick_sentence, same_base_overlap)
 from app.main import app
 from app.schemas.internal import ApplicantDocuments, PostingBrief
 
@@ -236,33 +235,15 @@ def test_unknown_sentence_number_skips_writing_and_validation():
     assert NOT_GROUNDED in model.texts("pick")[1]
 
 
-def test_used_essay_paragraph_is_removed_from_the_next_list():
-    essays = [{"topic": "어려운 문제", "content": "결제 장애를 끝까지 추적했습니다. 원인을 숫자로 확인했습니다."},
-              {"topic": "협업", "content": "결정 이유를 문서로 남겼습니다."}]
-    # 인성 2개: 둘째를 고를 때는 첫째가 쓴 문장이 있는 단락('어려운 문제')이 통째로 빠진다
+def test_used_sentence_is_removed_from_the_next_list():
+    essays = [{"topic": "지원 동기", "content": "결제 장애를 끝까지 추적했습니다. 원인을 숫자로 확인했습니다."}]
+    # 인성 2개: 둘째를 고를 때는 첫째가 쓴 문장이 목록에 없어서 1번이 다른 문장이다
     model = FakeModel(generate=[_q("인성1"), _q("인성2")], validate=[PASS, PASS], overlap=[NO_OVERLAP])
     _, personality, _ = _run(model, job=0, personality=2, docs=_docs(essays=essays))
     assert personality == ["인성1", "인성2"]
     first, second = model.texts("pick")
-    assert "[어려운 문제]\n[1] 결제 장애를 끝까지 추적했습니다.\n[2] 원인을" in first  # 주제 줄에는 번호가 없다
-    assert "[협업]\n[1] 결정 이유를 문서로 남겼습니다." in second and "어려운 문제" not in second
-
-
-def test_only_paragraph_is_reused_with_used_sentence_removed():
-    essays = [{"topic": "어려운 문제", "content": "결제 장애를 끝까지 추적했습니다. 원인을 숫자로 확인했습니다."}]
-    # 단락이 하나뿐이면 빼지 않는다. 둘째는 같은 단락에서 쓰지 않은 문장을 고른다 (v10)
-    model = FakeModel(generate=[_q("인성1"), _q("인성2")], validate=[PASS, PASS], overlap=[NO_OVERLAP])
-    _, personality, _ = _run(model, job=0, personality=2, docs=_docs(essays=essays))
-    assert personality == ["인성1", "인성2"]
-    assert "[어려운 문제]\n[1] 원인을 숫자로 확인했습니다." in model.texts("pick")[1]
-
-
-def test_unused_essays():
-    docs = _docs(essays=[{"topic": "A", "content": "가는 갔다. 나는 났다."}, {"topic": "B", "content": "다는 달렸다."}])
-    assert unused_essays(docs, set()) == "[A]\n가는 갔다. 나는 났다.\n\n[B]\n다는 달렸다."
-    assert unused_essays(docs, {"나는 났다."}) == "[B]\n다는 달렸다."
-    # 모든 단락에 쓴 문장이 있으면 모두 돌려준다 (쓴 문장은 numbered가 뺀다)
-    assert unused_essays(docs, {"나는 났다.", "다는 달렸다."}) == "[A]\n가는 갔다. 나는 났다.\n\n[B]\n다는 달렸다."
+    assert "[지원 동기]\n[1] 결제 장애를 끝까지 추적했습니다.\n[2] 원인을" in first  # 주제 줄에는 번호가 없다
+    assert "[지원 동기]\n[1] 원인을 숫자로 확인했습니다." in second and "결제 장애를 끝까지" not in second
 
 
 def test_same_base_sentence_is_overlap_by_code():

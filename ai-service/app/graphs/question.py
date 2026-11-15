@@ -14,7 +14,6 @@ LLM 호출 실패(연결 오류, 형식 검증 실패)는 검증 실패와 같�
 생성은 두 호출이다 (평가 Q8): 문장마다 번호를 붙인 서류에서 바탕 문장 번호를 고르고(pick_base),
   고른 문장 하나만 보고 질문을 쓴다(write_job·write_personality). 이미 쓴 문장은 번호 목록에서 뺀다 (Q7).
   번호가 틀리면 쓰지 않고 question 실패, 같은 문장을 바탕으로 한 확정 질문이 있으면 LLM 없이 overlap 실패다.
-  인성은 이미 쓴 자기소개서 단락을 다른 단락이 남을 때만 통째로 뺀다 (Q9·v10, unused_essays).
 fallback 질문은 검증하지 않고 바로 확정한다 (2026-11-13 결정). 단, 이미 확정된 질문과 문장이 같으면 template으로 간다.
   인성 fallback은 입력이 비기능적 인재상뿐이라 같은 문장이 다시 나온다 (평가 Q2-v2에서 한 지원자에게 같은 질문 2개).
 검증은 두 단계다 (프롬프트 v2): 적절성을 먼저 보고, 통과하면 확정 질문과 한 쌍씩 겹침을 묻는다. 처음 겹친 쌍에서 멈춘다.
@@ -87,15 +86,6 @@ def same_base_overlap(state: "QuestionState") -> str | None:
         if b and base == b:
             return f"이미 확정된 질문 '{q}'가 같은 서류 문장을 바탕으로 한다. 다른 문장을 고른다."
     return None
-
-
-def unused_essays(documents: ApplicantDocuments, used: set[str]) -> str:
-    """확정 질문이 바탕으로 쓴 문장이 있는 자기소개서 단락(주제 하나)을 뺀 글. 한 이야기를 문장별로 쪼개
-    두 번 묻지 않게 한다 (평가 Q9). 남는 단락이 없으면 모든 단락을 돌려준다. 그때는 쓴 문장만 빠진다 (numbered).
-    Q9-v9에서 단락이 남지 않으면 실패로 두었더니 fallback으로 몰렸다 (v10)."""
-    paragraphs = [f"[{e['topic']}]\n{e['content']}" for e in documents.essays if (e.get("content") or "").strip()]
-    unused = [p for p in paragraphs if not used & set(split_sentences(p))]
-    return "\n\n".join(unused or paragraphs)
 
 
 def form_problem(question: str) -> str | None:
@@ -211,8 +201,6 @@ def build_question_graph(model: Runnable, search: Search):
         p = state["posting"]
         # 서류는 원래 항목을 보여 준다. 고친 검색어는 검색에만 쓴다 (바탕 문장을 서류에서 고르게)
         text, sentences = numbered(state["original_query"], set(state["confirmed_bases"]))
-        if not sentences:  # 고를 문장이 남지 않았다. LLM을 부르지 않는다
-            return {"question": None, "based_on": ""}
         try:
             base = pick_sentence(call(prompts.pick_base(text, state["confirmed"], state["feedback"], "직무"),
                                       BasePick).based_on, sentences)
@@ -271,11 +259,7 @@ def build_question_graph(model: Runnable, search: Search):
     def generate_personality(state: QuestionState) -> dict:
         base = ""
         if state["documents"].essays:  # 자기소개서가 없으면 고를 문장이 없다. 그때는 문장 없이 쓴다
-            used = set(state["confirmed_bases"])
-            # 이미 쓴 문장이 있는 단락은 다른 단락이 남을 때만 통째로 뺀다 (한 이야기를 쪼개 두 번 묻지 않게, Q9·v10)
-            text, sentences = numbered(unused_essays(state["documents"], used), used)
-            if not sentences:  # 고를 문장이 남지 않았다. LLM을 부르지 않는다
-                return {"question": None, "based_on": ""}
+            text, sentences = numbered(state["essays"], set(state["confirmed_bases"]))
             try:
                 base = pick_sentence(call(prompts.pick_base(text, state["confirmed"], state["feedback"], "인성"),
                                           BasePick).based_on, sentences)
