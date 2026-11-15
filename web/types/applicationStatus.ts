@@ -1,5 +1,6 @@
 // 내 지원 현황의 카드 한 장 (APP-012, APP-017)
 export type ApplicationStatusItem = {
+  application_id: number;
   posting_id: number;
   position_name: string | null;
   write_status: "임시 저장" | "제출";

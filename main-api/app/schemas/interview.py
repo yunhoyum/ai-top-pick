@@ -15,6 +15,7 @@ class InterviewGuide(BaseModel):
     answer_time_sec: int
     interview_start_at: datetime | None
     interview_end_at: datetime | None
+    interview_result_at: datetime | None  # 화면 25 '면접 합격자 발표 일시'
     # 기술적 테스트(화면 23)로 넘어갈 수 있는지. 아니면 reason에 이유를 준다
     can_enter: bool
     reason: str | None = None

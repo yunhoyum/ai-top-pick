@@ -115,8 +115,7 @@ function ResultBox({ a }: { a: ApplicationStatusItem }) {
           )}
         </p>
         {a.can_view_interview_guide && (
-          // 면접 안내 화면은 아직 없다
-          <Button type="button" inline onClick={() => router.push(`/postings/${a.posting_id}/interview`)}>
+          <Button type="button" inline onClick={() => router.push(`/interview/${a.application_id}/guide`)}>
             AI 면접 안내 보기
           </Button>
         )}

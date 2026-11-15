@@ -75,6 +75,7 @@ class InterviewService:
             answer_time_sec=posting.answer_time_sec or 0,
             interview_start_at=posting.interview_start_at,
             interview_end_at=posting.interview_end_at,
+            interview_result_at=posting.interview_result_at,
             can_enter=reason is None,
             reason=reason,
         )
