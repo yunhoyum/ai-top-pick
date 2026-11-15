@@ -1,6 +1,6 @@
 """면접 답변 내용 점수 테스트. LLM은 정해 둔 JSON을 차례로 돌려주는 가짜로 바꾼다.
 
-호출 순서: 답변 읽기 → 질문 주제 판정 → 주장마다 비교.
+호출 순서: 답변 읽기 → 질문 주제 판정 → 주장마다 비교 → 질문에 답했는지 (v14).
 기대 점수는 루브릭 설계서 3.5 예시와 같다 (적합성 90, 구체성 80).
 """
 
@@ -62,8 +62,12 @@ def _claim(level, ids):
     return {"level": level, "evidence_ids": ids}
 
 
-def _model(*judgments, claims=tuple(CLAIMS), in_docs=True):
-    return FakeModel(_read(claims), _topic(in_docs), *[_claim(lv, ids) for lv, ids in judgments])
+def _relevance(answered="답함"):
+    return {"question_asks": "결제 승인이 늦을 때 중복 결제를 막는 방법", "answered": answered}
+
+
+def _model(*judgments, claims=tuple(CLAIMS), in_docs=True, answered="답함"):
+    return FakeModel(_read(claims), _topic(in_docs), *[_claim(lv, ids) for lv, ids in judgments], _relevance(answered))
 
 
 class FakeEmbed:
@@ -116,7 +120,7 @@ def test_numbers_are_candidate_then_sentence_and_overlap_is_not_repeated():
 def test_read_call_sees_no_documents_and_comparison_calls_see_no_raw_answer():
     model = _model(("같음", ["1-1"]), ("같음", ["1-2"]))
     _score(model)
-    read, topic, claim1, claim2 = (call[-1].content for call in model.calls)
+    read, topic, claim1, claim2, _ = (call[-1].content for call in model.calls)
     # 답변 읽기는 회사 문서 없이 답변만 본다
     assert ANSWER in read and PG.content not in read and "[1-1]" not in read
     # 비교 호출은 원래 답변 대신 주장 하나만 본다
@@ -127,7 +131,7 @@ def test_read_call_sees_no_documents_and_comparison_calls_see_no_raw_answer():
 def test_comparison_calls_share_the_same_front_part():
     model = _model(("같음", ["1-1"]), ("같음", ["1-2"]))
     _score(model, question_context=(PG, DEPLOY))
-    systems = [call[0].content for call in model.calls[1:]]
+    systems = [call[0].content for call in model.calls[1:-1]]  # 마지막은 질문에 답했는지 (회사 문서 없음)
     # 앞부분이 글자 하나까지 같아야 Ollama가 계산을 다시 쓴다
     assert len(set(systems)) == 1
     # 회사 문서와 질문은 앞부분에 있다. 유사도가 높은 PG가 1번 후보다
@@ -151,10 +155,10 @@ def test_topic_judged_at_question_time_is_reused():
     question_context = [PG, DEPLOY]
     early = FakeModel(_topic(True))
     topic = judge_question_topic(QUESTION, question_context, model=early)
-    # 답변 뒤에는 질문 주제를 다시 묻지 않는다: 읽기 → 주장 1 → 주장 2
-    model = FakeModel(_read(), _claim("같음", ["1-1"]), _claim("같음", ["1-2"]))
+    # 답변 뒤에는 질문 주제를 다시 묻지 않는다: 읽기 → 주장 1 → 주장 2 → 질문에 답했는지
+    model = FakeModel(_read(), _claim("같음", ["1-1"]), _claim("같음", ["1-2"]), _relevance())
     result = score_content(QUESTION, ANSWER, question_context, [], JOB, model=model, embed=FakeEmbed(), topic=topic)
-    assert len(model.calls) == 3 and result.status == EvidenceStatus.FOUND
+    assert len(model.calls) == 4 and result.status == EvidenceStatus.FOUND
     # 질문을 낼 때의 앞부분과 답변 뒤 주장 비교의 앞부분이 같다 (캐시를 다시 쓰는 조건)
     assert early.calls[0][0].content == model.calls[1][0].content
 
@@ -246,17 +250,18 @@ def test_compared_claim_wins_over_topic_judgment():
     assert result.status == EvidenceStatus.FOUND and result.score == Decimal("90.00")
 
 
-def test_empty_question_context_needs_only_the_read_call():
-    model = FakeModel(_read())
+def test_empty_question_context_needs_only_the_read_and_relevance_calls():
+    model = FakeModel(_read(), _relevance())
     # 답변 검색 결과가 있어도 채점에는 쓰지 않는다 (루브릭 설계서 3.3)
     result = _score(model, question_context=(), answer_context=(PG,))
     assert result.status == EvidenceStatus.NO_QUESTION_DOC and result.score == Decimal("85.71")
-    assert len(model.calls) == 1
+    assert len(model.calls) == 2
     assert result.llm_output["topic"] is None and result.llm_output["read"]["relevance"] == 90
 
 
 def test_empty_claims_are_asked_once_more():
-    model = FakeModel(_read(claims=()), _read(claims=["타임아웃 후 확인 중으로 둔다"]), _topic(), _claim("같음", ["1-1"]))
+    model = FakeModel(_read(claims=()), _read(claims=["타임아웃 후 확인 중으로 둔다"]), _topic(), _claim("같음", ["1-1"]),
+                      _relevance())
     result = _score(model)
     assert result.status == EvidenceStatus.FOUND
     # 두 번째 읽기 요청에는 앞 출력과 다시 묻는 말이 붙는다
@@ -275,6 +280,38 @@ def test_empty_claims_score_zero_even_without_question_search():
     # ㉠보다 먼저 본다. 질문이 문서에 없어도 아무 말도 안 했으면 0점이다
     result = _score(FakeModel(_read(claims=()), _read(claims=())), question_context=())
     assert result.status == EvidenceStatus.NO_CLAIM and result.score == Decimal("0.00")
+
+
+# ---------- 질문에 답했는지 (v14, P16) ----------
+
+
+@pytest.mark.parametrize("answered, relevance, score", [
+    ("답함", 90, "90.00"),  # 상한 100: 그대로
+    ("일부", 60, "78.00"),  # 60 × 0.4 + 80 × 0.3 + 100 × 0.3
+    ("안 함", 20, "62.00"),  # 20 × 0.4 + 80 × 0.3 + 100 × 0.3. 말한 내용이 문서와 맞으면 일치 축은 남는다
+])
+def test_relevance_is_capped_by_whether_the_question_was_answered(answered, relevance, score):
+    result = _score(_model(("같음", ["1-1"]), ("같음", ["1-2"]), answered=answered))
+    assert result.llm_output["read"]["relevance"] == relevance and result.score == Decimal(score)
+    assert result.llm_output["relevance_check"]["read_relevance"] == 90
+    if answered == "답함":
+        assert "질문 적합성을" not in result.reason
+    else:
+        assert f"질문 적합성을 {relevance}점 이하로 채점했다." in result.reason
+
+
+def test_relevance_check_sees_question_and_answer_only_and_comes_last():
+    model = _model(("같음", ["1-1"]), ("같음", ["1-2"]))
+    _score(model)
+    last = model.calls[-1][-1].content
+    assert "[답했는가]" in last and ANSWER in last and QUESTION in last
+    assert "PG 승인 응답이" not in last and JOB not in last  # 회사 문서·직무 설명 없음
+
+
+def test_relevance_cap_applies_without_question_search_too():
+    result = _score(FakeModel(_read(), _relevance("안 함")), question_context=())
+    # ㉠: 20 × 4/7 + 80 × 3/7
+    assert result.status == EvidenceStatus.NO_QUESTION_DOC and result.score == Decimal("45.71")
 
 
 # ---------- 출력 형식 검증 ----------

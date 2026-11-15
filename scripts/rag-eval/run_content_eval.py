@@ -96,6 +96,8 @@ class TimedModel:
 
 
 def _call_kind(last_message: str) -> str:
+    if "[답했는가]" in last_message:
+        return "적합성"
     if "[지원자가 말한 것]" in last_message:
         return "주장"
     if "question_in_docs" in last_message:
@@ -177,7 +179,9 @@ def evaluate(posting_id: int) -> list[dict]:
         print(f"{r['id']:<3} {mark} 기대={r['expect']:<14} 결과={r['status']:<8} 점수={r['score']:>6} "
               f"근거 {sum(r['evidence_gold'])}/{len(r['evidence'])} 정답 (답변 뒤 {r['seconds']}s, 출제 때 {prepare_seconds}s)\n"
               f"      읽기: 적합 {read['relevance']} 구체 {read['specificity']} | "
-              f"주제: {topic['question_in_docs'] if topic else '문서 없음'}", flush=True)
+              f"주제: {topic['question_in_docs'] if topic else '문서 없음'}"
+              + (f" | 답했나: {r['llm']['relevance_check']['answered']} (읽기 적합 {r['llm']['relevance_check']['read_relevance']})"
+                 if r["llm"].get("relevance_check") else ""), flush=True)
         for i, claim in enumerate(read["claims"]):
             j = judged[i] if i < len(judged) else None
             print(f"         {i + 1}. {claim[:60]} → {j['level'] + ' ' + str(j['evidence_ids']) if j else '-'}", flush=True)
@@ -216,7 +220,7 @@ def report(rows: list[dict]) -> dict:
     print(f"채점 시간(답변 뒤 대기) 중앙 {statistics.median(r['seconds'] for r in rows):.1f}s")
     calls = [c for r in rows for c in r.get("calls", [])]
     by_kind = {}
-    for kind in ("출제 때 주제", "읽기", "주제", "주장", "재시도"):
+    for kind in ("출제 때 주제", "읽기", "주제", "주장", "적합성", "재시도"):
         seconds = [c["seconds"] for c in calls if c["kind"] == kind]
         if seconds:
             cached = [c["cached_tokens"] or 0 for c in calls if c["kind"] == kind]

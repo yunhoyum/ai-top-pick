@@ -16,6 +16,13 @@ class AnswerReadOutput(BaseModel):
     reason: str = Field(min_length=1)
 
 
+class RelevanceCheck(BaseModel):
+    """답변이 질문에 답했는지 (답변 읽기와 따로 묻는다, 프롬프트 v14)."""
+
+    question_asks: str = Field(min_length=1)  # 질문이 묻는 것 한 문장
+    answered: Literal["답함", "일부", "안 함"]
+
+
 class TopicOutput(BaseModel):
     """질문 주제가 회사 문서에 있는지 (주장 비교와 따로 묻는다)."""
 

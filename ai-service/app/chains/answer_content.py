@@ -26,7 +26,7 @@ from app.core.llm import get_chat_model
 from app.prompts import answer_content as prompts
 from app.rag.evidence import NumberedSentence, merge_contexts, number_sentences
 from app.rag.retriever import Chunk
-from app.schemas.llm_outputs import AnswerReadOutput, ClaimJudgment, TopicOutput
+from app.schemas.llm_outputs import AnswerReadOutput, ClaimJudgment, RelevanceCheck, TopicOutput
 
 # 일치 단계별 점수 (루브릭 설계서 3.2). '문서에 없음'은 ㉡이고 50을 넣는다
 DOC_MATCH_SCORES = {"같음": 100, "대부분 같음": 75, "일부만 같음": 25, "반대": 0}
@@ -34,6 +34,13 @@ NO_ANSWER_DOC_MATCH = 50
 # 주장 하나의 판정 점수. 주장들의 평균에 가장 가까운 일치 단계를 고른다.
 # 주장별 '일부만 같음'은 P13에서 맞던 '같음'까지 끌어내려 뺐다
 CLAIM_SCORES = {"같음": 100, "반대": 0}
+
+# 답변이 질문에 답했는지에 따른 적합성 상한 (P16, 루브릭 설계서 3.1 제안). 답변 읽기의 적합성이 이보다 크면 낮춘다
+RELEVANCE_CAPS = {"답함": 100, "일부": 60, "안 함": 20}
+RELEVANCE_CAP_NOTES = {
+    "일부": "질문의 일부에만 답한 답변이라 질문 적합성을 60점 이하로 채점했다.",
+    "안 함": "질문에 답하지 않은 답변이라 질문 적합성을 20점 이하로 채점했다.",
+}
 
 # 근거 상태를 저장하지 않으므로 점수 이유 끝에 처리 사실을 붙인다 (루브릭 설계서 3.3)
 NO_QUESTION_DOC_NOTE = "회사 문서에 관련 내용이 없는 질문이라 회사 문서 일치 축을 빼고 채점했다."
@@ -106,7 +113,8 @@ def score_content(
 
     # ㉠: 질문으로 찾은 문서가 없다. 회사 문서와 비교하지 않는다
     if not question_context:
-        return _without_doc_axis(read, {"read": read.model_dump(), "topic": None, "claims": []})
+        check, read = _check_relevance(model, question, answer, read)
+        return _without_doc_axis(read, {"read": read.model_dump(), "relevance_check": check, "topic": None, "claims": []})
 
     # 앞부분(시스템 메시지)은 질문 검색 문장만으로 만든다. 질문을 낼 때와 글자 하나 다르지 않아야 캐시를 다시 쓴다.
     # 답변으로만 찾은 문장은 번호를 이어 매겨 주장마다 뒤에 붙인다
@@ -120,8 +128,11 @@ def score_content(
     judgments = [
         invoke_structured(model, prompts.judge_claim(system, c, answer_sentences), ClaimJudgment) for c in read.claims
     ]
+    # 주장 비교 뒤에 묻는다. 주장 비교가 질문을 낼 때 데워 둔 Ollama 앞부분 계산을 바로 이어 쓰게 하기 위해서다 (P12)
+    check, read = _check_relevance(model, question, answer, read)
     llm_output = {
         "read": read.model_dump(),
+        "relevance_check": check,
         "topic": topic.model_dump(),
         "claims": [j.model_dump() for j in judgments],
     }
@@ -147,6 +158,19 @@ def score_content(
         score, f"{read.reason} {NO_ANSWER_DOC_NOTE}", EvidenceStatus.NO_ANSWER_DOC, [], llm_output,
         doc_match_level="문서에 없음",
     )
+
+
+def _check_relevance(
+    model: Runnable, question: str, answer: str, read: AnswerReadOutput
+) -> tuple[dict, AnswerReadOutput]:
+    """답변이 질문에 답했는지 따로 묻고, 적합성을 상한까지 낮춘다. (판정과 원래 적합성, 낮춘 읽기 결과)."""
+    out = invoke_structured(model, prompts.judge_relevance(question, answer), RelevanceCheck)
+    capped = min(read.relevance, RELEVANCE_CAPS[out.answered])
+    check = out.model_dump() | {"read_relevance": read.relevance, "relevance": capped}
+    if capped == read.relevance:
+        return check, read
+    # 답변 읽기의 이유는 낮추기 전 점수로 썼다. 낮춘 사실을 덧붙인다 (㉠·㉡ 문구와 같은 방식, 루브릭 설계서 3.3)
+    return check, read.model_copy(update={"relevance": capped, "reason": f"{read.reason} {RELEVANCE_CAP_NOTES[out.answered]}"})
 
 
 def _question_sentences(question_context: list[Chunk]) -> list[NumberedSentence]:
