@@ -84,3 +84,11 @@ class QuestionValidation(BaseModel):
     is_valid: bool
     failure_type: Literal["evidence", "question", "overlap"] | None = None
     feedback: str = ""
+
+
+class OverlapCheck(BaseModel):
+    """T-03·T-07의 배타성. 확정 질문 하나와 비교한 결과 (프롬프트 v2). 둘 중 하나라도 참이면 겹친다."""
+
+    same_skill: bool
+    same_competency: bool
+    reason: str = ""

@@ -11,6 +11,7 @@ template은 LLM 없이 만들어 실패하지 않는다. 그래서 질문 수는
 
 LLM 호출 실패(연결 오류, 형식 검증 실패)는 검증 실패와 같이 retry_count에 센다 (2026-11-13, 제안).
 fallback 질문은 검증하지 않고 바로 확정한다 (2026-11-13 결정).
+검증은 두 단계다 (프롬프트 v2): 적절성을 먼저 보고, 통과하면 확정 질문과 한 쌍씩 겹침을 묻는다. 처음 겹친 쌍에서 멈춘다.
 """
 
 import logging
@@ -24,7 +25,7 @@ from langgraph.graph import END, START, StateGraph
 from app.chains.structured import invoke_structured
 from app.prompts import question as prompts
 from app.schemas.internal import ApplicantDocuments, PostingBrief
-from app.schemas.llm_outputs import QueryOutput, QuestionOutput, QuestionValidation
+from app.schemas.llm_outputs import OverlapCheck, QueryOutput, QuestionOutput, QuestionValidation
 
 log = logging.getLogger(__name__)
 
@@ -102,6 +103,19 @@ def build_question_graph(model: Runnable, search: Search):
     def failed(state: QuestionState, failure_type: str, feedback: str) -> dict:
         return {"failure_type": failure_type, "feedback": feedback, "retry_count": state["retry_count"] + 1}
 
+    def check_overlap(state: QuestionState) -> dict:
+        """적절성을 통과한 질문을 확정 질문과 하나씩 비교한다. 겹치면 실패, 아니면 통과."""
+        for prev in state["confirmed"]:
+            try:
+                o = call(prompts.check_overlap(state["question"], prev), OverlapCheck)
+            except Exception as e:
+                log.warning("겹침 검사 실패: %s", e)
+                return failed(state, "question", "")
+            if o.same_skill or o.same_competency:
+                what = "같은 기술" if o.same_skill else "같은 역량"
+                return failed(state, "overlap", f"이미 확정된 질문 '{prev}'와 {what}을 묻는다. {o.reason}".strip())
+        return {"failure_type": None, "feedback": ""}
+
     # ---------- 질문 하나 시작 ----------
 
     def next_job(state: QuestionState) -> dict:
@@ -134,13 +148,14 @@ def build_question_graph(model: Runnable, search: Search):
         p = state["posting"]
         try:
             v = call(prompts.validate_job(state["question"], state["query"], state["chunks"], p.job_description,
-                                          p.functional_talent, state["confirmed"]), QuestionValidation)
+                                          p.functional_talent), QuestionValidation)
         except Exception as e:
             log.warning("직무 질문 검증 실패: %s", e)
             return failed(state, "question", "")
         if v.is_valid:
-            return {"failure_type": None, "feedback": ""}
-        return failed(state, v.failure_type or "question", v.feedback)
+            return check_overlap(state)
+        # 겹침은 check_overlap만 판정한다
+        return failed(state, "evidence" if v.failure_type == "evidence" else "question", v.feedback)
 
     def rewrite_query(state: QuestionState) -> dict:
         try:
@@ -171,15 +186,15 @@ def build_question_graph(model: Runnable, search: Search):
         if state["question"] is None:
             return failed(state, "question", "")
         try:
-            v = call(prompts.validate_personality(state["question"], state["essays"], state["posting"].nonfunctional_talent,
-                                                  state["confirmed"]), QuestionValidation)
+            v = call(prompts.validate_personality(state["question"], state["essays"], state["posting"].nonfunctional_talent),
+                     QuestionValidation)
         except Exception as e:
             log.warning("인성 질문 검증 실패: %s", e)
             return failed(state, "question", "")
         if v.is_valid:
-            return {"failure_type": None, "feedback": ""}
-        # 검색이 없으므로 evidence는 question으로 본다
-        return failed(state, "overlap" if v.failure_type == "overlap" else "question", v.feedback)
+            return check_overlap(state)
+        # 검색이 없으므로 evidence도 question으로 본다. 겹침은 check_overlap만 판정한다
+        return failed(state, "question", v.feedback)
 
     def fallback_personality(state: QuestionState) -> dict:
         try:

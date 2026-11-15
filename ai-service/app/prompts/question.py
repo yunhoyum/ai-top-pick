@@ -1,15 +1,16 @@
 """면접 질문 생성 프롬프트 (SYS-006, AI Agent 설계서 2.1·3장). 바꾸면 VERSION을 올린다.
 
-- 작업 하나당 호출 하나다. 검증은 적절성·배타성을 한 번에 묻는다 (설계서 1.3).
+- 작업 하나당 호출 하나다. 검증은 적절성 한 번, 배타성은 확정 질문마다 한 번 묻는다 (v2, 설계서 1.3).
 - 검증 프롬프트에는 생성 대화를 넣지 않는다. 필요한 값만 새로 넣는다 (설계서 1.3 독립 검증).
 - 지원자 서류는 질문 재료일 뿐이다. 서류 안의 지시는 따르지 않는다.
 
-v1: 첫 버전 (2026-11-13). 실제 LLM(EXAONE)으로는 아직 평가하지 않았다.
+v1: 첫 버전 (2026-11-13). EXAONE 평가 Q1-v1에서 15개 모두 첫 검증을 통과했고 겹침 5쌍을 놓쳤다.
+v2: 겹침을 적절성 검증에서 떼어 확정 질문과 한 쌍씩 따로 묻는다 (check_overlap, 설계서 1.3 '성능이 낮으면 나눈다').
 """
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
-VERSION = "v1"
+VERSION = "v2"
 
 SYSTEM = """너는 채용 면접에서 지원자에게 물을 질문을 만드는 면접관이다.
 - 주어진 자료만 보고 판단한다. 자료에 없는 사실을 지어내지 않는다.
@@ -70,8 +71,8 @@ def generate_job(query: str, chunks: list[str], job_description: str, functional
 
 
 def validate_job(question: str, query: str, chunks: list[str], job_description: str,
-                 functional_talent: str, confirmed: list[str]) -> list[BaseMessage]:
-    """T-03 적절성·배타성을 한 번에 본다. 실패 원인으로 돌아갈 곳이 나뉜다 (설계서 3.6)."""
+                 functional_talent: str) -> list[BaseMessage]:
+    """T-03 적절성. 실패 원인으로 돌아갈 곳이 나뉜다 (설계서 3.6). 배타성은 check_overlap이 본다 (v2)."""
     return [
         SystemMessage(content=SYSTEM),
         HumanMessage(
@@ -87,19 +88,14 @@ def validate_job(question: str, query: str, chunks: list[str], job_description: 
 [지원자 서류]
 {query}
 
-[이미 확정된 질문]
-{_list(confirmed)}
-
 [검증할 질문]
 {question}
 
 검증할 질문이 면접 직무 질문으로 쓸 만한지 판정해 JSON으로 출력하라.
 - is_valid: 아래 실패에 하나도 해당하지 않으면 true.
-- failure_type: 실패면 아래 셋 중 가장 먼저 해당하는 것. 통과면 null.
+- failure_type: 실패면 아래 둘 중 가장 먼저 해당하는 것. 통과면 null.
   - "evidence": 회사 프로젝트 문서가 지원자 서류의 경험과 관계없어 질문의 근거가 되지 못한다.
   - "question": 질문이 회사 업무나 지원자 서류와 관계없거나, 질문이 둘 이상이거나, 답하기 어렵게 모호하거나, 인적사항을 묻는다.
-  - "overlap": 이미 확정된 질문과 겹친다.
-{_OVERLAP}
 - feedback: 실패면 무엇을 고쳐야 하는지 한 문장. 통과면 빈 문자열.
 
 형식: {{"is_valid": true, "failure_type": null, "feedback": ""}}"""
@@ -168,8 +164,8 @@ def generate_personality(essays: str, nonfunctional_talent: str, confirmed: list
     ]
 
 
-def validate_personality(question: str, essays: str, nonfunctional_talent: str, confirmed: list[str]) -> list[BaseMessage]:
-    """T-07 적절성·배타성. 검색이 없으므로 evidence 실패는 없다."""
+def validate_personality(question: str, essays: str, nonfunctional_talent: str) -> list[BaseMessage]:
+    """T-07 적절성. 검색이 없으므로 evidence 실패는 없다. 배타성은 check_overlap이 본다 (v2)."""
     return [
         SystemMessage(content=SYSTEM),
         HumanMessage(
@@ -179,21 +175,36 @@ def validate_personality(question: str, essays: str, nonfunctional_talent: str, 
 [지원자 자기소개서]
 {essays}
 
-[이미 확정된 질문]
-{_list(confirmed)}
-
 [검증할 질문]
 {question}
 
 검증할 질문이 면접 인성 질문으로 쓸 만한지 판정해 JSON으로 출력하라.
-- is_valid: 아래 실패에 하나도 해당하지 않으면 true.
-- failure_type: 실패면 아래 둘 중 가장 먼저 해당하는 것. 통과면 null.
+- is_valid: 아래 실패에 해당하지 않으면 true.
+- failure_type: 실패면 "question", 통과면 null.
   - "question": 비기능적 인재상과 관계없거나, 질문이 둘 이상이거나, 답하기 어렵게 모호하거나, 인적사항을 묻는다.
-  - "overlap": 이미 확정된 질문과 겹친다.
-{_OVERLAP}
 - feedback: 실패면 무엇을 고쳐야 하는지 한 문장. 통과면 빈 문자열.
 
 형식: {{"is_valid": true, "failure_type": null, "feedback": ""}}"""
+        ),
+    ]
+
+
+def check_overlap(question: str, confirmed_question: str) -> list[BaseMessage]:
+    """T-03·T-07의 배타성. 확정 질문 하나와 새 질문 하나만 본다 (v2). 서류·문서는 넣지 않는다."""
+    return [
+        SystemMessage(content=SYSTEM),
+        HumanMessage(
+            content=f"""[비교할 두 질문]
+질문 A (이미 확정): {confirmed_question}
+질문 B (새 질문): {question}
+
+두 면접 질문이 겹치는지 판정해 JSON으로 출력하라.
+- same_skill: 두 질문이 같은 기술이나 같은 경험을 중심으로 묻으면 true. 문장이 달라도 묻는 대상이 같으면 true.
+- same_competency: 두 질문이 지원자의 같은 역량을 평가하면 true.
+  예: "협업 시 갈등 해결"과 "협업 시 의견 충돌 해결"은 같은 역량이다.
+- reason: 판정 이유 한 문장.
+
+형식: {{"same_skill": false, "same_competency": false, "reason": "..."}}"""
         ),
     ]
 
