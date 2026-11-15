@@ -54,15 +54,21 @@ _LABEL = re.compile(r"\[[^\]]+\]")  # 프롬프트 자료 표시가 새어 나�
 _NUMBER = re.compile(r"\d+")
 
 
-USED_MARK = " (이미 사용)"
+_TOPIC = re.compile(r"\[[^\]]+\]")  # 자기소개서 주제 줄 '[지원 동기]'
 
 
 def numbered(text: str, used: frozenset[str] | set[str] = frozenset()) -> tuple[str, list[str]]:
-    """서류를 문장으로 나눠 [1] [2] … 번호를 붙인다. (프롬프트에 넣을 글, 문장 목록).
-    확정 질문이 이미 바탕으로 쓴 문장에는 USED_MARK를 붙인다. feedback만으로는 같은 번호를 다시 골랐다 (평가 Q5)."""
-    sentences = split_sentences(text)
-    lines = [f"[{i}] {s}{USED_MARK if s in used else ''}" for i, s in enumerate(sentences, start=1)]
-    return "\n".join(lines) or "(없음)", sentences
+    """서류를 문장으로 나눠 고를 수 있는 문장에만 [1] [2] … 번호를 붙인다. (프롬프트에 넣을 글, 번호 순 문장 목록).
+    - 주제 줄은 번호 없이 맥락으로만 보인다. 주제 줄을 바탕으로 골랐다 (평가 Q6).
+    - 확정 질문이 이미 바탕으로 쓴 문장은 뺀다. 표시만 하면 같은 번호를 다시 골랐다 (평가 Q5·Q6)."""
+    lines, candidates = [], []
+    for s in split_sentences(text):
+        if _TOPIC.fullmatch(s):
+            lines.append(s)
+        elif s not in used:
+            candidates.append(s)
+            lines.append(f"[{len(candidates)}] {s}")
+    return ("\n".join(lines) if candidates else "(없음)"), candidates
 
 
 def pick_sentence(based_on: str | int, sentences: list[str]) -> str:
@@ -127,7 +133,8 @@ def build_queries(documents: ApplicantDocuments, count: int) -> list[str]:
     sources = [
         [c for c in documents.skill_cases if c.strip()],
         [documents.portfolio_text] if documents.portfolio_text and documents.portfolio_text.strip() else [],
-        [f"{e['topic']}\n{e['content']}" for e in documents.essays if (e.get("content") or "").strip()],
+        # 주제는 '[주제]' 줄로 둔다. 번호를 붙일 때 주제 줄을 문장으로 세지 않게 (numbered)
+        [f"[{e['topic']}]\n{e['content']}" for e in documents.essays if (e.get("content") or "").strip()],
     ]
     picked = [s[i] for i in range(max(map(len, sources))) for s in sources if i < len(s)]
     return list(islice(cycle(picked or [""]), count))

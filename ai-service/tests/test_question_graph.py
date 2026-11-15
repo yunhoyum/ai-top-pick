@@ -1,7 +1,6 @@
 """SYS-006 질문 생성 그래프 테스트. LLM은 작업 종류(생성·검증·검색어 수정)마다 정해 둔 출력을 차례로 내주는 가짜다."""
 
 import json
-import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,7 +9,7 @@ from langchain_core.messages import AIMessage
 from app.api import questions
 from app.core.config import get_settings
 from app.graphs.question import (FIXED_QUESTION, MAX_QUESTION_CHARS, NOT_GROUNDED, build_queries, form_problem,
-                                 generate_questions, numbered, pick_sentence)
+                                 generate_questions, numbered, pick_sentence, same_base_overlap)
 from app.main import app
 from app.schemas.internal import ApplicantDocuments, PostingBrief
 
@@ -90,7 +89,7 @@ def _run(model, job=1, personality=0, docs=None):
 
 def test_queries_alternate_sources_and_repeat_when_short():
     d = _docs()
-    essay = "지원 동기\n결제 장애를 끝까지 추적했습니다."
+    essay = "[지원 동기]\n결제 장애를 끝까지 추적했습니다."
     assert build_queries(d, 4) == [CASE_A, "포트폴리오 본문", essay, CASE_B]
     assert build_queries(d, 6) == [CASE_A, "포트폴리오 본문", essay, CASE_B, CASE_A, "포트폴리오 본문"]
     assert build_queries(_docs(portfolio_text=None, essays=[]), 3) == [CASE_A, CASE_B, CASE_A]
@@ -224,24 +223,30 @@ def test_unknown_sentence_number_skips_llm_validation_and_regenerates():
     assert NOT_GROUNDED in [t for k, t in model.calls if k == "generate"][1]
 
 
-def test_same_base_sentence_is_overlap_by_code_without_llm():
+def test_used_sentence_is_removed_from_the_next_list():
     essays = [{"topic": "지원 동기", "content": "결제 장애를 끝까지 추적했습니다. 원인을 숫자로 확인했습니다."}]
-    # 인성 2개: 둘째가 첫째와 같은 문장(1번)을 고르면 LLM 겹침 검사 없이 떨어지고, 2번을 고르면 통과한다
-    model = FakeModel(generate=[_q("인성1"), _q("인성2"), {"question": "인성3", "based_on": "2"}],
-                      validate=[PASS, PASS], overlap=[NO_OVERLAP])
+    # 인성 2개: 둘째를 만들 때는 첫째가 쓴 문장이 목록에 없어서 1번이 다른 문장이다
+    model = FakeModel(generate=[_q("인성1"), _q("인성2")], validate=[PASS, PASS], overlap=[NO_OVERLAP])
     _, personality, _ = _run(model, job=0, personality=2, docs=_docs(essays=essays))
-    assert personality == ["인성1", "인성3"]
-    assert [k for k, _ in model.calls] == ["generate", "validate", "generate", "generate", "validate", "overlap"]
-    generates = [t for k, t in model.calls if k == "generate"]
-    assert "같은 서류 문장을 바탕으로 한다" in generates[2]
-    # 둘째 인성 질문을 만들 때부터 첫째가 쓴 1번 문장에 표시가 붙는다
-    marked = re.compile(r"^\[\d+\] .*\(이미 사용\)$", re.M)
-    assert not marked.search(generates[0]) and re.search(r"^\[1\] .*\(이미 사용\)$", generates[1], re.M)
+    assert personality == ["인성1", "인성2"]
+    first, second = [t for k, t in model.calls if k == "generate"]
+    assert "[지원 동기]\n[1] 결제 장애를 끝까지 추적했습니다.\n[2] 원인을" in first  # 주제 줄에는 번호가 없다
+    assert "[지원 동기]\n[1] 원인을 숫자로 확인했습니다." in second and "결제 장애를 끝까지" not in second
 
 
-def test_used_sentences_are_marked():
-    text, _ = numbered("주문 API를 만들었습니다. 캐시로 응답을 줄였습니다.", {"주문 API를 만들었습니다."})
-    assert text == "[1] 주문 API를 만들었습니다. (이미 사용)\n[2] 캐시로 응답을 줄였습니다."
+def test_same_base_sentence_is_overlap_by_code():
+    # 목록에서 빼도 같은 문장이 서류 두 곳에 있으면 걸릴 수 있어 코드 판정을 안전장치로 둔다
+    state = {"based_on": "캐시를 썼습니다.", "confirmed": ["앞 질문"], "confirmed_bases": ["캐시를 썼습니다."]}
+    assert "같은 서류 문장" in same_base_overlap(state)
+    assert same_base_overlap(state | {"based_on": "다른 문장입니다."}) is None
+    assert same_base_overlap(state | {"based_on": "", "confirmed_bases": [""]}) is None  # fallback·template끼리는 아니다
+
+
+def test_numbered_skips_topic_lines_and_used_sentences():
+    text, sentences = numbered("[지원 동기]\n주문 API를 만들었습니다. 캐시로 응답을 줄였습니다.", {"주문 API를 만들었습니다."})
+    assert text == "[지원 동기]\n[1] 캐시로 응답을 줄였습니다."
+    assert sentences == ["캐시로 응답을 줄였습니다."]
+    assert numbered("[지원 동기]", set()) == ("(없음)", [])
 
 
 def test_generation_after_rewrite_still_shows_original_document():
