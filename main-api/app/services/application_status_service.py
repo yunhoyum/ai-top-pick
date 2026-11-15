@@ -75,6 +75,7 @@ class ApplicationStatusService:
                 )
             items.append(
                 ApplicationStatusItem(
+                    application_id=application.application_id,
                     posting_id=posting.posting_id,
                     position_name=posting.position_name,
                     write_status=application.write_status,

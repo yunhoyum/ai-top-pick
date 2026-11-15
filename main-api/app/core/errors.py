@@ -33,6 +33,8 @@ class ErrorCode(str, Enum):
     # 서류 합격자는 한 번만 확정한다. 면접 질문 생성이 이미 시작됐을 수 있다 (코드베이스 6.5)
     STAGE_ALREADY_CONFIRMED = "STAGE_ALREADY_CONFIRMED"
     PORTFOLIO_NOT_FOUND = "PORTFOLIO_NOT_FOUND"
+    # 면접에 들어갈 수 없다: 서류 불합격, 면접 기간 밖, 질문 준비 전, 장치 확인 실패, 이미 완료·중단 (코드베이스 6.6)
+    INTERVIEW_NOT_AVAILABLE = "INTERVIEW_NOT_AVAILABLE"
 
 
 class AppError(Exception):

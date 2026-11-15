@@ -73,6 +73,15 @@ def is_accepting_applications(s: _Schedule, now: datetime) -> bool:
     return s.doc_start_at is not None and s.doc_end_at is not None and s.doc_start_at <= now < s.doc_end_at
 
 
+def is_interview_open(s: _Schedule, now: datetime) -> bool:
+    """면접 시작 일시 이상, 마감 일시 미만일 때만 응시할 수 있다 (워크플로우 6-10, 코드베이스 4.2).
+    마감 시각 정각부터는 막는다. 지원서 접수(is_accepting_applications)와 내 지원 현황의 안내 버튼과 같은 기준이다."""
+    return (
+        s.interview_start_at is not None and s.interview_end_at is not None
+        and s.interview_start_at <= now < s.interview_end_at
+    )
+
+
 def can_edit_posting(posting) -> bool:
     """ADM-014~020 작성 상태가 '임시 저장'이거나 진행 상태가 '모집 전'이면 수정할 수 있다."""
     return (

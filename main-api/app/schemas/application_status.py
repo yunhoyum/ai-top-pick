@@ -6,6 +6,7 @@ from pydantic import BaseModel
 class ApplicationStatusItem(BaseModel):
     """화면 내 지원 현황의 카드 한 장 (APP-012, APP-017)"""
 
+    application_id: int
     posting_id: int
     position_name: str | None
     # '임시 저장'(작성 중)/'제출'

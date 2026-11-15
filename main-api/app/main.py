@@ -4,8 +4,8 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api import auth, postings
-from app.api.applicant import applications, my_applications
+from app.api import auth, postings, ws_interview
+from app.api.applicant import applications, interview, my_applications
 from app.api.admin import evaluation as admin_evaluation
 from app.api.admin import postings as admin_postings
 from app.core.config import get_settings
@@ -29,6 +29,8 @@ app.include_router(admin_evaluation.router)
 app.include_router(postings.router)
 app.include_router(applications.router)
 app.include_router(my_applications.router)
+app.include_router(interview.router)
+app.include_router(ws_interview.router)
 
 
 @app.get("/health")
