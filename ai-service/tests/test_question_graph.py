@@ -44,15 +44,20 @@ def _fail(kind, feedback="고쳐라"):
 class FakeModel:
     """작업 종류별 출력 줄. 받은 마지막 메시지를 (종류, 내용)으로 기록한다."""
 
-    def __init__(self, generate=(), validate=(), query=(), overlap=()):
+    def __init__(self, generate=(), validate=(), query=(), overlap=(), pick=()):
         self.queues = {k: [o if isinstance(o, str) else json.dumps(o, ensure_ascii=False) for o in v]
-                       for k, v in {"generate": generate, "validate": validate, "query": query, "overlap": overlap}.items()}
+                       for k, v in {"generate": generate, "validate": validate, "query": query, "overlap": overlap,
+                                    "pick": pick}.items()}
         self.calls = []
 
     def invoke(self, messages):
         text = messages[-1].content
         if "형식에 맞지 않습니다" in text:  # invoke_structured의 다시 묻기는 원래 작업과 같다
             kind = self.calls[-1][0]
+        elif "바탕이 될 문장 하나를" in text:
+            # 바탕 문장 고르기. 정해 둔 출력이 없으면 1번을 고른다
+            self.calls.append(("pick", text))
+            return AIMessage(content=self.queues["pick"].pop(0) if self.queues["pick"] else '{"based_on": "1"}')
         elif "[비교할 두 질문]" in text:
             kind = "overlap"
         elif "[검증할 질문]" in text:
@@ -62,11 +67,14 @@ class FakeModel:
         else:
             kind = "generate"
         self.calls.append((kind, text))
-        out = self.queues[kind].pop(0)
-        if kind == "generate" and "based_on:" in text and out.startswith("{") and "based_on" not in out:
-            # 생성 출력에 based_on이 없으면 서류의 첫 문장 번호를 고른 것으로 한다
-            out = json.dumps(json.loads(out) | {"based_on": "1"}, ensure_ascii=False)
-        return AIMessage(content=out)
+        return AIMessage(content=self.queues[kind].pop(0))
+
+    def kinds(self):
+        """고르기를 뺀 호출 종류 순서."""
+        return [k for k, _ in self.calls if k != "pick"]
+
+    def texts(self, kind):
+        return [t for k, t in self.calls if k == kind]
 
 
 class FakeSearch:
@@ -144,7 +152,7 @@ def test_overlap_is_checked_pair_by_pair_after_validation_and_regenerates():
     job, _, search = _run(model, job=2)
     assert job == ["직무1", "직무2"]
     # 첫 질문은 확정 질문이 없어 겹침을 묻지 않는다. 겹친 뒤에는 검색하지 않고 다시 만든다
-    assert [k for k, _ in model.calls] == ["generate", "validate", "generate", "validate", "overlap",
+    assert model.kinds() == ["generate", "validate", "generate", "validate", "overlap",
                                          "generate", "validate", "overlap"]
     assert search.queries == [CASE_A, "포트폴리오 본문"]
     overlap_prompt = [t for k, t in model.calls if k == "overlap"][0]
@@ -197,7 +205,7 @@ def test_form_failure_skips_llm_validation_and_regenerates_with_reason():
     model = FakeModel(generate=[_q("왜 쓰셨나요? 결과는요?"), _q("왜 쓰셨나요?")], validate=[PASS])
     job, _, _ = _run(model)
     assert job == ["왜 쓰셨나요?"]
-    assert [k for k, _ in model.calls] == ["generate", "generate", "validate"]  # 첫 질문은 LLM 검증 없이 떨어진다
+    assert model.kinds() == ["generate", "generate", "validate"]  # 첫 질문은 LLM 검증 없이 떨어진다
     assert "질문이 둘 이상이다" in [t for k, t in model.calls if k == "generate"][1]
 
 
@@ -209,27 +217,31 @@ def test_numbered_and_pick_sentence():
     assert pick_sentence("3", sentences) == pick_sentence("없음", sentences) == ""
 
 
-def test_job_prompt_shows_numbered_document():
-    model = FakeModel(generate=[_q("q")], validate=[PASS])
-    _run(model)
-    assert f"[지원자 서류]\n[1] {CASE_A}\n" in [t for k, t in model.calls if k == "generate"][0]
+def test_pick_sees_numbered_document_and_write_sees_only_the_picked_sentence():
+    docs = _docs(skill_cases=["[Java] 주문 API를 만들었습니다. 응답을 캐시로 줄였습니다."])
+    model = FakeModel(generate=[_q("q?")], validate=[PASS], pick=[{"based_on": "2"}])
+    job, _, _ = _run(model, docs=docs)
+    assert job == ["q?"]
+    assert "[지원자 서류]\n[1] [Java] 주문 API를 만들었습니다.\n[2] 응답을 캐시로 줄였습니다." in model.texts("pick")[0]
+    write = model.texts("generate")[0]
+    assert "[지원자 경험]\n응답을 캐시로 줄였습니다.\n" in write and "주문 API를 만들었습니다" not in write
 
 
-def test_unknown_sentence_number_skips_llm_validation_and_regenerates():
-    model = FakeModel(generate=[{"question": "왜 쓰셨나요?", "based_on": "9"}, _q("왜 쓰셨나요?")], validate=[PASS])
+def test_unknown_sentence_number_skips_writing_and_validation():
+    model = FakeModel(generate=[_q("왜 쓰셨나요?")], validate=[PASS], pick=[{"based_on": "9"}])
     job, _, _ = _run(model)
     assert job == ["왜 쓰셨나요?"]
-    assert [k for k, _ in model.calls] == ["generate", "generate", "validate"]
-    assert NOT_GROUNDED in [t for k, t in model.calls if k == "generate"][1]
+    assert [k for k, _ in model.calls] == ["pick", "pick", "generate", "validate"]  # 틀린 번호면 쓰지 않는다
+    assert NOT_GROUNDED in model.texts("pick")[1]
 
 
 def test_used_sentence_is_removed_from_the_next_list():
     essays = [{"topic": "지원 동기", "content": "결제 장애를 끝까지 추적했습니다. 원인을 숫자로 확인했습니다."}]
-    # 인성 2개: 둘째를 만들 때는 첫째가 쓴 문장이 목록에 없어서 1번이 다른 문장이다
+    # 인성 2개: 둘째를 고를 때는 첫째가 쓴 문장이 목록에 없어서 1번이 다른 문장이다
     model = FakeModel(generate=[_q("인성1"), _q("인성2")], validate=[PASS, PASS], overlap=[NO_OVERLAP])
     _, personality, _ = _run(model, job=0, personality=2, docs=_docs(essays=essays))
     assert personality == ["인성1", "인성2"]
-    first, second = [t for k, t in model.calls if k == "generate"]
+    first, second = model.texts("pick")
     assert "[지원 동기]\n[1] 결제 장애를 끝까지 추적했습니다.\n[2] 원인을" in first  # 주제 줄에는 번호가 없다
     assert "[지원 동기]\n[1] 원인을 숫자로 확인했습니다." in second and "결제 장애를 끝까지" not in second
 
@@ -253,7 +265,7 @@ def test_generation_after_rewrite_still_shows_original_document():
     model = FakeModel(generate=[_q("첫 질문"), _q("새 질문")], validate=[_fail("evidence"), PASS],
                       query=[{"query": "주문 API 캐시"}])
     _run(model)
-    second = [t for k, t in model.calls if k == "generate"][1]
+    second = model.texts("pick")[1]
     assert f"[지원자 서류]\n[1] {CASE_A}\n\n" in second  # 검색은 고친 검색어로, 서류는 원래 항목으로
 
 

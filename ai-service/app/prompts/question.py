@@ -16,11 +16,14 @@ v5: 서류 문장에 번호를 붙이고 based_on은 번호만 고르게 한다 
 v6: 확정 질문이 이미 쓴 문장에 '(이미 사용)'을 붙이고 고르지 않게 한다.
     Q6-v6에서 인성 5번 fallback 3 → 2. 표시된 문장을 다시 골랐고, 자기소개서 주제 줄을 바탕으로 골랐다.
 v7: 이미 쓴 문장은 번호 목록에서 빼고, 주제 줄은 번호 없이 보인다 (코드만 바꿈. 지시문에서 '(이미 사용)'을 뺐다).
+    Q7-v7에서 15개 모두 통과, fallback 0. 고른 문장과 질문이 따로 놀았다 (지원 동기 문장을 고르고 다른 경험을 물음).
+v8: 생성을 두 호출로 나눈다. pick_base가 번호만 고르고, write_job·write_personality는 고른 문장 하나만 보고 쓴다
+    (설계서 1.3 '작업 하나당 호출 하나').
 """
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
-VERSION = "v7"
+VERSION = "v8"
 
 SYSTEM = """너는 채용 면접에서 지원자에게 물을 질문을 만드는 면접관이다.
 - 주어진 자료만 보고 판단한다. 자료에 없는 사실을 지어내지 않는다.
@@ -48,9 +51,32 @@ def _feedback(feedback: str) -> str:
     return f"\n[앞 질문이 검증에서 떨어진 이유]\n{feedback}\n이 이유를 고친 새 질문을 만든다.\n" if feedback else ""
 
 
-def generate_job(numbered_document: str, chunks: list[str], job_description: str, functional_talent: str,
-                 confirmed: list[str], feedback: str) -> list[BaseMessage]:
-    """T-02 직무 질문. 검색된 회사 프로젝트 문서와 지원자 서류를 잇는다. 서류는 문장마다 [번호]를 붙여 받는다."""
+def pick_base(numbered_document: str, confirmed: list[str], feedback: str, kind: str) -> list[BaseMessage]:
+    """T-02·T-06 앞 단계 (v8). 질문의 바탕이 될 서류 문장 번호만 고른다. kind: '직무' 또는 '인성'."""
+    what = ("지원자가 실제로 한 일(문제, 쓴 방법, 내린 결정)이 드러난 문장" if kind == "직무"
+            else "지원자가 실제로 겪은 일과 그때의 태도가 드러난 문장")
+    return [
+        SystemMessage(content=SYSTEM),
+        HumanMessage(
+            content=f"""[지원자 서류]
+{numbered_document}
+
+[이미 확정된 질문]
+{_list(confirmed)}
+{_feedback(feedback)}
+면접 {kind} 질문의 바탕이 될 문장 하나를 [지원자 서류]에서 골라 번호를 JSON으로 출력하라.
+- {what}을 고른다. 지원 동기, 다짐, 자기 자랑만 있는 문장은 고르지 않는다.
+- 이미 확정된 질문이 다룬 경험과 다른 경험의 문장을 고른다.
+- 번호만 쓴다.
+
+형식: {{"based_on": "3"}}"""
+        ),
+    ]
+
+
+def write_job(sentence: str, chunks: list[str], job_description: str, functional_talent: str,
+              confirmed: list[str], feedback: str) -> list[BaseMessage]:
+    """T-02 뒤 단계 (v8). 고른 서류 문장 하나와 회사 프로젝트 문서만 보고 직무 질문을 쓴다."""
     return [
         SystemMessage(content=SYSTEM),
         HumanMessage(
@@ -63,21 +89,20 @@ def generate_job(numbered_document: str, chunks: list[str], job_description: str
 [회사 프로젝트 문서]
 {_chunks(chunks)}
 
-[지원자 서류]
-{numbered_document}
+[지원자 경험]
+{sentence}
 
 [이미 확정된 질문]
 {_list(confirmed)}
 {_feedback(feedback)}
-지원자 서류의 경험 하나를 회사 프로젝트 문서의 업무와 이어 묻는 직무 질문 하나를 만들어 JSON으로 출력하라.
-- based_on: [지원자 서류]에서 질문의 바탕이 된 문장의 번호 하나. 지원자가 실제로 한 일이 드러난 문장을 고른다. 번호만 쓴다.
-- question: based_on의 경험을 회사 업무에 어떻게 쓰거나 바꿀지 묻는 질문 한 문장. 물음표 하나로 끝난다.
-  - 경험을 설명하는 문장을 앞에 붙이지 않는다. 경험은 based_on이 보여 준다.
+[지원자 경험]을 회사 프로젝트 문서의 업무와 이어 묻는 직무 질문 하나를 만들어 JSON으로 출력하라.
+- [지원자 경험]에 쓰인 일만 짚는다. 그 문장에 없는 다른 경험을 끌어오지 않는다.
+- 그 경험을 회사 업무에 어떻게 쓰거나 바꿀지 묻는 질문 한 문장. 물음표 하나로 끝난다.
+- 경험을 설명하는 문장을 앞에 붙이지 않는다.
 {_FORM}
 {_OVERLAP}
-  겹치지 않게 다른 기술이나 다른 역량을 묻는다.
 
-형식: {{"based_on": "3", "question": "...?"}}"""
+형식: {{"question": "...?"}}"""
         ),
     ]
 
@@ -151,30 +176,30 @@ def fallback_job(original_query: str) -> list[BaseMessage]:
     ]
 
 
-def generate_personality(numbered_essays: str, nonfunctional_talent: str, confirmed: list[str],
-                         feedback: str) -> list[BaseMessage]:
-    """T-06 인성 질문. 회사 문서를 검색하지 않는다 (설계서 3.10). 자기소개서는 문장마다 [번호]를 붙여 받는다."""
+def write_personality(sentence: str, nonfunctional_talent: str, confirmed: list[str],
+                      feedback: str) -> list[BaseMessage]:
+    """T-06 뒤 단계 (v8). 회사 문서를 검색하지 않는다 (설계서 3.10). 고른 자기소개서 문장 하나만 본다."""
     return [
         SystemMessage(content=SYSTEM),
         HumanMessage(
             content=f"""[비기능적 인재상]
 {nonfunctional_talent}
 
-[지원자 자기소개서]
-{numbered_essays}
+[지원자 경험]
+{sentence}
 
 [이미 확정된 질문]
 {_list(confirmed)}
 {_feedback(feedback)}
-비기능적 인재상 중 하나를 골라, 지원자가 그 태도를 보여 준 경험을 묻는 인성 질문 하나를 만들어 JSON으로 출력하라.
-- based_on: [지원자 자기소개서]에서 질문의 바탕이 된 문장의 번호 하나. 지원자가 실제로 겪은 일이 드러난 문장을 고른다. 번호만 쓴다.
-- question: based_on의 경험에서 그 태도를 어떻게 보였는지 묻는 질문 한 문장. 물음표 하나로 끝난다.
-  - 경험을 설명하는 문장을 앞에 붙이지 않는다. 경험은 based_on이 보여 준다.
+비기능적 인재상 중 [지원자 경험]과 맞는 하나를 골라, 그 경험에서 지원자가 그 태도를 어떻게 보였는지 묻는
+인성 질문 하나를 만들어 JSON으로 출력하라.
+- [지원자 경험]에 쓰인 일만 짚는다. 그 문장에 없는 다른 경험을 끌어오지 않는다.
+- 질문 한 문장. 물음표 하나로 끝난다. 경험을 설명하는 문장을 앞에 붙이지 않는다.
 {_FORM}
 {_OVERLAP}
   겹치지 않게 다른 인재상이나 다른 역량을 묻는다.
 
-형식: {{"based_on": "3", "question": "...?"}}"""
+형식: {{"question": "...?"}}"""
         ),
     ]
 

@@ -67,16 +67,15 @@ class SummaryOutput(BaseModel):
 
 
 class QuestionOutput(BaseModel):
-    """T-05·T-08 fallback 질문 하나."""
+    """T-02·T-06 뒤 단계(질문 쓰기)와 T-05·T-08 fallback의 질문 하나."""
 
     question: str = Field(min_length=1)
 
 
-class GroundedQuestion(BaseModel):
-    """T-02·T-06 질문 하나와 그 바탕이 된 지원자 서류 문장 번호 (프롬프트 v5). 코드가 번호를 확인하고 원문을 꺼낸다."""
+class BasePick(BaseModel):
+    """T-02·T-06 앞 단계. 바탕이 될 지원자 서류 문장 번호 (프롬프트 v8). 코드가 번호를 확인하고 원문을 꺼낸다."""
 
     based_on: str | int
-    question: str = Field(min_length=1)
 
 
 class QueryOutput(BaseModel):
