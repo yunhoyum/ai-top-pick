@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domain.enums import SessionStatus, ValidStatus
 from app.models.interview import InterviewAnswer, InterviewQuestion, InterviewSession, SttRecord
 from app.models.posting import CompanyQuestion
+from app.models.report import EvidenceSentence
 
 
 class InterviewRepo:
@@ -64,4 +65,20 @@ class InterviewRepo:
             SttRecord(answer_id=answer_id, time_offset_sec=seg["time_offset_sec"],
                       raw_text=seg["raw_text"], corrected_text=seg["corrected_text"])
             for seg in segments
+        )
+
+    async def insert_evidence(self, answer_id: int, evidence: list[dict]) -> None:
+        """답변 내용 점수의 근거 문장 사본 (벡터 DB 설계서 8.4). 순번은 1부터."""
+        self.db.add_all(
+            EvidenceSentence(answer_id=answer_id, seq=i, source_type=e["source_type"], source_id=e.get("source_id"),
+                             chunk_id=e.get("chunk_id"), sentence=e["sentence"])
+            for i, e in enumerate(evidence, start=1)
+        )
+
+    async def get_valid_answer(self, session_id: int, question_id: int) -> InterviewAnswer | None:
+        return await self.db.scalar(
+            select(InterviewAnswer).where(
+                InterviewAnswer.session_id == session_id, InterviewAnswer.question_id == question_id,
+                InterviewAnswer.answer_status == ValidStatus.VALID.value,
+            )
         )

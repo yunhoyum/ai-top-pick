@@ -3,8 +3,9 @@
 흐름:
   인증 → 응시 확인 → ai-service /start → [질문 + 음성 전송 → 음성 종료 → 생각 시간 → 답변 시간
   (브라우저 음성 → Deepgram → 자막) → '답변 완료'·무발화·시간 종료 → 영상 업로드 대기
-  → ai-service /answer → 답변·STT 저장] 반복 → 종료(응시 '완료')
-표정 재처리는 3단계, 문의는 5단계에서 넣는다.
+  → ai-service /answer → 답변·STT·점수 저장 → (표정 실패면) 표정 재분석 대기 → ai-service /expression] 반복
+  → 종료(응시 '완료')
+문의는 5단계에서 넣는다.
 연결이 끊기면 응시는 '진행 중'으로 둔다. 다시 연결하면 같은 체크포인트로 이어간다 (아키텍처 9.3).
 """
 
@@ -111,13 +112,15 @@ class InterviewSocketHandler:
 
     async def handle_actions(self, actions: list[dict]) -> list[dict]:
         """ai-service가 준 행동을 반영한다. 다음에 처리할 행동을 돌려준다. 끝났으면 빈 목록.
-        1단계 행동은 present(질문 제시)와 end(종료)다. remove·invalidate·suspend·await_expression은 뒤 단계에서."""
+        행동은 present(질문 제시), await_expression(표정 재분석), end(종료)다. remove·invalidate·suspend는 4·5단계에서."""
         next_actions: list[dict] = []
         for action in actions:
             if action["type"] == "present":
                 next_actions = await self.present(action)
                 if next_actions is None:  # 연결이 끊겼다
                     return []
+            elif action["type"] == "await_expression":
+                next_actions = await self.rescore_with_expression(action["question"])
             elif action["type"] == "end":
                 await self.end()
                 return []
@@ -156,6 +159,23 @@ class InterviewSocketHandler:
         })
         async with AsyncSessionLocal() as db:
             await InterviewService(db).persist_answer(self.session_id, qid, video_path, resp["evaluation"])
+        return resp["actions"]
+
+    async def rescore_with_expression(self, question: dict) -> list[dict]:
+        """표정 분석이 실패한 답변을 worker가 다시 분석하게 하고, 끝나면 그 표정으로 답변 점수를 받는다 (아키텍처 8).
+        재분석도 실패하거나 EXPRESSION_WAIT_SEC를 넘기면 표정 없이 보낸다. 지원자는 이 동안 다음 질문을 기다린다."""
+        async with AsyncSessionLocal() as db:
+            service = InterviewService(db)
+            requested = await service.request_expression_reprocess(self.session_id, question["question_id"])
+            if requested is None:
+                raise RuntimeError(f"질문 {question['question_id']}의 저장된 답변이 없습니다")
+            job_id, answer_id = requested
+            answer = await service.wait_expression(job_id, answer_id, get_settings().EXPRESSION_WAIT_SEC)
+            resp = await self.ai.submit_expression(self.session_id, {
+                "qkey": question["qkey"], "answer_id": answer_id, "bindings": [],
+                "main_expression": answer.main_expression, "expression_ratio": answer.expression_ratio,
+            })
+            await service.save_expression_result(answer_id, resp["expression_score"], resp["answer_score"])
         return resp["actions"]
 
     async def open_relay(self) -> None:

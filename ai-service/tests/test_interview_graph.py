@@ -321,7 +321,7 @@ def test_without_video_expression_is_left_out_of_answer_score():
 def test_failed_expression_waits_for_reanalysis_then_scores():
     graph, _ = _scored_setup(vision_error=True)
     evaluation, actions = builder.submit_answer(graph, 5, _scored_answer(video_path=VIDEO))
-    assert actions == [{"type": "await_expression"}]
+    assert [a["type"] for a in actions] == ["await_expression"] and actions[0]["question"]["qkey"] == "q11"
     assert (evaluation["content_score"], evaluation["answer_score"]) == (Decimal("70.00"), None)
     with pytest.raises(builder.NotWaitingError):
         builder.submit_answer(graph, 5, _answer("q12", 12))  # 표정을 기다리는 동안 다음 답변은 받지 않는다
@@ -342,7 +342,7 @@ def test_reconnect_while_waiting_for_expression_asks_again():
     graph, _ = _scored_setup(vision_error=True)
     builder.submit_answer(graph, 5, _scored_answer(video_path=VIDEO))
     actions = builder.start_or_resume(graph, StartInterviewRequest(**(BODY | {"resume": True})), FakeTts())
-    assert actions == [{"type": "await_expression"}]
+    assert [a["type"] for a in actions] == ["await_expression"] and actions[0]["question"]["qkey"] == "q11"
     with pytest.raises(builder.NotWaitingError):
         builder.submit_expression(graph, 5, ExpressionRequest(qkey="q12", answer_id=1))
 
@@ -350,7 +350,7 @@ def test_reconnect_while_waiting_for_expression_asks_again():
 def test_no_face_frames_counts_as_failure():
     graph, _ = _scored_setup(frames=[])
     _, actions = builder.submit_answer(graph, 5, _scored_answer(video_path=VIDEO))
-    assert actions == [{"type": "await_expression"}]
+    assert [a["type"] for a in actions] == ["await_expression"] and actions[0]["question"]["qkey"] == "q11"
 
 
 def test_api_expression(api):

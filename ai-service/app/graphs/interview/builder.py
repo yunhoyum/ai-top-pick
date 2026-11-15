@@ -82,9 +82,9 @@ def start_or_resume(graph, req: StartInterviewRequest, tts: Tts) -> list[dict]:
     if current := _waiting_question(graph, config):
         audio = base64.b64encode(tts(current["text"])).decode("ascii")
         return [{"type": "present", "question": current, "audio_b64": audio}]
-    if _waiting_question(graph, config, "wait_expression"):
+    if current := _waiting_question(graph, config, "wait_expression"):
         # 답변은 이미 받았고 표정 재분석을 기다리던 중에 끊겼다. main-api가 다시 분석해 /expression을 보낸다
-        return [{"type": "await_expression"}]
+        return [{"type": "await_expression", "question": current}]
     return [{"type": "end"}]  # 이미 끝난 면접
 
 

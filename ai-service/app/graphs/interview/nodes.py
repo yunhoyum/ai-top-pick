@@ -156,7 +156,7 @@ def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
             "needs_expression": bool(video_path) and main_expression is None,
         }
         # interrupt 앞의 노드에서 넣어야 멈춘 상태의 actions에 남는다
-        waiting = [{"type": "await_expression"}] if evaluation["needs_expression"] else []
+        waiting = [{"type": "await_expression", "question": state["current"]}] if evaluation["needs_expression"] else []
         return {
             "answered": state.get("answered", []) + [state["current"]["qkey"]],
             "answer_context": answer_context,

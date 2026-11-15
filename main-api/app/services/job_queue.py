@@ -15,6 +15,7 @@ TASK_NAMES = {
     JobType.COMPANY_DOC_EMBED.value: "embedding.embed_company_documents",
     JobType.DOC_REPORT.value: "report.generate_document_report",
     JobType.INTERVIEW_QUESTIONS.value: "question.generate_interview_questions",
+    JobType.EXPRESSION_REPROCESS.value: "expression.reprocess_expressions",
 }
 
 

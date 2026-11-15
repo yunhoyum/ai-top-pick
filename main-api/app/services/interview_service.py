@@ -2,10 +2,13 @@
 
 실시간 면접 1단계: 안내(22), 응시 입구(23), 그래프 시작 요청 본문, 질문 공개 표시, 응시 완료.
 2단계: 답변 영상 저장(save_answer_video), 답변·STT 저장(persist_answer).
-점수 저장은 3단계, 표정 재처리는 3단계, 중단(suspend_session)은 5단계에서 넣는다.
+3단계: 점수·표정·근거 문장 저장, 표정 분석 재처리 요청(request_expression_reprocess). 중단(suspend_session)은 5단계.
 """
 
+import asyncio
+import time
 from datetime import datetime, timezone
+from decimal import Decimal
 
 from fastapi import UploadFile
 from sqlalchemy import select
@@ -23,7 +26,13 @@ from app.realtime import upload_registry
 from app.repositories.interview_repo import InterviewRepo
 from app.schemas.interview import InterviewGuide, SessionOut
 from app.services import file_service
+from app.services import job_queue
 from app.workers.payloads import applicant_documents, posting_brief
+
+
+def _dec(value) -> Decimal | None:
+    """ai-service는 Decimal을 JSON 문자열로 보낸다."""
+    return None if value is None else Decimal(str(value))
 
 
 def _not_available(message: str) -> AppError:
@@ -203,15 +212,53 @@ class InterviewService:
         await file_service.save_video(upload, path)
         upload_registry.notify(session_id, question_id, path)
 
-    async def persist_answer(self, session_id: int, question_id: int, video_path: str | None, evaluation: dict) -> None:
-        """답변과 구간별 STT를 저장한다 (워크플로우 5-6). 점수는 실시간 면접 3단계에서 채운다.
+    async def persist_answer(self, session_id: int, question_id: int, video_path: str | None, evaluation: dict) -> int:
+        """답변, 구간별 STT, 근거 문장을 저장하고 answer_id를 돌려준다 (워크플로우 5-6, 아키텍처 7-14).
+        표정 재분석을 기다리는 답변은 표정 점수·답변 점수가 비어 있다 (save_expression_result가 채운다).
         같은 질문에 이미 저장한 답변이 있으면(저장 직후 끊겨 다시 답한 경우) 무효로 돌리고 새로 저장한다."""
         await self.repo.invalidate_answer(session_id, question_id)
         answer = await self.repo.insert_answer(InterviewAnswer(
             session_id=session_id, question_id=question_id, video_path=video_path,
             duration_sec=evaluation["duration_sec"], filler_count=evaluation["filler_count"],
-            silence_sec=evaluation["silence_sec"], response_delay_sec=evaluation["response_delay_sec"],
-            answer_status=ValidStatus.VALID.value,
+            silence_sec=_dec(evaluation["silence_sec"]), response_delay_sec=_dec(evaluation["response_delay_sec"]),
+            main_expression=evaluation.get("main_expression"), expression_ratio=evaluation.get("expression_ratio"),
+            content_score=_dec(evaluation["content_score"]), content_reason=evaluation["content_reason"],
+            speech_score=_dec(evaluation["speech_score"]), expression_score=_dec(evaluation.get("expression_score")),
+            answer_score=_dec(evaluation.get("answer_score")), answer_status=ValidStatus.VALID.value,
         ))
         await self.repo.insert_stt_records(answer.answer_id, evaluation["segments"])
+        await self.repo.insert_evidence(answer.answer_id, evaluation.get("evidence", []))
+        await self.db.commit()
+        return answer.answer_id
+
+    async def request_expression_reprocess(self, session_id: int, question_id: int) -> tuple[int, int] | None:
+        """표정 분석이 실패한 답변이 있다. '표정 분석 재처리' 작업을 등록하고 보낸다 (아키텍처 8).
+        (job_id, answer_id)를 돌려준다. 그 질문의 유효 답변이 없으면 None."""
+        answer = await self.repo.get_valid_answer(session_id, question_id)
+        if answer is None:
+            return None
+        application = await self.db.get(Application, (await self.db.get(InterviewSession, session_id)).application_id)
+        job_type = JobType.EXPRESSION_REPROCESS.value
+        job_id = await job_queue.request(self.db, job_type, application.posting_id, application.application_id)
+        await self.db.commit()
+        job_queue.send(job_type, job_id)
+        return job_id, answer.answer_id
+
+    async def wait_expression(self, job_id: int, answer_id: int, timeout: float, poll: float = 0.5) -> InterviewAnswer:
+        """작업이 끝나거나(완료·실패) timeout이 지날 때까지 기다린 뒤 답변을 다시 읽는다.
+        시간을 넘기면 표정이 비어 있는 채로 돌려준다. 그러면 표정 없이 채점한다."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            status = await self.db.scalar(select(BatchJob.status).where(BatchJob.job_id == job_id))
+            if status in (JobStatus.DONE.value, JobStatus.FAILED.value):
+                break
+            await asyncio.sleep(poll)
+            self.db.expire_all()
+        answer = await self.db.get(InterviewAnswer, answer_id, populate_existing=True)
+        return answer
+
+    async def save_expression_result(self, answer_id: int, expression_score, answer_score) -> None:
+        """표정 재분석 뒤 ai-service가 낸 표정 점수·답변 점수를 저장한다."""
+        answer = await self.db.get(InterviewAnswer, answer_id)
+        answer.expression_score, answer.answer_score = _dec(expression_score), _dec(answer_score)
         await self.db.commit()

@@ -1,4 +1,4 @@
-from app.services import document_report_batch, embedding_batch, interview_question_batch
+from app.services import document_report_batch, embedding_batch, expression_batch, interview_question_batch
 from app.services.progress_batch import advance_posting_progress
 from app.workers.celery_app import celery_app
 
@@ -25,3 +25,9 @@ def generate_document_report(job_id: int) -> int | None:
 def generate_interview_questions(job_id: int) -> int:
     """서류 합격자 1명의 면접 질문을 만든다. llm 큐에서 한 번에 하나씩 돈다 (celery_app.py task_routes)."""
     return interview_question_batch.generate_interview_questions(job_id)
+
+
+@celery_app.task(name="expression.reprocess_expressions")
+def reprocess_expressions(job_id: int) -> int | None:
+    """표정 분석이 실패한 답변을 다시 분석한다. 면접 중 지원자가 기다리므로 default 큐에서 돈다."""
+    return expression_batch.reprocess_expressions(job_id)

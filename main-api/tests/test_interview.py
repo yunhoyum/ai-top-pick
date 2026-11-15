@@ -1,6 +1,7 @@
-"""AI 화상 면접 응시 (실시간 면접 1·2단계: APP-014·015·016·018, SYS-004·011). ai-service·Deepgram은 가짜다."""
+"""AI 화상 면접 응시 (실시간 면접 1~3단계: APP-014·015·016·018, SYS-004·005·007·011). ai-service·Deepgram·vision은 가짜다."""
 
 import base64
+from decimal import Decimal
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,6 +9,8 @@ from starlette.websockets import WebSocketDisconnect
 
 from app.api import ws_interview
 from app.core.config import get_settings
+from app.realtime import upload_registry
+from app.services import expression_batch, job_queue
 from test_applications import _open_posting, applicant, pid  # noqa: F401  (fixture)
 from test_my_applications import _stage, _submitted, _timeline
 from test_postings import _login, _sql, admin  # noqa: F401  (fixture)
@@ -122,7 +125,15 @@ EVALUATION = {
     "segments": [{"time_offset_sec": 0, "raw_text": "AP 캐시를 썼습니다.", "corrected_text": "API 캐시를 썼습니다."},
                  {"time_offset_sec": 4, "raw_text": "빨라졌습니다.", "corrected_text": "빨라졌습니다."}],
     "duration_sec": 6, "filler_count": 1, "silence_sec": 3.5, "response_delay_sec": 0.5,
+    # ai-service는 Decimal을 JSON 문자열로 보낸다
+    "main_expression": "neutral", "expression_ratio": {"neutral": 0.8, "fear": 0.2},
+    "content_score": "70.00", "content_reason": "캐시 이유가 분명하다.", "speech_score": "92.00",
+    "expression_score": "80.00", "answer_score": "78.60",
+    "evidence": [{"source_type": "프로젝트 문서", "source_id": 3, "chunk_id": 7, "sentence": "캐시로 응답을 줄였다."}],
 }
+# 표정 분석이 실패한 답변: 표정·표정 점수·답변 점수가 비어 있다
+FAILED_EXPRESSION = EVALUATION | {"main_expression": None, "expression_ratio": None, "expression_score": None,
+                                  "answer_score": None}
 WORDS = [{"word": "AP", "start": 0.5, "end": 0.9}]
 
 
@@ -158,8 +169,9 @@ def fake_relay(monkeypatch):
 class FakeAi:
     """ai-service 가짜. 질문을 차례로 제시하고, 마지막 답변 뒤에 종료한다."""
 
-    def __init__(self, qids):
-        self.qids, self.starts, self.answers = qids, [], []
+    def __init__(self, qids, fail_expression=False):
+        self.qids, self.starts, self.answers, self.expressions = qids, [], [], []
+        self.fail_expression = fail_expression
 
     def _present(self, i):
         q = self.qids[i]
@@ -173,7 +185,19 @@ class FakeAi:
     async def submit_answer(self, session_id, payload):
         self.answers.append(payload)
         i = len(self.answers)
-        return {"evaluation": EVALUATION, "actions": [self._present(i) if i < len(self.qids) else {"type": "end"}]}
+        if self.fail_expression:
+            return {"evaluation": FAILED_EXPRESSION,
+                    "actions": [{"type": "await_expression", "question": self._present(i - 1)["question"]}]}
+        return {"evaluation": EVALUATION, "actions": self._next(i)}
+
+    def _next(self, i):
+        return [self._present(i) if i < len(self.qids) else {"type": "end"}]
+
+    async def submit_expression(self, session_id, payload):
+        self.expressions.append(payload)
+        score = "90.00" if payload["main_expression"] else None
+        return {"expression_score": score, "answer_score": "81.00" if score else "78.25",
+                "actions": self._next(len(self.answers))}
 
     async def aclose(self):
         pass
@@ -340,3 +364,102 @@ def test_video_upload_is_own_in_progress_session_and_webm_only(client, applicant
     assert _video(applicant, sid, qids[0]).status_code == 204
     _sql("update interview_session set status = '완료' where session_id = :s", s=sid)
     assert _video(applicant, sid, qids[0]).status_code == 404
+
+
+
+# ---------- 채점 (3단계: 점수·표정·근거 문장, 표정 재분석) ----------
+def _one_answer(ws, qid):
+    ws.receive_json(), ws.receive_json(), ws.receive_bytes()
+    ws.send_json({"type": "question_audio_ended", "question_id": qid})
+    ws.receive_json(), ws.receive_json()
+    ws.send_json({"type": "answer_done", "question_id": qid})
+    ws.receive_json(), ws.receive_json()  # answer_end, evaluating
+    assert ws.receive_json()["type"] == "interview_end"
+
+
+def _answer_row(sid):
+    return _sql("select answer_id, main_expression, content_score, content_reason, speech_score, expression_score, "
+                "answer_score from interview_answer where session_id = :s and answer_status = '유효'", s=sid)[0]
+
+
+def test_scores_and_evidence_are_saved(monkeypatch, applicant, ready):
+    aid, qids = ready
+    sid = _enter(applicant, aid).json()["session_id"]
+    monkeypatch.setattr(ws_interview, "get_ai_client", lambda: FakeAi(qids[:1]))
+    with _socket(applicant, sid) as ws:
+        _one_answer(ws, qids[0])
+    row = _answer_row(sid)
+    assert tuple(row[1:]) == ("neutral", 70, "캐시 이유가 분명하다.", 92, 80, Decimal("78.6"))
+    assert _sql("select seq, source_type, source_id, chunk_id, sentence from evidence_sentence where answer_id = :a",
+                a=row[0]) == [(1, "프로젝트 문서", 3, 7, "캐시로 응답을 줄였다.")]
+
+
+class FakeVision:
+    def __init__(self, frames):
+        self.frames, self.paths = frames, []
+
+    def analyze(self, video_path):
+        self.paths.append(video_path)
+        if self.frames is None:
+            raise RuntimeError("vision down")
+        return self.frames
+
+
+def _run_worker_inline(monkeypatch, vision):
+    """job_queue.send 대신 worker 작업을 바로 돌린다."""
+    def send(job_type, job_id):
+        assert job_type == "표정 분석 재처리"
+        expression_batch.reprocess_expressions(job_id, client=vision)
+    monkeypatch.setattr(job_queue, "send", send)
+
+
+def _with_video(sid, qid):
+    """영상이 올라온 것처럼 둔다. 업로드 대기를 건너뛰려고 registry에 바로 알린다."""
+    upload_registry.notify(sid, qid, f"interviews/{sid}/{qid}.webm")
+
+
+def test_failed_expression_is_reanalysed_by_worker_then_scored(monkeypatch, applicant, ready):
+    aid, qids = ready
+    sid = _enter(applicant, aid).json()["session_id"]
+    fake = FakeAi(qids[:1], fail_expression=True)
+    monkeypatch.setattr(ws_interview, "get_ai_client", lambda: fake)
+    vision = FakeVision([{"emotion": "happy"}] * 3 + [{"emotion": "neutral"}])
+    _run_worker_inline(monkeypatch, vision)
+    monkeypatch.setattr(upload_registry, "forget", lambda *a: None)  # 미리 알린 업로드를 지우지 않게
+    _with_video(sid, qids[0])
+    with _socket(applicant, sid) as ws:
+        _one_answer(ws, qids[0])
+    assert vision.paths == [f"interviews/{sid}/{qids[0]}.webm"]
+    sent = fake.expressions[0]
+    assert (sent["qkey"], sent["main_expression"], sent["expression_ratio"]["happy"]) == (f"q{qids[0]}", "happy", 0.75)
+    row = _answer_row(sid)
+    assert (row[1], row[5], row[6]) == ("happy", 90, 81)
+    assert _sql("select status from batch_job where job_type = '표정 분석 재처리' and application_id = :a", a=aid) == [("완료",)]
+
+
+def test_reanalysis_failure_scores_without_expression(monkeypatch, applicant, ready):
+    aid, qids = ready
+    sid = _enter(applicant, aid).json()["session_id"]
+    fake = FakeAi(qids[:1], fail_expression=True)
+    monkeypatch.setattr(ws_interview, "get_ai_client", lambda: fake)
+    _run_worker_inline(monkeypatch, FakeVision(None))
+    monkeypatch.setattr(upload_registry, "forget", lambda *a: None)
+    _with_video(sid, qids[0])
+    with _socket(applicant, sid) as ws:
+        _one_answer(ws, qids[0])
+    assert (fake.expressions[0]["main_expression"], fake.expressions[0]["expression_ratio"]) == (None, None)
+    row = _answer_row(sid)
+    assert (row[1], row[5], row[6]) == (None, None, 78.25)
+
+
+def test_expression_wait_times_out(monkeypatch, applicant, ready):
+    """worker가 끝내지 못해도 EXPRESSION_WAIT_SEC 뒤에는 표정 없이 채점한다."""
+    aid, qids = ready
+    sid = _enter(applicant, aid).json()["session_id"]
+    fake = FakeAi(qids[:1], fail_expression=True)
+    monkeypatch.setattr(ws_interview, "get_ai_client", lambda: fake)
+    monkeypatch.setattr(job_queue, "send", lambda *a: None)
+    monkeypatch.setattr(get_settings(), "EXPRESSION_WAIT_SEC", 0.3)
+    with _socket(applicant, sid) as ws:
+        _one_answer(ws, qids[0])
+    assert fake.expressions[0]["main_expression"] is None

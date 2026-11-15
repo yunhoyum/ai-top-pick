@@ -50,5 +50,11 @@ class AsyncAiServiceClient:
         r.raise_for_status()
         return r.json()
 
+    async def submit_expression(self, session_id: int, payload: dict) -> dict:
+        """ExpressionRequest → ExpressionResponse (규약 2.5)."""
+        r = await self._client.post(f"/internal/interview/{session_id}/expression", json=payload)
+        r.raise_for_status()
+        return r.json()
+
     async def aclose(self) -> None:
         await self._client.aclose()
