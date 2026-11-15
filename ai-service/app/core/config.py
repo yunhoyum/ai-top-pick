@@ -12,6 +12,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     EMBED_URL: str
     INTERNAL_TOKEN: str
+    # tts-server (PC2). 면접 질문 음성 (SYS-011)
+    TTS_URL: str = ""
 
     # ---------- 회사 문서 검색 (벡터 DB 설계서 8장) ----------
     # 검색어를 나누는 길이. worker의 CHUNK_MAX_TOKENS와 같게 둔다

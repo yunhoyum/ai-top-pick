@@ -13,6 +13,5 @@ langchain-openai==1.7.2
 langgraph==1.2.18
 httpx
 
-# 목록에 없음. LangGraph 체크포인트를 PostgreSQL에 저장하려면 필요하다 (아키텍처 9.3)
-# 면접 그래프를 만들 때 버전을 정해서 주석을 푼다
-# langgraph-checkpoint-postgres
+# LangGraph 체크포인트를 PostgreSQL에 저장한다 (아키텍처 9.3). langgraph 1.2.18과 함께 설치되는 것을 확인했다
+langgraph-checkpoint-postgres==3.2.1

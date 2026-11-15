@@ -90,3 +90,70 @@ class DocumentReportRequest(BaseModel):
     posting: PostingBrief
     criteria: list[CriteriaItem]  # 서류 4개
     documents: ApplicantDocuments
+
+
+# ---------- 2. 면접 내부 API (main-api → ai-service) ----------
+
+
+class InterviewSettings(BaseModel):
+    follow_up_enabled: bool
+    think_time_sec: int
+    answer_time_sec: int
+    ratios: dict[str, int]  # {"내용": 50, "언어": 30, "비언어": 20}
+
+
+class QuestionItem(BaseModel):
+    qkey: str  # DB 질문은 "q{question_id}", 새 질문은 UUID
+    question_id: int | None = None
+    kind: Literal["AI", "꼬리", "기업"]
+    question_type: Literal["직무", "인성"] | None = None
+    parent_qkey: str | None = None  # 꼬리질문의 부모(최상위 기본 질문)
+    text: str
+
+
+class Binding(BaseModel):  # main-api가 새 질문을 저장한 뒤 알려주는 짝
+    qkey: str
+    question_id: int
+
+
+class Action(BaseModel):
+    type: Literal["present", "remove", "invalidate", "await_expression", "suspend", "end"]
+    question: QuestionItem | None = None
+    audio_b64: str | None = None  # present일 때 질문 음성(wav)
+
+
+class StartInterviewRequest(BaseModel):  # 2.2
+    session_id: int
+    posting_id: int
+    resume: bool  # 처음 시작이 아니면 참 (재접속·재시험). 참인데 체크포인트가 없으면 오류
+    settings: InterviewSettings
+    questions: list[QuestionItem]  # 유효 질문 전체 (직무 → 인성 → 기업)
+    posting: PostingBrief
+    documents: ApplicantDocuments
+
+
+class StartInterviewResponse(BaseModel):
+    actions: list[Action]
+
+
+class Word(BaseModel):
+    word: str
+    start: float  # STT 스트림 기준 초
+    end: float
+
+
+class AnswerRequest(BaseModel):  # 2.3
+    qkey: str
+    question_id: int
+    bindings: list[Binding] = []
+    raw_text: str = ""  # Deepgram 원문 (보정 전). 2단계(STT)부터 채운다
+    words: list[Word] = []
+    answer_start_sec: float = 0.0  # 답변 시간 시작 시점 = 생각 시간 종료
+    video_path: str = ""  # STORAGE_ROOT 기준 상대 경로. 2단계(영상)부터 채운다
+    end_reason: Literal["button", "silence", "timeout"]
+
+
+class AnswerResponse(BaseModel):
+    # 규약은 AnswerEvaluation이다. 실시간 면접 1단계는 평가가 없어 None이다. 3단계(채점)에서 채운다
+    evaluation: dict | None = None
+    actions: list[Action]
