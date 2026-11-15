@@ -166,6 +166,15 @@ def test_three_failures_go_to_fallback_with_original_query_without_validation():
     assert [k for k, _ in model.calls].count("validate") == 3  # fallback은 검증하지 않는다
 
 
+def test_fallback_same_as_confirmed_question_goes_to_template():
+    # 인성 질문 2개 모두 3번 실패 → fallback이 같은 문장을 두 번 낸다 → 두 번째는 템플릿
+    fails = [_fail("question")] * 3
+    model = FakeModel(generate=[_q("a"), _q("b"), _q("c"), _q("같은 질문"), _q("d"), _q("e"), _q("f"), _q("같은 질문")],
+                      validate=fails * 2)
+    _, personality, _ = _run(model, job=0, personality=2)
+    assert personality == ["같은 질문", "'모르면 모른다고 말하는 정직함'에 해당하는 본인의 경험을 말씀해 주세요."]
+
+
 # ---------- fallback 실패 → 템플릿 ----------
 
 

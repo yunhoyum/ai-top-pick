@@ -6,11 +6,13 @@
 
 v1: 첫 버전 (2026-11-13). EXAONE 평가 Q1-v1에서 15개 모두 첫 검증을 통과했고 겹침 5쌍을 놓쳤다.
 v2: 겹침을 적절성 검증에서 떼어 확정 질문과 한 쌍씩 따로 묻는다 (check_overlap, 설계서 1.3 '성능이 낮으면 나눈다').
+    Q2-v2에서 겹침 25번. 회사 업무 주제가 같거나 '문제 해결 능력'처럼 일반 역량이 같아도 겹친다고 봤다.
+v3: 겹침 기준을 좁힌다. 같은 기술 = 질문이 바탕으로 삼은 지원자의 경험·기술이 같음. 일반 역량은 같은 역량으로 보지 않는다.
 """
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
-VERSION = "v2"
+VERSION = "v3"
 
 SYSTEM = """너는 채용 면접에서 지원자에게 물을 질문을 만드는 면접관이다.
 - 주어진 자료만 보고 판단한다. 자료에 없는 사실을 지어내지 않는다.
@@ -199,9 +201,11 @@ def check_overlap(question: str, confirmed_question: str) -> list[BaseMessage]:
 질문 B (새 질문): {question}
 
 두 면접 질문이 겹치는지 판정해 JSON으로 출력하라.
-- same_skill: 두 질문이 같은 기술이나 같은 경험을 중심으로 묻으면 true. 문장이 달라도 묻는 대상이 같으면 true.
-- same_competency: 두 질문이 지원자의 같은 역량을 평가하면 true.
+- same_skill: 두 질문이 바탕으로 삼은 지원자의 경험이나 기술이 같으면 true.
+  - 두 질문이 지원자의 서로 다른 경험이나 기술을 묻으면 false다. 회사 업무 주제(예: 검색 품질 개선)가 같아도 false다.
+- same_competency: 두 질문이 평가하려는 구체적인 역량이 같으면 true.
   예: "협업 시 갈등 해결"과 "협업 시 의견 충돌 해결"은 같은 역량이다.
+  - '문제 해결 능력', '분석 능력', '경험 활용'처럼 거의 모든 질문에 들어가는 일반 역량이 같은 것만으로는 false다.
 - reason: 판정 이유 한 문장.
 
 형식: {{"same_skill": false, "same_competency": false, "reason": "..."}}"""

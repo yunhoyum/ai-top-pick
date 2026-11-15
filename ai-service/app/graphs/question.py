@@ -10,7 +10,8 @@
 template은 LLM 없이 만들어 실패하지 않는다. 그래서 질문 수는 항상 요청과 같다.
 
 LLM 호출 실패(연결 오류, 형식 검증 실패)는 검증 실패와 같이 retry_count에 센다 (2026-11-13, 제안).
-fallback 질문은 검증하지 않고 바로 확정한다 (2026-11-13 결정).
+fallback 질문은 검증하지 않고 바로 확정한다 (2026-11-13 결정). 단, 이미 확정된 질문과 문장이 같으면 template으로 간다.
+  인성 fallback은 입력이 비기능적 인재상뿐이라 같은 문장이 다시 나온다 (평가 Q2-v2에서 한 지원자에게 같은 질문 2개).
 검증은 두 단계다 (프롬프트 v2): 적절성을 먼저 보고, 통과하면 확정 질문과 한 쌍씩 겹침을 묻는다. 처음 겹친 쌍에서 멈춘다.
 """
 
@@ -237,7 +238,8 @@ def build_question_graph(model: Runnable, search: Search):
         return "fallback_personality" if state["retry_count"] >= MAX_RETRIES else "generate_personality"
 
     def route_after_fallback(state: QuestionState) -> str:
-        return "append" if state["question"] else "template"
+        q = state["question"]
+        return "append" if q and q not in state["confirmed"] else "template"
 
     g = StateGraph(QuestionState)
     for name, fn in [
