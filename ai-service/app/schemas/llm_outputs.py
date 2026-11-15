@@ -73,9 +73,9 @@ class QuestionOutput(BaseModel):
 
 
 class GroundedQuestion(BaseModel):
-    """T-02·T-06 질문 하나와 그 바탕이 된 지원자 서류 문장 (프롬프트 v4). 코드가 문장이 서류에 있는지 확인한다."""
+    """T-02·T-06 질문 하나와 그 바탕이 된 지원자 서류 문장 번호 (프롬프트 v5). 코드가 번호를 확인하고 원문을 꺼낸다."""
 
-    based_on: str = Field(min_length=1)
+    based_on: str | int
     question: str = Field(min_length=1)
 
 

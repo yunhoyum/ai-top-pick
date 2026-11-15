@@ -11,7 +11,8 @@ template은 LLM 없이 만들어 실패하지 않는다. 그래서 질문 수는
 
 LLM 호출 실패(연결 오류, 형식 검증 실패)는 검증 실패와 같이 retry_count에 센다 (2026-11-13, 제안).
 형식(질문 수·문장 수·길이·자료 표시)은 LLM 검증 전에 코드가 본다 (form_problem, 평가 Q3).
-생성은 바탕이 된 서류 문장(based_on)을 함께 낸다. 그 문장이 서류에 없으면 LLM 검증 전에 떨어진다 (grounded, 평가 Q4).
+서류는 문장마다 번호를 붙여 넣고, 생성은 바탕이 된 문장 번호(based_on)를 함께 낸다 (평가 Q4·Q5).
+  번호가 없으면 question 실패, 같은 문장을 바탕으로 한 확정 질문이 있으면 LLM 없이 overlap 실패다.
 fallback 질문은 검증하지 않고 바로 확정한다 (2026-11-13 결정). 단, 이미 확정된 질문과 문장이 같으면 template으로 간다.
   인성 fallback은 입력이 비기능적 인재상뿐이라 같은 문장이 다시 나온다 (평가 Q2-v2에서 한 지원자에게 같은 질문 2개).
 검증은 두 단계다 (프롬프트 v2): 적절성을 먼저 보고, 통과하면 확정 질문과 한 쌍씩 겹침을 묻는다. 처음 겹친 쌍에서 멈춘다.
@@ -27,6 +28,7 @@ from langgraph.graph import END, START, StateGraph
 
 from app.chains.structured import invoke_structured
 from app.prompts import question as prompts
+from app.rag.evidence import split_sentences
 from app.schemas.internal import ApplicantDocuments, PostingBrief
 from app.schemas.llm_outputs import GroundedQuestion, OverlapCheck, QueryOutput, QuestionOutput, QuestionValidation
 
@@ -43,21 +45,35 @@ _SKILL_NAME = re.compile(r"^\[([^\]]+)\]")  # worker가 기술 적용 사례를 
 _BULLET = re.compile(r"^\s*(?:[-•*·]|\d+[.)])\s*")
 
 # 형식 검사 (평가 Q3). LLM 검증 전에 코드로 본다. EXAONE은 '질문 하나, 한두 문장' 규칙을 자주 어기고 검증도 놓쳤다
-NOT_GROUNDED = "based_on이 지원자 서류에 없다. 서류의 문장 하나를 글자 그대로 옮긴다."
-MIN_BASED_ON_CHARS = 8  # 이보다 짧은 조각은 근거로 보지 않는다 (제안)
+NOT_GROUNDED = "based_on 번호가 서류 문장 번호에 없다. 서류의 [번호] 하나를 고른다."
 MAX_QUESTION_CHARS = 200  # 2분 안에 답할 질문 길이 (제안. Q1-v1 평균 209자)
 _SENTENCE_END = re.compile(r"[.?!](?=\s|$)")
 _LABEL = re.compile(r"\[[^\]]+\]")  # 프롬프트 자료 표시가 새어 나온 것 ([비기능적 인재상] 등)
 
 
-_SPACE = re.compile(r"\s+")
-_EDGE = "\"'“”‘’「」 .,"
+_NUMBER = re.compile(r"\d+")
 
 
-def grounded(based_on: str, source: str) -> bool:
-    """based_on이 서류(source)에 글자 그대로 있는지. 공백 차이와 앞뒤 따옴표·마침표는 무시한다."""
-    b = _SPACE.sub(" ", based_on).strip().strip(_EDGE)
-    return len(b) >= MIN_BASED_ON_CHARS and b in _SPACE.sub(" ", source)
+def numbered(text: str) -> tuple[str, list[str]]:
+    """서류를 문장으로 나눠 [1] [2] … 번호를 붙인다. (프롬프트에 넣을 글, 문장 목록)."""
+    sentences = split_sentences(text)
+    return "\n".join(f"[{i}] {s}" for i, s in enumerate(sentences, start=1)) or "(없음)", sentences
+
+
+def pick_sentence(based_on: str | int, sentences: list[str]) -> str:
+    """생성이 고른 번호의 원문 문장. 번호가 없거나 범위 밖이면 빈 문자열."""
+    m = _NUMBER.search(str(based_on))
+    i = int(m.group()) if m else 0
+    return sentences[i - 1] if 1 <= i <= len(sentences) else ""
+
+
+def same_base_overlap(state: "QuestionState") -> str | None:
+    """같은 서류 문장을 바탕으로 한 확정 질문이 있으면 feedback, 없으면 None (코드 판정)."""
+    b = state["based_on"]
+    for q, base in zip(state["confirmed"], state["confirmed_bases"]):
+        if b and base == b:
+            return f"이미 확정된 질문 '{q}'가 같은 서류 문장을 바탕으로 한다. 다른 문장을 고른다."
+    return None
 
 
 def form_problem(question: str) -> str | None:
@@ -84,6 +100,7 @@ class QuestionState(TypedDict, total=False):
     personality_count: int
     idx: int  # 지금 처리하는 직무 검색어 번호
     confirmed: list[str]  # 확정 질문 (직무 → 인성 순서)
+    confirmed_bases: list[str]  # 확정 질문마다 바탕 서류 문장. fallback·template은 빈 문자열
     job: list[str]
     personality: list[str]
     # 질문 하나
@@ -92,7 +109,7 @@ class QuestionState(TypedDict, total=False):
     original_query: str  # fallback이 쓴다. 고치지 않는다
     chunks: list[str]
     question: str | None
-    based_on: str  # 질문의 바탕이 된 서류 문장 (생성이 옮겨 쓴 것)
+    based_on: str  # 질문의 바탕이 된 서류 문장 (생성이 고른 번호의 원문). 번호가 틀리면 빈 문자열
     failure_type: str | None
     feedback: str
     retry_count: int
@@ -170,10 +187,11 @@ def build_question_graph(model: Runnable, search: Search):
     def generate(state: QuestionState) -> dict:
         p = state["posting"]
         try:
-            # 서류는 원래 항목을 보여 준다. 고친 검색어는 검색에만 쓴다 (based_on을 서류에서 옮기게)
-            out = call(prompts.generate_job(state["original_query"], state["chunks"], p.job_description, p.functional_talent,
+            # 서류는 원래 항목을 보여 준다. 고친 검색어는 검색에만 쓴다 (based_on을 서류 문장에서 고르게)
+            text, sentences = numbered(state["original_query"])
+            out = call(prompts.generate_job(text, state["chunks"], p.job_description, p.functional_talent,
                                             state["confirmed"], state["feedback"]), GroundedQuestion)
-            return {"question": out.question.strip(), "based_on": out.based_on}
+            return {"question": out.question.strip(), "based_on": pick_sentence(out.based_on, sentences)}
         except Exception as e:
             log.warning("직무 질문 생성 실패: %s", e)
             return {"question": None}
@@ -184,8 +202,10 @@ def build_question_graph(model: Runnable, search: Search):
         if problem := form_problem(state["question"]):
             return failed(state, "question", problem)
         # 원래 서류 항목에서 찾는다. rewrite_query가 고친 검색어는 서류 문장이 아니다
-        if not grounded(state["based_on"], state["original_query"]):
+        if not state["based_on"]:
             return failed(state, "question", NOT_GROUNDED)
+        if overlap := same_base_overlap(state):
+            return failed(state, "overlap", overlap)
         p = state["posting"]
         try:
             v = call(prompts.validate_job(state["question"], state["original_query"], state["chunks"], p.job_description,
@@ -207,7 +227,8 @@ def build_question_graph(model: Runnable, search: Search):
 
     def fallback(state: QuestionState) -> dict:
         try:
-            return {"question": call(prompts.fallback_job(state["original_query"]), QuestionOutput).question.strip()}
+            return {"question": call(prompts.fallback_job(state["original_query"]), QuestionOutput).question.strip(),
+                    "based_on": ""}
         except Exception as e:
             log.warning("직무 fallback 질문 생성 실패: %s", e)
             return {"question": None}
@@ -216,9 +237,10 @@ def build_question_graph(model: Runnable, search: Search):
 
     def generate_personality(state: QuestionState) -> dict:
         try:
-            out = call(prompts.generate_personality(state["essays"], state["posting"].nonfunctional_talent,
+            text, sentences = numbered(state["essays"]) if state["documents"].essays else ("(없음)", [])
+            out = call(prompts.generate_personality(text, state["posting"].nonfunctional_talent,
                                                     state["confirmed"], state["feedback"]), GroundedQuestion)
-            return {"question": out.question.strip(), "based_on": out.based_on}
+            return {"question": out.question.strip(), "based_on": pick_sentence(out.based_on, sentences)}
         except Exception as e:
             log.warning("인성 질문 생성 실패: %s", e)
             return {"question": None}
@@ -228,9 +250,11 @@ def build_question_graph(model: Runnable, search: Search):
             return failed(state, "question", "")
         if problem := form_problem(state["question"]):
             return failed(state, "question", problem)
-        # 자기소개서가 없으면 옮길 문장이 없다. 그때는 확인하지 않는다
-        if state["documents"].essays and not grounded(state["based_on"], state["essays"]):
+        # 자기소개서가 없으면 고를 문장이 없다. 그때는 확인하지 않는다
+        if state["documents"].essays and not state["based_on"]:
             return failed(state, "question", NOT_GROUNDED)
+        if overlap := same_base_overlap(state):
+            return failed(state, "overlap", overlap)
         try:
             v = call(prompts.validate_personality(state["question"], state["essays"], state["posting"].nonfunctional_talent),
                      QuestionValidation)
@@ -245,7 +269,7 @@ def build_question_graph(model: Runnable, search: Search):
     def fallback_personality(state: QuestionState) -> dict:
         try:
             out = call(prompts.fallback_personality(state["posting"].nonfunctional_talent), QuestionOutput)
-            return {"question": out.question.strip()}
+            return {"question": out.question.strip(), "based_on": ""}
         except Exception as e:
             log.warning("인성 fallback 질문 생성 실패: %s", e)
             return {"question": None}
@@ -253,13 +277,14 @@ def build_question_graph(model: Runnable, search: Search):
     # ---------- 공통 ----------
 
     def template(state: QuestionState) -> dict:
-        return {"question": build_template_question(state)}
+        return {"question": build_template_question(state), "based_on": ""}
 
     def append(state: QuestionState) -> dict:
         q = state["question"]
+        out = {"confirmed": state["confirmed"] + [q], "confirmed_bases": state["confirmed_bases"] + [state["based_on"]]}
         if state["question_type"] == "직무":
-            return {"confirmed": state["confirmed"] + [q], "job": state["job"] + [q], "idx": state["idx"] + 1}
-        return {"confirmed": state["confirmed"] + [q], "personality": state["personality"] + [q]}
+            return out | {"job": state["job"] + [q], "idx": state["idx"] + 1}
+        return out | {"personality": state["personality"] + [q]}
 
     # ---------- 라우팅 ----------
 
@@ -326,7 +351,7 @@ def generate_questions(posting: PostingBrief, documents: ApplicantDocuments, job
     state = graph.invoke(
         {"posting": posting, "documents": documents, "essays": essays_text(documents),
          "queries": build_queries(documents, job_count), "personality_count": personality_count,
-         "idx": 0, "confirmed": [], "job": [], "personality": []},
+         "idx": 0, "confirmed": [], "confirmed_bases": [], "job": [], "personality": []},
         {"recursion_limit": _STEPS_PER_QUESTION * (job_count + personality_count) + 10},
     )
     return state["job"], state["personality"]

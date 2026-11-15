@@ -10,11 +10,13 @@ v2: 겹침을 적절성 검증에서 떼어 확정 질문과 한 쌍씩 따로 �
 v3: 겹침 기준을 좁힌다. 같은 기술 = 질문이 바탕으로 삼은 지원자의 경험·기술이 같음. 일반 역량은 같은 역량으로 보지 않는다.
     Q3-v3(형식 코드 검사)에서 feedback을 줘도 길이·질문 수를 고치지 못해 직무 9개 중 6개가 fallback으로 갔다.
 v4: 생성이 based_on(서류 문장 그대로)과 question(한 문장)을 따로 낸다. 코드가 based_on이 서류에 있는지 본다.
+    Q4-v4에서 근거 확인이 23번 떨어졌다. 직무는 문장을 옮기지 않고 요약했고, 인성은 자기소개서 대신 인재상을 옮겼다.
+v5: 서류 문장에 번호를 붙이고 based_on은 번호만 고르게 한다 (벡터 DB 설계서 8.4와 같은 방식).
 """
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
-VERSION = "v4"
+VERSION = "v5"
 
 SYSTEM = """너는 채용 면접에서 지원자에게 물을 질문을 만드는 면접관이다.
 - 주어진 자료만 보고 판단한다. 자료에 없는 사실을 지어내지 않는다.
@@ -42,9 +44,9 @@ def _feedback(feedback: str) -> str:
     return f"\n[앞 질문이 검증에서 떨어진 이유]\n{feedback}\n이 이유를 고친 새 질문을 만든다.\n" if feedback else ""
 
 
-def generate_job(query: str, chunks: list[str], job_description: str, functional_talent: str,
+def generate_job(numbered_document: str, chunks: list[str], job_description: str, functional_talent: str,
                  confirmed: list[str], feedback: str) -> list[BaseMessage]:
-    """T-02 직무 질문. 검색된 회사 프로젝트 문서와 지원자 서류를 잇는다."""
+    """T-02 직무 질문. 검색된 회사 프로젝트 문서와 지원자 서류를 잇는다. 서류는 문장마다 [번호]를 붙여 받는다."""
     return [
         SystemMessage(content=SYSTEM),
         HumanMessage(
@@ -58,20 +60,20 @@ def generate_job(query: str, chunks: list[str], job_description: str, functional
 {_chunks(chunks)}
 
 [지원자 서류]
-{query}
+{numbered_document}
 
 [이미 확정된 질문]
 {_list(confirmed)}
 {_feedback(feedback)}
 지원자 서류의 경험 하나를 회사 프로젝트 문서의 업무와 이어 묻는 직무 질문 하나를 만들어 JSON으로 출력하라.
-- based_on: [지원자 서류]에서 질문의 바탕이 된 문장 하나를 글자 그대로 옮긴다. 고치거나 줄이지 않는다.
+- based_on: [지원자 서류]에서 질문의 바탕이 된 문장의 번호 하나. 지원자가 실제로 한 일이 드러난 문장을 고른다. 번호만 쓴다.
 - question: based_on의 경험을 회사 업무에 어떻게 쓰거나 바꿀지 묻는 질문 한 문장. 물음표 하나로 끝난다.
   - 경험을 설명하는 문장을 앞에 붙이지 않는다. 경험은 based_on이 보여 준다.
 {_FORM}
 {_OVERLAP}
   겹치지 않게 다른 기술이나 다른 역량을 묻는다.
 
-형식: {{"based_on": "...", "question": "...?"}}"""
+형식: {{"based_on": "3", "question": "...?"}}"""
         ),
     ]
 
@@ -145,8 +147,9 @@ def fallback_job(original_query: str) -> list[BaseMessage]:
     ]
 
 
-def generate_personality(essays: str, nonfunctional_talent: str, confirmed: list[str], feedback: str) -> list[BaseMessage]:
-    """T-06 인성 질문. 회사 문서를 검색하지 않는다 (설계서 3.10)."""
+def generate_personality(numbered_essays: str, nonfunctional_talent: str, confirmed: list[str],
+                         feedback: str) -> list[BaseMessage]:
+    """T-06 인성 질문. 회사 문서를 검색하지 않는다 (설계서 3.10). 자기소개서는 문장마다 [번호]를 붙여 받는다."""
     return [
         SystemMessage(content=SYSTEM),
         HumanMessage(
@@ -154,20 +157,20 @@ def generate_personality(essays: str, nonfunctional_talent: str, confirmed: list
 {nonfunctional_talent}
 
 [지원자 자기소개서]
-{essays}
+{numbered_essays}
 
 [이미 확정된 질문]
 {_list(confirmed)}
 {_feedback(feedback)}
 비기능적 인재상 중 하나를 골라, 지원자가 그 태도를 보여 준 경험을 묻는 인성 질문 하나를 만들어 JSON으로 출력하라.
-- based_on: [지원자 자기소개서]에서 질문의 바탕이 된 문장 하나를 글자 그대로 옮긴다. 고치거나 줄이지 않는다.
+- based_on: [지원자 자기소개서]에서 질문의 바탕이 된 문장의 번호 하나. 지원자가 실제로 겪은 일이 드러난 문장을 고른다. 번호만 쓴다.
 - question: based_on의 경험에서 그 태도를 어떻게 보였는지 묻는 질문 한 문장. 물음표 하나로 끝난다.
   - 경험을 설명하는 문장을 앞에 붙이지 않는다. 경험은 based_on이 보여 준다.
 {_FORM}
 {_OVERLAP}
   겹치지 않게 다른 인재상이나 다른 역량을 묻는다.
 
-형식: {{"based_on": "...", "question": "...?"}}"""
+형식: {{"based_on": "3", "question": "...?"}}"""
         ),
     ]
 

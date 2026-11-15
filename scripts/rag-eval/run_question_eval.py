@@ -35,7 +35,7 @@ def run_applicant(graph, posting: PostingBrief, documents: ApplicantDocuments, j
     """그래프를 stream으로 돌려 질문마다 거친 노드를 모은다."""
     state = {"posting": posting, "documents": documents, "essays": essays_text(documents),
              "queries": build_queries(documents, job_count), "personality_count": personality_count,
-             "idx": 0, "confirmed": [], "job": [], "personality": []}
+             "idx": 0, "confirmed": [], "confirmed_bases": [], "job": [], "personality": []}
     questions, cur, last = [], None, time.perf_counter()
     for event in graph.stream(state, {"recursion_limit": _STEPS_PER_QUESTION * (job_count + personality_count) + 10},
                               stream_mode="updates"):
@@ -83,6 +83,9 @@ def main(posting_id: int, experiment: str, job_count: int, personality_count: in
         "첫 시도 통과": sum(q.get("path") == "통과" and q.get("attempts") == 1 for q in all_q),
         "실패 원인": {t: sum(s.get("failure_type") == t for q in all_q for s in q["steps"])
                    for t in ("evidence", "question", "overlap")},
+        # 겹침 중 같은 바탕 문장으로 코드가 판정한 것 (프롬프트 v5부터). 나머지는 LLM 판정
+        "겹침 코드 판정": sum(s.get("failure_type") == "overlap" and "같은 서류 문장" in (s.get("feedback") or "")
+                        for q in all_q for s in q["steps"]),
         "지원자당 시간(초)": [r["seconds"] for r in results],
         "질문당 시간 중앙(초)": sorted(q["seconds"] for q in all_q)[len(all_q) // 2] if all_q else None,
     }

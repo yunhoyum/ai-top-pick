@@ -1,7 +1,6 @@
 """SYS-006 질문 생성 그래프 테스트. LLM은 작업 종류(생성·검증·검색어 수정)마다 정해 둔 출력을 차례로 내주는 가짜다."""
 
 import json
-import re
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,7 +9,7 @@ from langchain_core.messages import AIMessage
 from app.api import questions
 from app.core.config import get_settings
 from app.graphs.question import (FIXED_QUESTION, MAX_QUESTION_CHARS, NOT_GROUNDED, build_queries, form_problem,
-                                 generate_questions, grounded)
+                                 generate_questions, numbered, pick_sentence)
 from app.main import app
 from app.schemas.internal import ApplicantDocuments, PostingBrief
 
@@ -65,9 +64,8 @@ class FakeModel:
         self.calls.append((kind, text))
         out = self.queues[kind].pop(0)
         if kind == "generate" and "based_on:" in text and out.startswith("{") and "based_on" not in out:
-            # 생성 출력에 based_on이 없으면 프롬프트의 서류 부분을 그대로 옮겨 넣는다 (서류에 있는 문장)
-            source = re.search(r"\[지원자 (?:서류|자기소개서)\]\n(.*?)\n\n\[", text, re.S).group(1)
-            out = json.dumps(json.loads(out) | {"based_on": source}, ensure_ascii=False)
+            # 생성 출력에 based_on이 없으면 서류의 첫 문장 번호를 고른 것으로 한다
+            out = json.dumps(json.loads(out) | {"based_on": "1"}, ensure_ascii=False)
         return AIMessage(content=out)
 
 
@@ -203,19 +201,37 @@ def test_form_failure_skips_llm_validation_and_regenerates_with_reason():
     assert "질문이 둘 이상이다" in [t for k, t in model.calls if k == "generate"][1]
 
 
-def test_grounded():
-    assert grounded("  주문 API 응답을\n캐시로 줄였습니다.  ", CASE_A)  # 공백·끝 마침표 차이는 무시
-    assert not grounded("주문 API를 새로 만들었습니다", CASE_A)
-    assert not grounded("캐시로", CASE_A)  # 너무 짧은 조각
+def test_numbered_and_pick_sentence():
+    text, sentences = numbered("주문 API를 만들었습니다. 캐시로 응답을 줄였습니다.")
+    assert text == "[1] 주문 API를 만들었습니다.\n[2] 캐시로 응답을 줄였습니다."
+    assert pick_sentence("2", sentences) == "캐시로 응답을 줄였습니다."
+    assert pick_sentence("[2]", sentences) == pick_sentence(2, sentences) == "캐시로 응답을 줄였습니다."
+    assert pick_sentence("3", sentences) == pick_sentence("없음", sentences) == ""
 
 
-def test_ungrounded_question_skips_llm_validation_and_regenerates():
-    model = FakeModel(generate=[{"question": "왜 쓰셨나요?", "based_on": "서류에 없는 문장입니다"}, _q("왜 쓰셨나요?")],
-                      validate=[PASS])
+def test_job_prompt_shows_numbered_document():
+    model = FakeModel(generate=[_q("q")], validate=[PASS])
+    _run(model)
+    assert f"[지원자 서류]\n[1] {CASE_A}\n" in [t for k, t in model.calls if k == "generate"][0]
+
+
+def test_unknown_sentence_number_skips_llm_validation_and_regenerates():
+    model = FakeModel(generate=[{"question": "왜 쓰셨나요?", "based_on": "9"}, _q("왜 쓰셨나요?")], validate=[PASS])
     job, _, _ = _run(model)
     assert job == ["왜 쓰셨나요?"]
     assert [k for k, _ in model.calls] == ["generate", "generate", "validate"]
     assert NOT_GROUNDED in [t for k, t in model.calls if k == "generate"][1]
+
+
+def test_same_base_sentence_is_overlap_by_code_without_llm():
+    essays = [{"topic": "지원 동기", "content": "결제 장애를 끝까지 추적했습니다. 원인을 숫자로 확인했습니다."}]
+    # 인성 2개: 둘째가 첫째와 같은 문장(1번)을 고르면 LLM 겹침 검사 없이 떨어지고, 2번을 고르면 통과한다
+    model = FakeModel(generate=[_q("인성1"), _q("인성2"), {"question": "인성3", "based_on": "2"}],
+                      validate=[PASS, PASS], overlap=[NO_OVERLAP])
+    _, personality, _ = _run(model, job=0, personality=2, docs=_docs(essays=essays))
+    assert personality == ["인성1", "인성3"]
+    assert [k for k, _ in model.calls] == ["generate", "validate", "generate", "generate", "validate", "overlap"]
+    assert "같은 서류 문장을 바탕으로 한다" in [t for k, t in model.calls if k == "generate"][2]
 
 
 def test_generation_after_rewrite_still_shows_original_document():
@@ -223,7 +239,7 @@ def test_generation_after_rewrite_still_shows_original_document():
                       query=[{"query": "주문 API 캐시"}])
     _run(model)
     second = [t for k, t in model.calls if k == "generate"][1]
-    assert f"[지원자 서류]\n{CASE_A}\n\n" in second  # 검색은 고친 검색어로, 서류는 원래 항목으로
+    assert f"[지원자 서류]\n[1] {CASE_A}\n\n" in second  # 검색은 고친 검색어로, 서류는 원래 항목으로
 
 
 # ---------- fallback 실패 → 템플릿 ----------
