@@ -69,6 +69,8 @@ class DeepgramRelay:
             try:
                 await self._ws.send(json.dumps({"type": "CloseStream"}))
                 await asyncio.wait_for(self._reader, timeout)
+            except websockets.ConnectionClosedOK:
+                pass  # Deepgram이 먼저 정상 종료했다 (결과는 이미 다 받았다)
             except Exception as e:
                 log.warning("Deepgram 연결을 닫는 중 오류: %s", e)
             finally:
