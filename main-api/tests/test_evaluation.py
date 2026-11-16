@@ -61,7 +61,7 @@ def test_ranking_orders_by_total_and_puts_pending_last(admin, pid, ranked):
         (ranked["pending"], None, None, "대기"),
     ]
     assert [s["weighted"] for s in data["rows"][1]["scores"]] == ["21.0", "19.4", "0.0", "0.0"]
-    assert data["summary"] == {"target_count": 3, "shortfall_count": 1, "average": "42.7", "opinion_count": 0}
+    assert data["summary"] == {"target_count": 3, "shortfall_count": 1, "taken_count": None, "average": "42.7", "opinion_count": 0}
 
 
 def test_ranking_before_doc_deadline_is_409(admin, pid):

@@ -1,4 +1,4 @@
-"""서류 전형 평가 화면 응답 (화면 17 지원자 순위, 화면 18 결과 보고서)."""
+"""전형 평가 화면 응답. 서류: 화면 17 지원자 순위, 18 결과 보고서. 면접: 27 순위, 28 보고서, 29 자료 원본."""
 
 from datetime import datetime
 from decimal import Decimal
@@ -26,14 +26,16 @@ class RankingRow(BaseModel):
     scores: list[WeightedScore]
     has_opinion: bool
     opinion: str | None  # 화면 20 관리자 의견 열
-    result: str | None  # 서류 전형 결과 (합격, 불합격). 합격자를 확정하기 전에는 None
-    # '완료'면 보고서가 있다. 그 밖에는 서류 보고서 작업 상태(대기, 실행 중, 실패) 또는 '없음'
+    result: str | None  # 그 전형의 결과 (합격, 불합격). 합격자를 확정하기 전에는 None
+    # '완료'면 보고서가 있다. 그 밖에는 보고서 작업 상태(대기, 실행 중, 실패), '없음', 면접은 '미응시'
     report_status: str
+    follow_up_count: int | None = None  # 면접만. 받은 유효 꼬리질문 수 (총점에 더하지 않는다)
 
 
 class RankingSummary(BaseModel):
-    target_count: int  # 제출했고 필수 기술 미달이 아닌 지원서
-    shortfall_count: int
+    target_count: int  # 서류: 제출했고 필수 기술 미달이 아닌 지원서 / 면접: 서류 합격자(면접 대상)
+    shortfall_count: int  # 면접은 0
+    taken_count: int | None = None  # 면접만. 응시 완료
     average: Decimal | None  # 보고서가 있는 지원자의 총점 평균
     opinion_count: int
 
@@ -42,8 +44,9 @@ class RankingOut(BaseModel):
     posting_id: int
     position_name: str | None
     doc_end_at: datetime | None
+    interview_end_at: datetime | None = None
     criteria: list[CriteriaRatio]
-    confirmed: bool  # 서류 합격자를 확정했는지 (ADM-025)
+    confirmed: bool  # 그 전형의 합격자를 확정했는지 (ADM-025, ADM-031)
     summary: RankingSummary
     rows: list[RankingRow]  # 총점 내림차순, 보고서가 없는 지원자는 끝에
 
@@ -69,12 +72,24 @@ class ReportPointOut(BaseModel):
     content: str
 
 
+class QuestionResultOut(BaseModel):
+    """화면 28 질문별 결과 (SYS-010). 질문 구분과 주요 표정. 답변 기록은 화면 29에서 본다."""
+
+    seq: int  # 1부터. 진행 목록 순서
+    question_id: int
+    text: str
+    kind: Literal["AI", "꼬리", "기업"]
+    main_expression: str | None
+    answer_id: int
+
+
 class ReportOut(BaseModel):
     application_id: int
     posting_id: int
     applicant_name: str | None
     position_name: str | None
     doc_end_at: datetime | None
+    interview_end_at: datetime | None = None
     total: Decimal
     rank: int
     ranked_count: int  # 보고서가 있어 순위에 든 지원자 수
@@ -84,6 +99,8 @@ class ReportOut(BaseModel):
     strengths: list[ReportPointOut]
     checks: list[ReportPointOut]
     opinion: str | None
+    questions: list[QuestionResultOut] = []  # 면접만
+    follow_up_count: int | None = None  # 면접만
 
 
 class OpinionIn(BaseModel):
@@ -161,3 +178,32 @@ class SourceDocumentsOut(BaseModel):
     cases: list[SourceCase]
     essays: list[SourceEssay]
     portfolio: SourcePortfolio | None
+
+
+# ---------- 화면 29 지원자 자료 원본 (면접, ADM-028) ----------
+
+
+class SttLineOut(BaseModel):
+    time_offset_sec: int | None
+    corrected_text: str | None
+    raw_text: str | None  # 보정문과 다르면 화면이 'LLM 수정'과 원문을 함께 보인다
+
+
+class InterviewSourceQuestion(BaseModel):
+    seq: int
+    question_id: int
+    text: str
+    kind: Literal["AI", "꼬리", "기업"]
+    answer_id: int
+    duration_sec: int | None
+    has_video: bool
+    stt: list[SttLineOut]
+
+
+class InterviewSourceOut(BaseModel):
+    application_id: int
+    posting_id: int
+    position_name: str | None
+    interview_end_at: datetime | None
+    name: str | None
+    questions: list[InterviewSourceQuestion]

@@ -97,6 +97,13 @@ def is_doc_stage_closed(progress_status: str | None) -> bool:
     )
 
 
+def is_interview_stage_closed(progress_status: str | None) -> bool:
+    """ADM-013 면접 전형이 마감됐는지. 진행 상태가 '면접 평가' 이후면 마감이다."""
+    return progress_status in PROGRESS_ORDER and PROGRESS_ORDER.index(progress_status) >= PROGRESS_ORDER.index(
+        ProgressStatus.INTERVIEW_EVALUATION.value
+    )
+
+
 def calc_weighted(score: Decimal, ratio: int) -> Decimal:
     """항목 점수(100점 기준) × 비율 ÷ 100. 화면의 '27 / 30'과 총점에 쓴다 (코드베이스 4.2 calc_total_score).
     반올림은 화면에 보일 때만 한다. 총점은 반올림하지 않은 값을 더한다."""
