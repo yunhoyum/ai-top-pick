@@ -124,3 +124,13 @@ def test_api_interview_report(monkeypatch):
     assert {p["criteria_id"] for p in out["points"]} == {5}
     r = client.post("/internal/reports/interview", json=body | {"criteria": criteria[:2]}, headers=headers)
     assert r.status_code == 422
+
+
+def test_check_point_prefers_code_written_notes_over_llm_text():
+    """'문서 부족 상황'처럼 낱말만 걸린 칭찬 문장보다 코드가 쓴 문구를 먼저 쓴다 (실험 R2)."""
+    partly = "답변은 문서 부족 상황을 명확히 제시한다. " + RELEVANCE_CAP_NOTES["일부"]
+    opposite = "답변은 직접적이다. 사례가 부족하다. 회사 문서와 비교한 주장 1개: 반대 1 (일치 단계: 반대)."
+    answers = [_answer("Q1?", "답.", "42", partly), _answer("Q2?", "답.", "30", opposite)]
+    points = build_interview_report(POSTING, answers, model=FakeModel({"fits": []}, {"summary": "요약."})).points
+    assert [p.content for p in points] == [
+        "Q1 'Q1?': " + RELEVANCE_CAP_NOTES["일부"], "Q2 'Q2?': 답변 내용이 회사 문서와 맞지 않는다."]

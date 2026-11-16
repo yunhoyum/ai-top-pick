@@ -30,7 +30,14 @@ CHECK_BELOW = 60
 MAX_STRENGTHS = 2
 MAX_FIT_SENTENCES = 2
 DELAY_SEC = 10  # 응답 지연 감점 기준 (루브릭 설계서 4.2)
-NOT_ANSWERED = RELEVANCE_CAP_NOTES["안 함"]  # 내용 채점이 '질문에 답하지 않음'으로 판정한 답변의 이유 끝 문구
+NOT_ANSWERED = RELEVANCE_CAP_NOTES["안 함"]
+PARTLY_ANSWERED = RELEVANCE_CAP_NOTES["일부"]
+# 일치 단계가 낮을 때 확인 필요에 쓰는 문장 (chains/answer_content의 '(일치 단계: …)' 문구)
+LOW_MATCH = {
+    "(일치 단계: 반대)": "답변 내용이 회사 문서와 맞지 않는다.",
+    "(일치 단계: 일부만 같음)": "답변 내용이 회사 문서와 일부만 맞는다.",
+    "(일치 단계: 문서에 없음)": "답변 내용을 회사 문서에서 확인하지 못했다.",
+}  # 내용 채점이 '질문에 답하지 않음'으로 판정한 답변의 이유 끝 문구
 NO_FIT_NOTE = "면접 답변에서 이 인재상을 보여 주는 내용을 찾지 못했다."
 NO_CONTENT_NOTE = "내용 점수가 있는 답변이 없다."
 LOW_CONTENT_NOTE = "내용 점수가 낮다."
@@ -114,7 +121,10 @@ def _fits(model: Runnable, posting: PostingBrief, answers: list[AnswerRecord]) -
     talent_lines = "\n".join(f"[{tid}] {text}" for tid, text in talents)
     out = invoke_structured(model, prompts.talent_fit(talent_lines, _numbered_answers(answers, sentences)), TalentFitOutput)
     picked = {f.talent_id: f.sentence_ids for f in out.fits}
-    low = {f"Q{n}" for n, a in enumerate(answers, start=1) if a.content_score is not None and a.content_score < CHECK_BELOW}
+    # 내용 점수가 낮거나 질문에 답하지 않은 답변. '일부만 답함'까지 빼면 좋은 답변(A22·A24)도 빠져
+    # 재현율이 63%에서 38%로 떨어졌다 (R2 재생). 그래서 동떨어진 답변(A31, 일부)을 고르는 경우는 남는다
+    low = {f"Q{n}" for n, a in enumerate(answers, start=1)
+           if (a.content_score is not None and a.content_score < CHECK_BELOW) or NOT_ANSWERED in (a.content_reason or "")}
     fits = []
     for tid, text in talents:
         ids = [sid for sid in dict.fromkeys(picked.get(tid, [])) if sid in sentences]  # 없는 번호는 버린다
@@ -198,11 +208,16 @@ def _korean(text: str) -> str:
 
 
 def _weak_sentence(reason: str | None) -> str:
-    """채점 이유에서 모자란 점을 말하는 문장. 없으면 일치 단계 문장, 그것도 없으면 '내용 점수가 낮다.'"""
+    """확인 필요에 보일 채점 이유 문장. 코드가 쓴 문구가 LLM 문장보다 정확해 먼저 쓴다.
+    ① 질문의 일부에만 답했다는 문구 ② 일치 단계가 반대·일부만 같음·문서에 없음인 문장
+    ③ LLM 이유에서 모자란 점을 말하는 문장(첫 문장은 대개 칭찬이라 뺀다. '문서 부족 상황'처럼 낱말만 걸린다, R2)
+    ④ '내용 점수가 낮다.'"""
     sentences = split_sentences(_korean(reason or ""))
-    weak = next((s for s in sentences if _WEAK.search(s)), None)
-    match = next((s for s in sentences if "일치 단계" in s), None)
-    return weak or match or LOW_CONTENT_NOTE
+    partly = next((s for s in sentences if PARTLY_ANSWERED in s), None)
+    match = next((text for s in sentences for m, text in LOW_MATCH.items() if m in s), None)
+    rest = sentences[1:] or sentences  # 한 문장뿐이면 그 문장을 본다
+    weak = next((s for s in rest if _WEAK.search(s) and "일치 단계" not in s), None)
+    return partly or match or weak or LOW_CONTENT_NOTE
 
 
 def _first_sentence(reason: str | None) -> str:
