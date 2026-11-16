@@ -1,4 +1,4 @@
-"""면접 그래프·내부 API 테스트 (실시간 면접 1~4단계). TTS·LLM·검색·vision·내용 채점은 가짜, 체크포인터는 메모리다."""
+"""면접 그래프·내부 API 테스트 (실시간 면접 1~5단계). TTS·LLM·검색·vision·내용 채점은 가짜, 체크포인터는 메모리다."""
 
 import base64
 import json
@@ -16,7 +16,8 @@ from app.graphs.interview import builder, nodes
 from app.graphs.interview.nodes import Deps
 from app.main import app
 from app.rag.retriever import Chunk
-from app.schemas.internal import AnswerRequest, ExpressionRequest, StartInterviewRequest
+from app.prompts.inquiry import GREETING
+from app.schemas.internal import AnswerRequest, ExpressionRequest, InquiryRequest, StartInterviewRequest
 
 QUESTIONS = [
     {"qkey": "q11", "question_id": 11, "kind": "AI", "question_type": "직무", "text": "캐시를 왜 썼나요?"},
@@ -71,6 +72,8 @@ class Fakes:
                  content="70.00", follow_ups=()):
         self.searches, self.scored, self.topics, self.follow_up_inputs = [], [], [], []
         self.content, self.follow_ups = content, list(follow_ups)
+        self.inquiry_inputs, self.replacements = [], []
+        self.cause, self.checkable = "지원자 측", True
         self.score_error, self.answer_search_error = score_error, answer_search_error
         self.frames = frames if frames is not None else [{"emotion": "neutral"}] * 8 + [{"emotion": "fear"}] * 2
         self.vision_error = vision_error
@@ -97,6 +100,17 @@ class Fakes:
         evidence = [EvidenceSentence("프로젝트 문서", 3, 7, "캐시로 응답을 줄였다.")]
         return ContentScore(Decimal(self.content), "캐시 이유가 분명하다.", EvidenceStatus.FOUND, evidence, {})
 
+    def analyze_inquiry(self, messages, logs, tried):
+        """정해 둔 분석을 차례로 낸다. 받은 대화·로그·앞에서 안내한 방법을 기록한다."""
+        self.inquiry_inputs.append({"messages": messages, "logs": logs, "tried": list(tried)})
+        n = len(self.inquiry_inputs)
+        return {"problem": f"원인 {n}", "solution": f"방법 {n}", "cause": self.cause, "system_checkable": self.checkable,
+                "reply": f"안내 {n}"}
+
+    def replace_question(self, posting, documents, qtype, existing):
+        self.replacements.append({"type": qtype, "existing": existing, "posting_id": posting["posting_id"]})
+        return f"대체 {qtype} 질문?"
+
     def follow_up(self, inputs):
         """정해 둔 꼬리질문을 차례로 낸다. None이면 만들지 못한 것이다."""
         self.follow_up_inputs.append(inputs)
@@ -110,7 +124,8 @@ def _answer(qkey, question_id, end_reason="button", **over):
 def _build(saver, tts, llm=None, fakes=None):
     f = fakes or Fakes()
     deps = Deps(tts=tts, model=llm or FakeLlm(), fillers=FILLERS, search=f.search, analyze=f.analyze,
-                follow_up=f.follow_up, score_content=f.score_content, judge_topic=f.judge_topic)
+                follow_up=f.follow_up, analyze_inquiry=f.analyze_inquiry, replace_question=f.replace_question,
+                score_content=f.score_content, judge_topic=f.judge_topic)
     return builder.build_interview_graph(saver, deps)
 
 
@@ -490,3 +505,133 @@ def test_follow_up_is_judged_after_expression_reanalysis_too():
     _, actions = builder.submit_expression(graph, 5, ExpressionRequest(
         qkey="q21", answer_id=1, main_expression="neutral", expression_ratio={"neutral": 1.0}))
     assert [a["type"] for a in actions] == ["remove", "present"]
+
+
+# ---------- 문의 (5단계, SYS-003·APP-013·014) ----------
+
+
+def _inquiry_setup(cause="지원자 측", checkable=True, questions=None):
+    fakes = Fakes()
+    fakes.cause, fakes.checkable = cause, checkable
+    tts = FakeTts()
+    graph = _build(InMemorySaver(), tts, fakes=fakes)
+    builder.start_or_resume(graph, StartInterviewRequest(**(BODY | ({"questions": questions} if questions else {}))), tts)
+    nodes._topic_pool.submit(lambda: None).result()
+    return graph, fakes, tts
+
+
+def _inq(event, **over):
+    return InquiryRequest(inquiry_id=7, event=event, **over)
+
+
+def _open_and_message(graph):
+    opened = builder.submit_inquiry(graph, 5, _inq("open", system_logs=[{"logged_at": "t1", "content": "재연결"}]))
+    said = builder.submit_inquiry(graph, 5, _inq("message", text="마이크가 안 돼요"))
+    return opened, said
+
+
+def test_inquiry_opens_with_greeting_then_analyzes_the_message():
+    graph, fakes, _ = _inquiry_setup()
+    opened, said = _open_and_message(graph)
+    assert opened == {"reply": GREETING, "check": None, "judgment": None, "actions": []}
+    assert (said["reply"], said["check"], said["judgment"]) == ("안내 1", "system", None)
+    inputs = fakes.inquiry_inputs[0]
+    assert [m["text"] for m in inputs["messages"]] == [GREETING, "마이크가 안 돼요"]
+    assert inputs["logs"] == [{"logged_at": "t1", "content": "재연결"}] and inputs["tried"] == []
+
+
+def test_resolved_applicant_side_keeps_the_question():
+    graph, _, _ = _inquiry_setup(cause="지원자 측")
+    _open_and_message(graph)
+    out = builder.submit_inquiry(graph, 5, _inq("check", resolved=True))
+    assert out["actions"] == [] and out["judgment"]["resolved"] is True
+    assert out["judgment"]["handling_detail"].startswith("해결되어 진행 중이던 질문을 그대로")
+    # 진행 중이던 질문(q11)의 답변을 그대로 받는다
+    assert builder.submit_answer(graph, 5, _answer("q11", 11))[1][0]["question"]["qkey"] == "q12"
+
+
+def test_resolved_system_side_invalidates_and_represents_a_new_ai_question():
+    graph, fakes, tts = _inquiry_setup(cause="시스템 측", checkable=False)
+    _, said = _open_and_message(graph)
+    assert said["check"] == "applicant"
+    out = builder.submit_inquiry(graph, 5, _inq("check", resolved=True))
+    invalidate, present = out["actions"]
+    assert (invalidate["type"], invalidate["question"]["qkey"], invalidate["keep_question"]) == ("invalidate", "q11", False)
+    new = present["question"]
+    assert present["type"] == "present" and new["qkey"].startswith("r") and new["question_id"] is None
+    assert (new["kind"], new["question_type"], new["text"]) == ("AI", "직무", "대체 직무 질문?")
+    assert tts.texts[-1] == "대체 직무 질문?"  # 다시 제시한 질문도 읽어준다 (SYS-011)
+    # 대체 질문은 이미 나온 질문·남은 질문·진행 중이던 질문과 겹치지 않게 만든다
+    assert fakes.replacements[0]["existing"] == ["모른다고 말한 경험은?", "지원 동기는?", "캐시를 왜 썼나요?"]
+    assert builder.submit_answer(graph, 5, _answer(new["qkey"], 900))[1][0]["question"]["qkey"] == "q12"
+
+
+def test_company_question_is_presented_again_as_is():
+    company = [{"qkey": "q13", "question_id": 13, "kind": "기업", "question_type": None, "text": "지원 동기는?"}]
+    graph, fakes, _ = _inquiry_setup(cause="원인 판단 불가", questions=company)
+    _open_and_message(graph)
+    invalidate, present = builder.submit_inquiry(graph, 5, _inq("check", resolved=True))["actions"]
+    same = present["question"]
+    assert invalidate["keep_question"] is True and (same["qkey"], same["text"]) == ("q13", "지원 동기는?")  # 같은 질문, 답변만 무효
+    assert fakes.replacements == []
+
+
+def test_three_failures_suspend_then_reconnect_retakes_the_question():
+    graph, fakes, tts = _inquiry_setup(cause="시스템 측")
+    _open_and_message(graph)
+    first = builder.submit_inquiry(graph, 5, _inq("check", resolved=False))
+    assert (first["reply"], first["judgment"], first["actions"]) == ("안내 2", None, [])  # 다른 방법으로 다시 안내
+    assert fakes.inquiry_inputs[1]["tried"] == ["방법 1"]
+    builder.submit_inquiry(graph, 5, _inq("check", resolved=False))
+    last = builder.submit_inquiry(graph, 5, _inq("check", resolved=False))
+    assert last["actions"] == [{"type": "suspend"}]
+    j = last["judgment"]
+    assert (j["resolved"], j["cause"], j["ai_attempt_count"], j["ai_action"]) == (False, "시스템 측", 3, "방법 1 / 방법 2 / 방법 3")
+    assert "관리자가 처리한 뒤" in j["handling_detail"]
+    # 재시험: /start가 중단 interrupt를 풀고 진행 중이던 질문을 무효로 한 뒤 새 질문을 제시한다
+    actions = builder.start_or_resume(graph, StartInterviewRequest(**(BODY | {"resume": True})), tts)
+    assert [a["type"] for a in actions] == ["invalidate", "present"] and actions[1]["question"]["qkey"].startswith("r")
+
+
+def test_disconnect_during_inquiry_cancels_it_and_represents_the_question():
+    graph, _, tts = _inquiry_setup()
+    _open_and_message(graph)
+    actions = builder.start_or_resume(graph, StartInterviewRequest(**(BODY | {"resume": True})), tts)
+    assert [(a["type"], a["question"]["qkey"]) for a in actions] == [("present", "q11")]
+    # 다시 문의를 열 수 있다
+    assert builder.submit_inquiry(graph, 5, InquiryRequest(inquiry_id=8, event="open"))["reply"] == GREETING
+
+
+def test_inquiry_requests_out_of_place_are_rejected():
+    graph, _, _ = _inquiry_setup()
+    with pytest.raises(builder.NotWaitingError):
+        builder.submit_inquiry(graph, 5, _inq("message", text="?"))  # 문의를 열지 않았다
+    builder.submit_inquiry(graph, 5, _inq("open"))
+    with pytest.raises(builder.NotWaitingError):
+        builder.submit_inquiry(graph, 5, InquiryRequest(inquiry_id=99, event="message", text="?"))  # 다른 문의
+    with pytest.raises(builder.NotWaitingError):
+        builder.submit_inquiry(graph, 5, _inq("check", resolved=True))  # 메시지를 기다리는 중
+
+
+def test_api_inquiry(api):
+    api.post("/internal/interview/5/start", json=BODY, headers=H)
+    r = api.post("/internal/interview/5/inquiry", json={"inquiry_id": 1, "event": "open"}, headers=H)
+    assert r.status_code == 200 and r.json()["reply"] == GREETING
+    r = api.post("/internal/interview/5/inquiry", json={"inquiry_id": 1, "event": "check", "resolved": True}, headers=H)
+    assert r.status_code == 409
+
+
+def test_invalidated_follow_up_is_regenerated_from_the_answer_that_made_it():
+    graph, fakes, _ = _follow_setup(follow_ups=["꼬리 1?", "새 꼬리?"])
+    fakes.cause = "시스템 측"
+    _, actions = builder.submit_answer(graph, 5, _job_answer("q21", 21))
+    follow = actions[1]["question"]
+    builder.submit_inquiry(graph, 5, _inq("open"))
+    builder.submit_inquiry(graph, 5, _inq("message", text="질문 소리가 안 들려요"))
+    invalidate, present = builder.submit_inquiry(graph, 5, _inq("check", resolved=True))["actions"]
+    assert invalidate["question"]["qkey"] == follow["qkey"] and invalidate["keep_question"] is False
+    new = present["question"]
+    assert (new["kind"], new["parent_qkey"], new["text"]) == ("꼬리", "q21", "새 꼬리?") and new["qkey"] != follow["qkey"]
+    # 무효 처리한 꼬리질문을 만든 직전 답변(q21의 답변)으로 다시 만든다. 꼬리질문 수는 그대로 1이다
+    assert fakes.follow_up_inputs[1]["prev_question"] == "캐시를 왜 썼나요?"
+    assert _state(graph)["follow_up_counts"] == {"q21": 1}

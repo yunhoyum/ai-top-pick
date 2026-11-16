@@ -120,6 +120,7 @@ class Action(BaseModel):
     type: Literal["present", "remove", "invalidate", "await_expression", "suspend", "end"]
     question: QuestionItem | None = None
     audio_b64: str | None = None  # present일 때 질문 음성(wav)
+    keep_question: bool = False  # invalidate일 때: 참이면 질문은 두고 답변만 무효 (기업 질문은 같은 질문을 다시 제시한다)
 
 
 class StartInterviewRequest(BaseModel):  # 2.2
@@ -191,4 +192,39 @@ class ExpressionRequest(BaseModel):  # 2.5
 class ExpressionResponse(BaseModel):
     expression_score: Decimal | None  # 재분석도 실패하면 None
     answer_score: Decimal | None  # 표정이 None이면 내용·발화만으로 계산. 내용 채점이 실패했으면 None
+    actions: list[Action]
+
+
+Cause = Literal["시스템 측", "지원자 측", "원인 판단 불가"]
+
+
+class LogLine(BaseModel):  # 2.4
+    logged_at: str  # ISO 일시. main-api가 만든 그대로 LLM에 보인다
+    content: str
+
+
+class InquiryRequest(BaseModel):  # 2.4
+    inquiry_id: int
+    # open: 문의 시작 / message: 지원자 메시지 / check: 해결 확인 결과 (시스템 재검사 또는 지원자 확인, 5단계에서 더함)
+    event: Literal["open", "message", "check"]
+    text: str | None = None
+    resolved: bool | None = None  # check일 때만
+    system_logs: list[LogLine] = []
+    bindings: list[Binding] = []
+
+
+class Judgment(BaseModel):  # 2.4
+    resolved: bool
+    cause: Cause
+    judgment_basis: str  # → inquiry.judgment_basis
+    ai_action: str  # → inquiry.ai_action
+    handling_detail: str  # → inquiry.handling_detail
+    ai_attempt_count: int  # → inquiry.ai_attempt_count
+
+
+class InquiryResponse(BaseModel):  # 2.4
+    reply: str | None  # 챗봇 답변 → chat_message
+    # 해결 확인을 어떻게 받을지. system: 브라우저가 마이크·카메라를 다시 검사해 보낸다 / applicant: 지원자에게 묻는다
+    check: Literal["system", "applicant"] | None = None
+    judgment: Judgment | None  # 판단이 끝났을 때만 값이 있다
     actions: list[Action]

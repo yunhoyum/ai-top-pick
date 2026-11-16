@@ -1,6 +1,6 @@
 """면접 내부 API (ai-service 2, 내부 API 규약 2장). main-api가 응시 1건(session_id)마다 부른다.
 
-/start, /answer(STT 보정·채점), /expression(표정 재분석 결과). /inquiry(문의)는 5단계에서 연다.
+/start, /answer(STT 보정·채점), /expression(표정 재분석 결과), /inquiry(문의).
 """
 
 from functools import lru_cache
@@ -14,14 +14,22 @@ from app.core.internal_auth import verify_internal_token
 from app.core.llm import get_chat_model
 from app.db.checkpointer import get_checkpointer
 from app.graphs.interview import builder
+from app.chains.structured import invoke_structured
 from app.graphs.interview.follow_up_nodes import make_follow_up
+from app.graphs.question import generate_questions
+from app.prompts import inquiry as inquiry_prompts
+from app.schemas.llm_outputs import InquiryAnalysis
 from app.graphs.interview.nodes import Deps
 from app.rag.retriever import search_company_docs
 from app.schemas.internal import (
     AnswerRequest,
     AnswerResponse,
     ExpressionRequest,
+    ApplicantDocuments,
     ExpressionResponse,
+    InquiryRequest,
+    InquiryResponse,
+    PostingBrief,
     StartInterviewRequest,
     StartInterviewResponse,
 )
@@ -34,6 +42,17 @@ def get_tts():
     return TtsClient().synthesize
 
 
+def _replacement(model, posting: dict, documents: dict, qtype: str, existing: list[str]) -> str:
+    """문의 처리로 AI 질문을 대신할 새 질문 하나 (T-24). 질문 생성 그래프를 1개짜리로 쓴다.
+    이미 나온 질문을 확정 목록에 넣어 겹침 검사가 비교하게 한다. fallback까지 실패하면 템플릿이라 항상 하나가 나온다."""
+    job, personality = generate_questions(
+        PostingBrief(**posting), ApplicantDocuments(**documents), int(qtype == "직무"), int(qtype != "직무"),
+        model=model, search=lambda q: [c.content for c in search_company_docs(posting["posting_id"], [q])],
+        existing=existing,
+    )
+    return (job or personality)[0]
+
+
 @lru_cache
 def get_interview_graph():
     model = get_chat_model()
@@ -41,6 +60,9 @@ def get_interview_graph():
         tts=get_tts(), model=model, fillers=get_settings().FILLER_WORDS,
         search=search_company_docs, analyze=VisionClient().analyze,
         follow_up=lambda inputs: make_follow_up(model, inputs),
+        analyze_inquiry=lambda messages, logs, tried: invoke_structured(
+            model, inquiry_prompts.analyze(messages, logs, tried), InquiryAnalysis).model_dump(),
+        replace_question=lambda posting, documents, qtype, existing: _replacement(model, posting, documents, qtype, existing),
     )
     return builder.build_interview_graph(get_checkpointer(), deps)
 
@@ -77,3 +99,12 @@ def expression(session_id: int, req: ExpressionRequest, graph=Depends(get_interv
         )
     except builder.NotWaitingError:
         raise HTTPException(status_code=409, detail="지금 표정 결과를 받을 답변이 아닙니다.")
+
+
+@router.post("/{session_id}/inquiry", response_model=InquiryResponse)
+def inquiry(session_id: int, req: InquiryRequest, graph=Depends(get_interview_graph)):
+    """문의 시작·메시지·해결 확인을 처리한다 (규약 2.4)."""
+    try:
+        return InquiryResponse(**builder.submit_inquiry(graph, session_id, req))
+    except builder.NotWaitingError:
+        raise HTTPException(status_code=409, detail="지금 받을 수 있는 문의 요청이 아닙니다.")

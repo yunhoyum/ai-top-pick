@@ -1,6 +1,6 @@
 """면접 그래프 라우팅 (ai-service 3.3).
 
-문의(route_after_wait의 '문의' → inquiry_wait)는 5단계에서 넣는다.
+문의 서브그래프의 라우팅(route_after_inquiry_wait, route_after_judgment)은 inquiry_nodes.py에 있다.
 """
 
 from app.graphs.interview.nodes import next_job_question, parent_qkey
@@ -16,8 +16,8 @@ def route_after_load(state: InterviewState) -> str:
 
 
 def route_after_wait(state: InterviewState) -> str:
-    """답변 → evaluate_answer. 문의는 5단계에서 inquiry_wait로 보낸다."""
-    return "evaluate_answer"
+    """답변 → evaluate_answer / 문의 → inquiry_wait (ai-service 3.3)."""
+    return "inquiry_wait" if state["last_input"].get("type") == "inquiry" else "evaluate_answer"
 
 
 def route_after_eval(state: InterviewState) -> str:

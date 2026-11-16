@@ -112,3 +112,13 @@ class OverlapCheck(BaseModel):
     same_skill: bool
     same_competency: bool
     reason: str = ""
+
+
+class InquiryAnalysis(BaseModel):
+    """T-21 결함 분석 (AI Agent 설계서 2.3). 해결 여부는 check_resolved가 확인한다."""
+
+    problem: str = Field(min_length=1)  # 문제 원인
+    solution: str = Field(min_length=1)  # 해결방안
+    cause: Literal["시스템 측", "지원자 측", "원인 판단 불가"]  # 결함 원인
+    system_checkable: bool  # 마이크·카메라 입력처럼 시스템이 다시 검사할 수 있는 문제인가
+    reply: str = Field(min_length=1)  # 지원자에게 보낼 챗봇 답변 (해결방안 안내, T-22)

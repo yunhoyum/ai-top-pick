@@ -5,7 +5,7 @@
 - wait_expression: 표정 분석이 실패하면 main-api가 다시 분석한 결과를 기다린다 (아키텍처 8)
 - score_answer: 표정 점수와 답변 점수
 - follow_up: 꼬리질문 서브그래프를 돌려, 만들면 바로 다음 직무 질문을 빼고 꼬리질문을 지금 질문으로 둔다 (SYS-008)
-문의(5단계)는 아직 없다.
+- 문의 서브그래프 노드는 inquiry_nodes.py에 있다 (SYS-003)
 """
 
 import base64
@@ -31,6 +31,7 @@ from app.analysis.speech import (
 )
 from app.chains.answer_content import NO_CLAIM_NOTE, ContentScore, judge_question_topic, score_content
 from app.chains.stt_correction import correct_transcript
+from app.graphs.interview.inquiry_nodes import make_inquiry_nodes, start_inquiry
 from app.graphs.interview.state import InterviewState
 from app.rag.retriever import Chunk
 from app.schemas.internal import Word
@@ -53,6 +54,8 @@ class Deps:
     search: Search
     analyze: Analyze
     follow_up: FollowUp
+    analyze_inquiry: Callable[[list[dict], list[dict], list[str]], dict]  # 문의 결함 분석 (T-21)
+    replace_question: Callable[[dict, dict, str, list[str]], str]  # 문의 처리로 AI 질문을 대신할 새 질문 (T-24)
     score_content: ScoreContent = score_content
     judge_topic: JudgeTopic = judge_question_topic
 
@@ -76,6 +79,22 @@ def _bind(current: dict, bindings: list[dict]) -> dict:
 def parent_qkey(question: dict) -> str:
     """꼬리질문의 부모는 꼬리질문이 시작된 최상위 기본 질문이다. 꼬리질문의 꼬리질문도 같은 부모를 둔다 (SYS-008)."""
     return question.get("parent_qkey") or question["qkey"]
+
+
+def follow_up_inputs(state: InterviewState, question: dict) -> dict:
+    """꼬리질문 서브그래프 입력. 직전 질문·답변은 마지막으로 답변 받은 질문과 그 답변이다.
+    답변 직후면 지금 질문이고, 문의로 무효 처리한 꼬리질문을 다시 만들 때는 그 꼬리질문을 만든 직전 답변이다 (APP-014).
+    비교 대상: 답변 받은 질문 + 아직 제시하지 않은 질문. 부모와 그 꼬리질문, 바로 다음 직무 질문은 뺀다 (AI Agent 설계서 2.2)."""
+    queue, history = state.get("queue", []), state.get("history", [])
+    parent = parent_qkey(question)
+    nxt = next_job_question(queue)
+    parent_text = next((h["question"]["text"] for h in history if h["question"]["qkey"] == parent), question["text"])
+    compare = [h["question"]["text"] for h in history if parent_qkey(h["question"]) != parent]
+    compare += [q["text"] for q in queue if q is not nxt]
+    contexts = [c["content"] for c in state.get("question_context", []) + state.get("answer_context", [])]
+    last = history[-1] if history else {"question": question, "answer": ""}
+    return {"prev_question": last["question"]["text"], "prev_answer": last["answer"], "parent_question": parent_text,
+            "contexts": list(dict.fromkeys(contexts)), "compare_questions": compare}
 
 
 def next_job_question(queue: list[dict]) -> dict | None:
@@ -112,7 +131,9 @@ def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
         """interrupt로 멈춘다. 재개 값(답변 또는 문의)을 받는다.
         재개될 때마다 actions를 비운다. 이번 요청에 돌려줄 행동만 쌓이게 하기 위해서다."""
         value = interrupt({"waiting": "answer", "qkey": state["current"]["qkey"]})
-        return {"last_input": value, "actions": [], "current": _bind(state["current"], value.get("bindings"))}
+        update = {"last_input": value, "actions": [], "current": _bind(state["current"], value.get("bindings"))}
+        # 문의 시작이면 문의 상태를 만든다. 다음 inquiry_wait가 interrupt하므로 여기서 넣어야 남는다
+        return update | start_inquiry(value) if value.get("type") == "inquiry" else update
 
     def _content(state: InterviewState, answer_text: str) -> tuple[ContentScore | None, list[dict]]:
         """보정된 답변으로 회사 문서를 검색하고 내용 점수를 낸다. 검색이나 채점이 끝까지 실패하면 (None, []).
@@ -218,18 +239,10 @@ def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
         """꼬리질문 서브그래프(3.6)를 돌린다. 확정되면 current를 꼬리질문으로 바꾸고 queue에서 바로 다음 직무 질문을 뺀다.
         actions에는 '제거'만 넣는다. '제시'는 present_question이 넣는다 (TTS, 꼬리질문으로 한 검색, 질문 주제 판정).
         만들지 못하면 다음 직무 질문을 빼지 않는다 (AI Agent 설계서 5.2)."""
-        current, queue, history = state["current"], state.get("queue", []), state.get("history", [])
+        current, queue = state["current"], state.get("queue", [])
         parent = parent_qkey(current)
         removed = next_job_question(queue)
-        parent_text = next((h["question"]["text"] for h in history if h["question"]["qkey"] == parent), current["text"])
-        # 비교 대상: 답변 받은 질문 + 아직 제시하지 않은 질문. 부모와 그 꼬리질문, 바로 다음 직무 질문은 뺀다 (2.2)
-        compare = [h["question"]["text"] for h in history if parent_qkey(h["question"]) != parent]
-        compare += [q["text"] for q in queue if q is not removed]
-        contexts = [c["content"] for c in state.get("question_context", []) + state.get("answer_context", [])]
-        question = deps.follow_up({
-            "prev_question": current["text"], "prev_answer": history[-1]["answer"] if history else "",
-            "parent_question": parent_text, "contexts": list(dict.fromkeys(contexts)), "compare_questions": compare,
-        })
+        question = deps.follow_up(follow_up_inputs(state, current))
         if question is None:
             return {"follow_up_created": False}
         new = {"qkey": f"f{uuid.uuid4().hex}", "question_id": None, "kind": "꼬리", "question_type": "직무",
@@ -256,4 +269,5 @@ def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
         "score_answer": score_answer,
         "follow_up": follow_up,
         "end_interview": end_interview,
+        **make_inquiry_nodes(deps.analyze_inquiry, deps.replace_question, deps.follow_up, follow_up_inputs),
     }

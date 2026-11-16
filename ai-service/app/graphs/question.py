@@ -374,13 +374,15 @@ _STEPS_PER_QUESTION = 1 + 4 * MAX_RETRIES + 3
 
 
 def generate_questions(posting: PostingBrief, documents: ApplicantDocuments, job_count: int, personality_count: int,
-                       model: Runnable, search: Search) -> tuple[list[str], list[str]]:
-    """(직무 질문, 인성 질문). 개수는 요청과 같다."""
+                       model: Runnable, search: Search, existing: list[str] = ()) -> tuple[list[str], list[str]]:
+    """(직무 질문, 인성 질문). 개수는 요청과 같다.
+    existing: 이미 있는 질문. 확정 질문 목록에 먼저 넣어 배타성 검증이 그 질문들과도 비교하게 한다.
+    면접 중 문의 처리로 AI 질문을 대신할 새 질문을 만들 때 쓴다 (AI Agent 설계서 2.3 T-24)."""
     graph = build_question_graph(model, search)
     state = graph.invoke(
         {"posting": posting, "documents": documents, "essays": essays_text(documents),
          "queries": build_queries(documents, job_count), "personality_count": personality_count,
-         "idx": 0, "confirmed": [], "confirmed_bases": [], "job": [], "personality": []},
+         "idx": 0, "confirmed": list(existing), "confirmed_bases": [""] * len(existing), "job": [], "personality": []},
         {"recursion_limit": _STEPS_PER_QUESTION * (job_count + personality_count) + 10},
     )
     return state["job"], state["personality"]
