@@ -132,7 +132,8 @@ def submit_expression(graph, session_id: int, req: ExpressionRequest) -> tuple[d
     return state["last_evaluation"], state["actions"]
 
 
-INQUIRY_NODE = {"open": "wait_answer", "message": "inquiry_wait", "check": "check_resolved"}
+# 이벤트마다 받을 수 있는 interrupt. 해결 확인을 기다리는 중에도 지원자가 글로 더 알려 줄 수 있다
+INQUIRY_NODE = {"open": {"wait_answer"}, "message": {"inquiry_wait", "check_resolved"}, "check": {"check_resolved"}}
 
 
 def submit_inquiry(graph, session_id: int, req: InquiryRequest) -> dict:
@@ -141,7 +142,7 @@ def submit_inquiry(graph, session_id: int, req: InquiryRequest) -> dict:
     config = graph_config(session_id)
     snapshot = graph.get_state(config)
     inquiry = snapshot.values.get("inquiry")
-    if INQUIRY_NODE[req.event] not in snapshot.next:
+    if not INQUIRY_NODE[req.event] & set(snapshot.next):
         raise NotWaitingError(req.event)
     if req.event != "open" and (inquiry is None or inquiry["inquiry_id"] != req.inquiry_id):
         raise NotWaitingError(req.inquiry_id)

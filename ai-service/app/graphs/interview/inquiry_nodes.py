@@ -5,6 +5,7 @@
       해결 + 지원자 측            → wait_answer (진행 중이던 질문 그대로)
       해결 + 시스템 측·판단 불가  → invalidate_and_represent → present_question
       미해결, 시도 3회 미만        → inquiry_analyze (앞에서 안내한 방법을 빼고 다시)
+      지원자가 글을 더 보냄        → inquiry_analyze (그 글을 붙여 다시. 실패로 세지 않는다)
       미해결 3회                  → suspend(interrupt: 재접속 대기) → (재접속, /start) invalidate_and_represent
 해결 확인은 시스템이 다시 검사할 수 있는 문제(마이크·카메라 입력)면 브라우저 재검사 결과로, 아니면 지원자 확인으로 받는다.
 문의 도중 연결이 끊겨 재접속하면 문의를 끝내고 진행 중이던 질문을 다시 제시한다 (cancel, 5단계 결정).
@@ -82,6 +83,11 @@ def make_inquiry_nodes(analyze: Analyze, replace: Replace, follow_up: FollowUp,
         if value.get("event") == "cancel":
             return {"inquiry": inq | {"cancelled": True}, "actions": []}
         base = {"actions": [], "inquiry_reply": None, "inquiry_check": None}
+        if value.get("event") == "message":
+            # 해결 확인 대신 지원자가 글로 더 알려 줬다(챗봇이 자세히 물은 경우 등). 그 글로 다시 분석한다
+            messages = inq["messages"] + [{"speaker": APPLICANT, "text": value.get("text") or ""}]
+            logs = inq["logs"] + value.get("system_logs", [])
+            return base | {"inquiry": inq | {"messages": messages, "logs": logs, "resolved": None}, "inquiry_judgment": None}
         if value.get("resolved"):
             inq = inq | {"resolved": True}
             return base | {"inquiry": inq, "inquiry_judgment": _judgment(inq, True)}
@@ -133,6 +139,8 @@ def route_after_judgment(state: InterviewState) -> str:
     inq = state["inquiry"]
     if inq.get("cancelled"):
         return "wait_answer"
+    if inq["resolved"] is None:  # 지원자가 글을 더 보냈다
+        return "inquiry_analyze"
     if inq["resolved"]:
         return "wait_answer" if inq["analysis"]["cause"] == "지원자 측" else "invalidate_and_represent"
     return "inquiry_analyze" if inq["ai_attempt_count"] < MAX_ATTEMPTS else "suspend"

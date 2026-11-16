@@ -394,7 +394,8 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
                 })}
                 {waitingReply && <p className={styles.smallNote}>확인하고 있습니다…</p>}
               </div>
-              {check === "applicant" && !waitingReply ? (
+              {/* 지원자 확인: 예/아니오로 답하거나, 글로 더 알려 줄 수 있다(챗봇이 자세히 물은 경우) */}
+              {check === "applicant" && !waitingReply && (
                 <div className={styles.chatChecks}>
                   <Button type="button" inline onClick={() => answerCheck(true)}>
                     해결됐어요
@@ -403,26 +404,25 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
                     아직 안 돼요
                   </Button>
                 </div>
-              ) : (
-                <form
-                  className={styles.chatInput}
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    sendInquiry();
-                  }}
-                >
-                  <input
-                    className={styles.chatText}
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    placeholder="어떤 문제가 있는지 적어 주세요"
-                    disabled={inquiryId === null || waitingReply || suspended}
-                  />
-                  <Button type="submit" inline disabled={!draft.trim() || inquiryId === null || waitingReply}>
-                    보내기
-                  </Button>
-                </form>
               )}
+              <form
+                className={styles.chatInput}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  sendInquiry();
+                }}
+              >
+                <input
+                  className={styles.chatText}
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder="어떤 문제가 있는지 적어 주세요"
+                  disabled={inquiryId === null || waitingReply || suspended}
+                />
+                <Button type="submit" inline disabled={!draft.trim() || inquiryId === null || waitingReply}>
+                  보내기
+                </Button>
+              </form>
             </section>
           )}
           <section className={`${styles.card} ${styles.transcript}`}>

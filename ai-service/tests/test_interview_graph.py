@@ -593,6 +593,22 @@ def test_three_failures_suspend_then_reconnect_retakes_the_question():
     assert [a["type"] for a in actions] == ["invalidate", "present"] and actions[1]["question"]["qkey"].startswith("r")
 
 
+def test_message_while_checking_reanalyzes_without_counting_a_failure():
+    """원인 판단 불가처럼 챗봇이 자세히 물으면, 해결 확인 대신 지원자가 글로 더 알려 줄 수 있다."""
+    graph, fakes, _ = _inquiry_setup(cause="원인 판단 불가", checkable=False)
+    _open_and_message(graph)
+    out = builder.submit_inquiry(graph, 5, _inq("message", text="질문 음성이 안 들려요",
+                                                 system_logs=[{"logged_at": "t2", "content": "연결 끊김"}]))
+    assert (out["reply"], out["check"], out["judgment"]) == ("안내 2", "applicant", None)
+    again = fakes.inquiry_inputs[1]
+    assert [m["text"] for m in again["messages"]] == [GREETING, "마이크가 안 돼요", "안내 1", "질문 음성이 안 들려요"]
+    assert again["logs"][-1] == {"logged_at": "t2", "content": "연결 끊김"}
+    # 실패로 세지 않았다: 3번 더 실패해야 중단된다
+    for _ in range(2):
+        assert builder.submit_inquiry(graph, 5, _inq("check", resolved=False))["judgment"] is None
+    assert builder.submit_inquiry(graph, 5, _inq("check", resolved=False))["judgment"]["ai_attempt_count"] == 3
+
+
 def test_disconnect_during_inquiry_cancels_it_and_represents_the_question():
     graph, _, tts = _inquiry_setup()
     _open_and_message(graph)
