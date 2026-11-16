@@ -619,3 +619,142 @@
   background: #fff;
   box-shadow: 0 2px 8px rgba(20, 43, 71, 0.08);
 }
+
+/* ---------- 면접 평가 (화면 27~30) ---------- */
+.tealLight {
+  background: var(--accent-300);
+}
+
+.questionCell {
+  white-space: normal;
+  line-height: 1.5;
+}
+
+.table td.amberText {
+  color: var(--amber-600);
+}
+
+/* 화면 29 면접 자료 원본 (Figma 92:5801, 92:6113) */
+.sourceLayout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.sourceMain {
+  flex: 1 0 0;
+  min-width: 0;
+  gap: 12px;
+}
+
+.sourceHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sourceQuestion {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--gray-900);
+}
+
+.sourceVideo {
+  width: 100%;
+  max-height: 480px;
+  border-radius: 10px;
+  background: var(--primary-50);
+}
+
+.sourceEmpty {
+  padding: 40px 0;
+  font-size: 14px;
+  text-align: center;
+  color: var(--gray-500);
+}
+
+.sttNote {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--accent-50);
+  font-size: 12px;
+  color: var(--gray-700);
+}
+
+.sttLine {
+  display: flex;
+  gap: 16px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--gray-50);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.sttTime {
+  flex-shrink: 0;
+  width: 32px;
+  color: var(--gray-400);
+}
+
+.sttText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--gray-900);
+}
+
+.sttRaw {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--gray-500);
+}
+
+.sourceList {
+  width: 320px;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.sourceItem {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sourceItemActive {
+  background: var(--primary-50);
+}
+
+.sourceItemSeq {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--primary-700);
+}
+
+.sourceItemText {
+  flex: 1 0 0;
+  color: var(--gray-700);
+}
+
+.sourceItemActive .sourceItemText {
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.sourceItemTime {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--gray-400);
+}

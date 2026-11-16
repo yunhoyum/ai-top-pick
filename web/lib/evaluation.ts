@@ -1,4 +1,4 @@
-// 서류 전형 평가 화면 표시 규칙 (화면 17, 18)
+// 전형 평가 화면 표시 규칙 (서류: 화면 17~20, 면접: 27~30)
 
 // 순위 표 머리글의 짧은 항목 이름 (Figma: '기술 사례 30')
 const SHORT_NAMES: Record<string, string> = { "기술 적용 사례": "기술 사례" };
@@ -16,8 +16,17 @@ const REPORT_STATUS_LABELS: Record<string, string> = {
   "실행 중": "생성 중",
   실패: "생성 실패",
   없음: "보고서 없음",
+  미응시: "미응시",
 };
 export const reportStatusLabel = (status: string) => REPORT_STATUS_LABELS[status] ?? status;
 
 // 상위 비율: 2위 / 72명 → 상위 3% (올림)
 export const topPercent = (rank: number, count: number) => Math.ceil((rank / count) * 100);
+
+// 서류·면접 평가 화면은 같은 컴포넌트를 쓴다. 경로의 전형 이름이 API 경로(stages/{stage})와 같다
+export type EvalStage = "document" | "interview";
+export const STAGE_LABEL: Record<EvalStage, string> = { document: "서류", interview: "면접" };
+export const stagePath = (postingId: number, stage: EvalStage) => `/admin/postings/${postingId}/${stage}`;
+// 화면 부제의 '서류 전형 마감'·'면접 전형 마감' 일시
+export const stageEndAt = (stage: EvalStage, r: { doc_end_at: string | null; interview_end_at?: string | null }) =>
+  stage === "document" ? r.doc_end_at : (r.interview_end_at ?? null);

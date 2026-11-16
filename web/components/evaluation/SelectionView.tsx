@@ -6,15 +6,16 @@ import { useEffect, useState } from "react";
 import Button from "@/components/common/Button";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { ApiError, apiFetch } from "@/lib/api";
-import { formatTotal, reportStatusLabel } from "@/lib/evaluation";
+import { type EvalStage, formatTotal, reportStatusLabel, STAGE_LABEL, stageEndAt, stagePath } from "@/lib/evaluation";
 import { formatFullDate } from "@/lib/format";
 import type { Ranking } from "@/types/evaluation";
 import styles from "./Evaluation.module.css";
 
 const errorMessage = (e: unknown) => (e instanceof ApiError ? e.message : "서버에 연결하지 못했습니다.");
 
-// 화면 20 서류 전형 합격자 선정 (ADM-025). 한 번 확정하면 바꿀 수 없다
-export default function SelectionView({ postingId }: { postingId: number }) {
+// 화면 20 서류 전형 합격자 선정 (ADM-025), 화면 30 면접 전형 합격자 선정 (ADM-031). 한 번 확정하면 바꿀 수 없다.
+// 면접 미응시자는 고를 수 없다(서버가 422). 면접 합격자를 확정하면 공고가 마감된다
+export default function SelectionView({ postingId, stage = "document" }: { postingId: number; stage?: EvalStage }) {
   const router = useRouter();
   const [ranking, setRanking] = useState<Ranking | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -23,13 +24,14 @@ export default function SelectionView({ postingId }: { postingId: number }) {
   const [busy, setBusy] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
-  const donePath = `/admin/postings/${postingId}/document/selection/done`;
+  const donePath = `${stagePath(postingId, stage)}/selection/done`;
+  const label = STAGE_LABEL[stage];
 
   useEffect(() => {
-    apiFetch<Ranking>(`/api/admin/postings/${postingId}/stages/document/ranking`)
+    apiFetch<Ranking>(`/api/admin/postings/${postingId}/stages/${stage}/ranking`)
       .then(setRanking)
       .catch((e) => setLoadError(errorMessage(e)));
-  }, [postingId]);
+  }, [postingId, stage]);
 
   // 이미 확정했으면 화면 20-1 합격자 확정 완료로 보낸다
   useEffect(() => {
@@ -49,7 +51,7 @@ export default function SelectionView({ postingId }: { postingId: number }) {
     setBusy(true);
     setConfirmError(null);
     try {
-      await apiFetch(`/api/admin/postings/${postingId}/stages/document/pass`, {
+      await apiFetch(`/api/admin/postings/${postingId}/stages/${stage}/pass`, {
         method: "POST",
         body: JSON.stringify({ application_ids: [...selected] }),
       });
@@ -73,17 +75,18 @@ export default function SelectionView({ postingId }: { postingId: number }) {
 
       <header className={styles.header}>
         <div className={styles.headText}>
-          <h1 className={styles.title}>서류 전형 합격자 선정</h1>
+          <h1 className={styles.title}>{label} 전형 합격자 선정</h1>
           <p className={styles.subtitle}>
-            {position} · 서류 전형 마감 {formatFullDate(ranking.doc_end_at)}
+            {position} · {label} 전형 마감 {formatFullDate(stageEndAt(stage, ranking))}
           </p>
         </div>
       </header>
 
       <p className={`${styles.notice} ${styles.noticeNavy}`}>
         <img src="/admin/dot-navy.svg" alt="" width={6} height={6} className={styles.dot} />
-        {/* AI 면접 질문 생성은 아직 연결하지 않았다 (면접 질문 생성 설계 뒤) */}
-        합격자를 확정하면 합격자의 면접 전형이 시작됩니다. 지원자는 결과 조회에서 본인 결과만 확인합니다. 확정한 뒤에는 바꿀 수 없습니다.
+        {stage === "document"
+          ? "합격자를 확정하면 합격자의 면접 전형이 시작됩니다. 지원자는 결과 조회에서 본인 결과만 확인합니다. 확정한 뒤에는 바꿀 수 없습니다."
+          : "합격자를 확정하면 채용 공고가 마감됩니다. 지원자는 면접 합격자 발표 일시부터 결과 조회에서 본인 결과만 확인합니다. 확정한 뒤에는 바꿀 수 없습니다."}
       </p>
 
       <div className={styles.selectBar}>
@@ -127,6 +130,7 @@ export default function SelectionView({ postingId }: { postingId: number }) {
                       type="checkbox"
                       className={styles.checkbox}
                       aria-label={`${name} 합격`}
+                      disabled={row.report_status === "미응시"}
                       checked={selected.has(row.application_id)}
                       onChange={() => toggle(row.application_id)}
                     />
@@ -140,7 +144,7 @@ export default function SelectionView({ postingId }: { postingId: number }) {
                   <td>
                     {row.rank !== null ? (
                       <Link
-                        href={`/admin/postings/${postingId}/document/applications/${row.application_id}/report`}
+                        href={`${stagePath(postingId, stage)}/applications/${row.application_id}/report`}
                         className={styles.reportLink}
                       >
                         보기 ›
@@ -159,7 +163,7 @@ export default function SelectionView({ postingId }: { postingId: number }) {
 
       {confirming && (
         <ConfirmDialog
-          title={`서류 합격자 ${selected.size}명을 확정하시겠습니까?`}
+          title={`${label} 합격자 ${selected.size}명을 확정하시겠습니까?`}
           message={`선택하지 않은 ${rows.length - selected.size}명은 불합격이 됩니다. 확정한 뒤에는 바꿀 수 없습니다.`}
           confirmLabel="합격자 확정"
           busy={busy}

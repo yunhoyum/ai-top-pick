@@ -38,20 +38,24 @@ const TOP_COUNT = 5;
 export default function StageStatus({ postingId, progress, stats }: Props) {
   const interviewStarted = interviewStage(progress).started;
   const docClosed = docStage(progress).closed;
+  const interviewClosed = interviewStage(progress).closed;
   const [stage, setStage] = useState<Stage>(interviewStarted ? "interview" : "doc");
   const [ranking, setRanking] = useState<Ranking | null>(null);
   const [rankingError, setRankingError] = useState<string | null>(null);
 
-  // 서류 전형이 마감되면 화면 17과 같은 순위를 불러온다
+  // 고른 전형이 마감되면 화면 17·27과 같은 순위를 불러온다
+  const apiStage = stage === "doc" ? "document" : "interview";
+  const closed = stage === "doc" ? docClosed : interviewClosed;
   useEffect(() => {
-    if (!docClosed) return;
-    apiFetch<Ranking>(`/api/admin/postings/${postingId}/stages/document/ranking`)
+    setRanking(null);
+    if (!closed) return;
+    apiFetch<Ranking>(`/api/admin/postings/${postingId}/stages/${apiStage}/ranking`)
       .then(setRanking)
       .catch((e) => setRankingError(e instanceof ApiError ? e.message : "서버에 연결하지 못했습니다."));
-  }, [postingId, docClosed]);
+  }, [postingId, apiStage, closed]);
 
-  // 보고서가 나온(순위가 매겨진) 지원자만 보인다. 면접 평가는 아직 없다
-  const top = stage === "doc" ? (ranking?.rows.filter((r) => r.rank !== null).slice(0, TOP_COUNT) ?? []) : [];
+  // 보고서가 나온(순위가 매겨진) 지원자만 보인다
+  const top = ranking?.rows.filter((r) => r.rank !== null).slice(0, TOP_COUNT) ?? [];
   const name = stage === "doc" ? "서류 전형" : "면접 전형";
   // 면접 전형이 시작되기 전에는 아직 집계할 수 없다
   const interviewValue = (n: number) => (interviewStarted ? String(n) : "-");
@@ -98,7 +102,7 @@ export default function StageStatus({ postingId, progress, stats }: Props) {
               <Badge tone={ranking.confirmed ? "gray" : "amber"}>
                 {ranking.confirmed ? "합격자 선정 완료" : "합격자 선정 대기"}
               </Badge>
-              <Link href={`/admin/postings/${postingId}/document/ranking`} className={styles.rankLink}>
+              <Link href={`/admin/postings/${postingId}/${apiStage}/ranking`} className={styles.rankLink}>
                 전체 순위 보기 ›
               </Link>
             </>
@@ -114,7 +118,7 @@ export default function StageStatus({ postingId, progress, stats }: Props) {
               </li>
             ))}
           </ol>
-        ) : stage === "doc" && docClosed ? (
+        ) : closed ? (
           <div className={styles.rankEmpty}>
             <p className={styles.rankTitle}>{rankingError ?? "AI가 결과 보고서를 생성하고 있습니다"}</p>
             {!rankingError && <p className={styles.rankDesc}>보고서가 나오면 상위 순위가 표시됩니다</p>}

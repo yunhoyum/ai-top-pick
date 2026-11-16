@@ -422,7 +422,9 @@ class EvaluationService:
             not_taken = stage == INTERVIEW and a.application_id not in taken
             item_scores = scores.get(report.report_id, {}) if report and not not_taken else {}
             factor = _scale(criteria, item_scores, stage)
-            weighted = {c.criteria_id: calc_weighted(item_scores.get(c.criteria_id, Decimal(0)), c.ratio) * factor for c in criteria}
+            # 면접 보고서에 없는 항목(비언어)은 0점이 아니라 '없음'이라 칸을 비운다. 서류는 없으면 0점이다
+            shown = [c for c in criteria if stage == DOC or c.criteria_id in item_scores]
+            weighted = {c.criteria_id: calc_weighted(item_scores.get(c.criteria_id, Decimal(0)), c.ratio) * factor for c in shown}
             has_report = report is not None and not not_taken
             status = NOT_TAKEN if not_taken else REPORT_DONE if report else jobs.get(a.application_id, "없음")
             rows.append(RankingRow(

@@ -176,7 +176,7 @@ export default function PostingDetailView({ postingId }: { postingId: number }) 
           counts={[`대상 ${count(stats.interview_target_count)}`, `응시 완료 ${count(stats.interview_done_count)}`]}
           closedText={`${formatMonthDay(posting.interview_end_at)} 마감 후 이용 가능`}
           evalLabel="면접 전형 평가"
-          onEvaluate={() => router.push(`/admin/postings/${postingId}/interview-evaluation`)}
+          onEvaluate={() => router.push(`/admin/postings/${postingId}/interview/ranking`)}
           last
         />
       </section>

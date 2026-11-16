@@ -6,7 +6,16 @@ import { useEffect, useState } from "react";
 import Badge from "@/components/common/Badge";
 import Button from "@/components/common/Button";
 import { ApiError, apiFetch } from "@/lib/api";
-import { formatTotal, formatWeighted, reportStatusLabel, shortCriteriaName } from "@/lib/evaluation";
+import {
+  type EvalStage,
+  formatTotal,
+  formatWeighted,
+  reportStatusLabel,
+  shortCriteriaName,
+  STAGE_LABEL,
+  stageEndAt,
+  stagePath,
+} from "@/lib/evaluation";
 import { formatFullDate } from "@/lib/format";
 import type { Ranking } from "@/types/evaluation";
 import styles from "./Evaluation.module.css";
@@ -28,23 +37,26 @@ function Stat({ label, value, unit, tone }: { label: string; value: string; unit
   );
 }
 
-// 화면 17 서류 지원자 순위 (ADM-023). 관리자 의견은 결과 보고서 화면에서 등록한다
-export default function RankingView({ postingId }: { postingId: number }) {
+// 화면 17 서류 지원자 순위 (ADM-023), 화면 27 면접 지원자 순위 (ADM-029). 관리자 의견은 결과 보고서 화면에서 등록한다
+// 면접은 꼬리질문 횟수 열이 있고, 미응시자는 순위 없이 끝에 온다
+export default function RankingView({ postingId, stage = "document" }: { postingId: number; stage?: EvalStage }) {
   const router = useRouter();
   const [ranking, setRanking] = useState<Ranking | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiFetch<Ranking>(`/api/admin/postings/${postingId}/stages/document/ranking`)
+    apiFetch<Ranking>(`/api/admin/postings/${postingId}/stages/${stage}/ranking`)
       .then(setRanking)
       .catch((e) => setLoadError(errorMessage(e)));
-  }, [postingId]);
+  }, [postingId, stage]);
 
   if (loadError) return <p className={styles.loadError}>{loadError}</p>;
   if (!ranking) return null;
 
   const { criteria, summary, rows } = ranking;
   const position = ranking.position_name ?? "(제목 없음)";
+  const label = STAGE_LABEL[stage];
+  const interview = stage === "interview";
   return (
     <div className={styles.page}>
       <Link href={`/admin/postings/${postingId}`} className={styles.back}>
@@ -53,24 +65,33 @@ export default function RankingView({ postingId }: { postingId: number }) {
 
       <header className={styles.header}>
         <div className={styles.headText}>
-          <h1 className={styles.title}>서류 전형 · 지원자 순위</h1>
+          <h1 className={styles.title}>{label} 전형 · 지원자 순위</h1>
           <p className={styles.subtitle}>
-            {position} · 서류 전형 마감 {formatFullDate(ranking.doc_end_at)}
+            {position} · {label} 전형 마감 {formatFullDate(stageEndAt(stage, ranking))}
           </p>
         </div>
-        <Button type="button" inline onClick={() => router.push(`/admin/postings/${postingId}/document/selection`)}>
+        <Button type="button" inline onClick={() => router.push(`${stagePath(postingId, stage)}/selection`)}>
           합격자 선정
         </Button>
       </header>
 
       <p className={styles.notice}>
         <img src="/admin/nav-dot-active.svg" alt="" width={6} height={6} className={styles.dot} />
-        서류 전형 마감 시 AI가 결과 보고서와 순위를 자동으로 만들었습니다.
+        {label} 전형 마감 시 AI가 결과 보고서와 순위를 자동으로 만들었습니다.
       </p>
 
       <div className={styles.stats}>
-        <Stat label="평가 대상" value={String(summary.target_count)} unit="명" />
-        <Stat label="필수 기술 미달 탈락" value={String(summary.shortfall_count)} unit="명" tone="red" />
+        {interview ? (
+          <>
+            <Stat label="면접 대상" value={String(summary.target_count)} unit="명" />
+            <Stat label="응시 완료" value={String(summary.taken_count ?? 0)} unit="명" />
+          </>
+        ) : (
+          <>
+            <Stat label="평가 대상" value={String(summary.target_count)} unit="명" />
+            <Stat label="필수 기술 미달 탈락" value={String(summary.shortfall_count)} unit="명" tone="red" />
+          </>
+        )}
         <Stat label="평균 점수" value={summary.average ? formatTotal(summary.average) : "-"} unit="점" />
         <Stat label="의견 등록" value={String(summary.opinion_count)} unit="명" tone="teal" />
       </div>
@@ -84,6 +105,7 @@ export default function RankingView({ postingId }: { postingId: number }) {
             {criteria.map((c, i) => (
               <col key={c.criteria_id} style={{ width: (CRITERIA_WIDTHS[i] ?? 90) + 8 }} />
             ))}
+            {interview && <col style={{ width: 90 }} />}
             <col style={{ width: 72 }} />
             <col style={{ width: 146 }} />
           </colgroup>
@@ -97,6 +119,7 @@ export default function RankingView({ postingId }: { postingId: number }) {
                   {shortCriteriaName(c.name)} {c.ratio}
                 </th>
               ))}
+              {interview && <th>꼬리질문</th>}
               <th>의견</th>
               <th>결과 보고서</th>
             </tr>
@@ -112,11 +135,14 @@ export default function RankingView({ postingId }: { postingId: number }) {
                   {criteria.map((c) => (
                     <td key={c.criteria_id}>{weighted[c.criteria_id] ? formatWeighted(weighted[c.criteria_id]) : "-"}</td>
                   ))}
+                  {interview && (
+                    <td className={styles.total}>{row.follow_up_count != null ? `${row.follow_up_count}회` : "-"}</td>
+                  )}
                   <td>{row.has_opinion ? <Badge tone="teal">등록</Badge> : <span className={styles.muted}>-</span>}</td>
                   <td>
                     {row.rank !== null ? (
                       <Link
-                        href={`/admin/postings/${postingId}/document/applications/${row.application_id}/report`}
+                        href={`${stagePath(postingId, stage)}/applications/${row.application_id}/report`}
                         className={styles.reportLink}
                       >
                         결과 보고서 보기

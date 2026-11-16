@@ -96,6 +96,8 @@ def test_interview_ranking_scales_missing_item_and_puts_absent_last(admin, pid, 
         (interviewed["absent"], None, None, "미응시", None),
     ]
     assert data["summary"]["target_count"] == 3 and data["summary"]["taken_count"] == 2 and data["summary"]["shortfall_count"] == 0
+    # 비언어가 없는 지원자는 그 칸이 비어 있다 (0점이 아니다)
+    assert [len(row["scores"]) for row in data["rows"]] == [3, 2, 0]
 
 
 def test_interview_ranking_before_interview_deadline_is_409(admin, pid, interviewed):

@@ -5,29 +5,29 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Button from "@/components/common/Button";
 import { ApiError, apiFetch } from "@/lib/api";
-import { formatTotal } from "@/lib/evaluation";
+import { type EvalStage, formatTotal, STAGE_LABEL, stageEndAt, stagePath } from "@/lib/evaluation";
 import { formatFullDate } from "@/lib/format";
 import type { Ranking } from "@/types/evaluation";
 import styles from "./Evaluation.module.css";
 
 const errorMessage = (e: unknown) => (e instanceof ApiError ? e.message : "서버에 연결하지 못했습니다.");
 
-// 화면 20-1 서류 전형 합격자 확정 완료. 화면 20에서 합격자를 확정한 뒤 보인다
-export default function SelectionDoneView({ postingId }: { postingId: number }) {
+// 화면 20-1 서류 전형 합격자 확정 완료, 화면 30-1 면접 전형 합격자 확정 완료. 합격자를 확정한 뒤 보인다
+export default function SelectionDoneView({ postingId, stage = "document" }: { postingId: number; stage?: EvalStage }) {
   const router = useRouter();
   const [ranking, setRanking] = useState<Ranking | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    apiFetch<Ranking>(`/api/admin/postings/${postingId}/stages/document/ranking`)
+    apiFetch<Ranking>(`/api/admin/postings/${postingId}/stages/${stage}/ranking`)
       .then(setRanking)
       .catch((e) => setLoadError(errorMessage(e)));
-  }, [postingId]);
+  }, [postingId, stage]);
 
   // 아직 확정하지 않았으면 화면 20으로 보낸다
   useEffect(() => {
-    if (ranking && !ranking.confirmed) router.replace(`/admin/postings/${postingId}/document/selection`);
-  }, [ranking, postingId, router]);
+    if (ranking && !ranking.confirmed) router.replace(`${stagePath(postingId, stage)}/selection`);
+  }, [ranking, postingId, stage, router]);
 
   if (loadError) return <p className={styles.loadError}>{loadError}</p>;
   if (!ranking?.confirmed) return null;
@@ -42,17 +42,18 @@ export default function SelectionDoneView({ postingId }: { postingId: number }) 
 
       <header className={styles.header}>
         <div className={styles.headText}>
-          <h1 className={styles.title}>서류 전형 합격자 확정 완료</h1>
+          <h1 className={styles.title}>{STAGE_LABEL[stage]} 전형 합격자 확정 완료</h1>
           <p className={styles.subtitle}>
-            {position} · 서류 전형 마감 {formatFullDate(ranking.doc_end_at)}
+            {position} · {STAGE_LABEL[stage]} 전형 마감 {formatFullDate(stageEndAt(stage, ranking))}
           </p>
         </div>
       </header>
 
       <p className={`${styles.notice} ${styles.noticeNavy}`}>
         <img src="/admin/dot-navy.svg" alt="" width={6} height={6} className={styles.dot} />
-        {/* 디자인의 'AI 면접 질문 생성' 안내는 면접 질문 생성을 연결한 뒤에 넣는다 */}
-        합격자를 확정했습니다. 지원자는 결과 조회에서 본인 결과만 확인합니다.
+        {stage === "document"
+          ? "합격자를 확정했습니다. 지원자는 결과 조회에서 본인 결과만 확인합니다."
+          : "면접 합격자를 확정해 채용 공고를 마감했습니다. 지원자는 면접 합격자 발표 일시부터 본인 결과만 확인합니다."}
       </p>
 
       <div className={styles.selectBar}>
@@ -90,7 +91,7 @@ export default function SelectionDoneView({ postingId }: { postingId: number }) 
                 <td>
                   {row.rank !== null ? (
                     <Link
-                      href={`/admin/postings/${postingId}/document/applications/${row.application_id}/report`}
+                      href={`${stagePath(postingId, stage)}/applications/${row.application_id}/report`}
                       className={styles.reportLink}
                     >
                       보기 ›
