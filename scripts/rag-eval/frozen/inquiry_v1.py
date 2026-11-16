@@ -4,6 +4,9 @@ v1: 첫 버전 (2026-11-16). 결함 분석과 해결방안 안내를 한 번에 
 """
 
 import json
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
@@ -60,3 +63,13 @@ def analyze(messages: list[dict], logs: list[dict], tried: list[str]) -> list[Ba
 형식: {json.dumps({"problem": "...", "solution": "...", "cause": "지원자 측", "system_checkable": True, "reply": "..."}, ensure_ascii=False)}"""
         ),
     ]
+
+
+class SCHEMA(BaseModel):
+    """v1 때의 InquiryAnalysis (평가용 사본). v3부터 system_checkable은 코드가 정한다."""
+
+    problem: str = Field(min_length=1)
+    solution: str = Field(min_length=1)
+    cause: Literal["시스템 측", "지원자 측", "원인 판단 불가"]
+    system_checkable: bool
+    reply: str = Field(min_length=1)

@@ -2,7 +2,7 @@
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 Score = Annotated[int, Field(ge=0, le=100)]
 
@@ -120,5 +120,12 @@ class InquiryAnalysis(BaseModel):
     problem: str = Field(min_length=1)  # 문제 원인
     solution: str = Field(min_length=1)  # 해결방안
     cause: Literal["시스템 측", "지원자 측", "원인 판단 불가"]  # 결함 원인
-    system_checkable: bool  # 마이크·카메라 입력처럼 시스템이 다시 검사할 수 있는 문제인가
+    input_device: Literal["마이크", "카메라", "없음"]  # 지원자 장치의 어느 입력이 안 되는가 (프롬프트 v3)
     reply: str = Field(min_length=1)  # 지원자에게 보낼 챗봇 답변 (해결방안 안내, T-22)
+
+    @computed_field
+    @property
+    def system_checkable(self) -> bool:
+        """브라우저 재검사(카메라 트랙·마이크 입력)로 해결 여부를 알 수 있는가. 지원자 측의 마이크·카메라 입력 문제일 때만.
+        조건부 불리언을 LLM이 자주 틀려서(실험 I1) 코드가 정한다. model_dump에 들어간다."""
+        return self.cause == "지원자 측" and self.input_device != "없음"

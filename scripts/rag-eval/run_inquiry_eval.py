@@ -11,7 +11,8 @@ inquiry_eval_set.json의 문의마다 결함 분석(analyze)을 실제 LLM으로
 버전: v1은 frozen/inquiry_v1.py(앱에서 바꾸기 전 사본), 그 밖은 앱의 app/prompts/inquiry.py(지금 버전).
 
 PC2의 final_project 폴더에서 (PowerShell):
-  docker run --rm --env-file pc2/.env -v "${PWD}/ai-service:/src" -v "${PWD}/scripts/rag-eval:/eval" -w /src pc2-ai-service:latest python /eval/run_inquiry_eval.py <실험 ID> [반복 횟수]
+  docker run --rm --env-file pc2/.env -v "${PWD}/ai-service:/src" -v "${PWD}/scripts/rag-eval:/eval" -w /src pc2-ai-service:latest python /eval/run_inquiry_eval.py <실험 ID> [반복 횟수] [current]
+  (current를 주면 v1 사본은 빼고 지금 버전만 돌린다)
 """
 
 import csv
@@ -54,7 +55,8 @@ def run_case(model, prompts, case: dict) -> dict:
     messages, logs, tried = inputs(case)
     start = time.perf_counter()
     try:
-        a = invoke_structured(model, prompts.analyze(messages, logs, tried), InquiryAnalysis).model_dump()
+        schema = getattr(prompts, "SCHEMA", InquiryAnalysis)  # v1 사본은 그때의 스키마를 쓴다
+        a = invoke_structured(model, prompts.analyze(messages, logs, tried), schema).model_dump()
     except Exception as e:  # 형식 실패도 결과로 남긴다
         return {"error": f"{type(e).__name__}: {e}"[:300], "seconds": round(time.perf_counter() - start, 1)}
     seconds = round(time.perf_counter() - start, 1)
@@ -80,9 +82,9 @@ def summary(rows: list[dict]) -> dict:
     }
 
 
-def main(experiment: str, repeat: int) -> None:
+def main(experiment: str, repeat: int, only_current: bool = False) -> None:
     model = get_chat_model()
-    versions = {"v1": frozen_v1(), current.VERSION: current}
+    versions = {current.VERSION: current} if only_current else {"v1": frozen_v1(), current.VERSION: current}
     report = {"experiment": experiment, "eval_set": EVAL["version"], "repeat": repeat, "versions": {}}
     review = []
     for version, prompts in versions.items():
@@ -114,4 +116,4 @@ def main(experiment: str, repeat: int) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else 2)
+    main(sys.argv[1], int(sys.argv[2]) if len(sys.argv) > 2 else 2, len(sys.argv) > 3 and sys.argv[3] == "current")

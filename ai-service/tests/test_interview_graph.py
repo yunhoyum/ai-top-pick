@@ -104,7 +104,7 @@ class Fakes:
         """정해 둔 분석을 차례로 낸다. 받은 대화·로그·앞에서 안내한 방법을 기록한다."""
         self.inquiry_inputs.append({"messages": messages, "logs": logs, "tried": list(tried)})
         n = len(self.inquiry_inputs)
-        return {"problem": f"원인 {n}", "solution": f"방법 {n}", "cause": self.cause, "system_checkable": self.checkable,
+        return {"problem": f"원인 {n}", "solution": f"방법 {n}", "cause": self.cause, "input_device": "마이크" if self.checkable else "없음", "system_checkable": self.checkable,
                 "reply": f"안내 {n}"}
 
     def replace_question(self, posting, documents, qtype, existing):
