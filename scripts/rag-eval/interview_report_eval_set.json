@@ -1,33 +1,303 @@
 {
-  "version": "v1",
-  "description": "면접 보고서 평가 세트 (루브릭 설계서 10.2). 공고는 document_eval_set.json의 posting, 질문·답변은 rag_eval_set.json, 답변별 내용 점수·채점 이유는 results/content-P16-v4.json(채택 v14)의 실제 결과를 쓴다. 발화·표정 값은 지원자마다 정해 둔 가짜 값이다. expected_fits는 인재상 번호 → 그 인재상을 보여 준다고 본 답변 ID (임시 정답, 사람 판정 CSV로 확인한다). 인재상 번호: 기-1 색인 단계 분석, 기-2 키워드+벡터+리랭킹, 기-3 LangGraph 에이전트, 기-4 지표로 재기, 비-1 모른다고 말하는 정직함, 비-2 데이터로 파고들기, 비-3 결정을 문서로 남기기.",
+  "version": "v2",
+  "description": "면접 보고서 평가 세트 (루브릭 설계서 10.2). 공고는 document_eval_set.json의 posting, 질문·답변은 rag_eval_set.json, 답변별 내용 점수·채점 이유는 results/content-P16-v4.json(채택 v14)의 실제 결과를 쓴다. 발화·표정 값은 지원자마다 정해 둔 가짜 값이다. expected_fits는 인재상 번호 → 그 인재상을 보여 준다고 본 답변 ID (임시 정답, 사람 판정 CSV로 확인한다). 인재상 번호: 기-1 색인 단계 분석, 기-2 키워드+벡터+리랭킹, 기-3 LangGraph 에이전트, 기-4 지표로 재기, 비-1 모른다고 말하는 정직함, 비-2 데이터로 파고들기, 비-3 결정을 문서로 남기기. v2(2026-11-16): 분야가 다른 공고(spring)에 RAG 답변을 낸 지원자 R4·R5를 더했다. 인재상 근거가 없어야 정답이다(e2e 세션 565에서 Spring 인재상에 RAG 답변을 근거로 골랐다). 지원자의 posting이 없으면 document_eval_set.json의 공고다.",
   "applicants": [
-    {"id": "R1", "note": "문서와 맞는 답변 위주",
-     "answers": [
-       {"answer": "A1", "speech": 85, "fillers": 2, "silence": 3, "delay": 2, "face": 80, "main": "neutral"},
-       {"answer": "A3", "speech": 95, "fillers": 1, "silence": 0, "delay": 1, "face": 85, "main": "neutral"},
-       {"answer": "A16", "speech": 100, "fillers": 0, "silence": 0, "delay": 2, "face": 90, "main": "happy"},
-       {"answer": "A22", "speech": 90, "fillers": 1, "silence": 3, "delay": 3, "face": 75, "main": "neutral"},
-       {"answer": "A8", "speech": 95, "fillers": 1, "silence": 0, "delay": 2, "face": 80, "main": "neutral"}
-     ],
-     "expected_fits": {"기-1": ["A1"], "기-2": ["A22"], "기-3": ["A3"], "기-4": ["A8"]}},
-    {"id": "R2", "note": "섞임. 모른다고 말한 답변 포함",
-     "answers": [
-       {"answer": "A10", "speech": 80, "fillers": 3, "silence": 3, "delay": 4, "face": 70, "main": "neutral"},
-       {"answer": "A12", "speech": 75, "fillers": 4, "silence": 4, "delay": 5, "face": 60, "main": "sad"},
-       {"answer": "A15", "speech": 90, "fillers": 2, "silence": 0, "delay": 3, "face": null, "main": null},
-       {"answer": "A24", "speech": 85, "fillers": 2, "silence": 3, "delay": 2, "face": 70, "main": "neutral"},
-       {"answer": "A27", "speech": 60, "fillers": 3, "silence": 9, "delay": 12, "face": 45, "main": "fear"}
-     ],
-     "expected_fits": {"기-1": ["A10"], "기-4": ["A24"], "비-1": ["A27"]}},
-    {"id": "R3", "note": "반대 답변과 질문에서 동떨어진 답변",
-     "answers": [
-       {"answer": "A2", "speech": 70, "fillers": 5, "silence": 3, "delay": 6, "face": 55, "main": "fear"},
-       {"answer": "A23", "speech": 65, "fillers": 4, "silence": 6, "delay": 11, "face": 50, "main": "sad"},
-       {"answer": "A25", "speech": 55, "fillers": 6, "silence": 6, "delay": 12, "face": 40, "main": "fear"},
-       {"answer": "A31", "speech": 70, "fillers": 4, "silence": 3, "delay": 5, "face": 55, "main": "neutral"},
-       {"answer": "A33", "speech": 75, "fillers": 3, "silence": 3, "delay": 4, "face": 60, "main": "neutral"}
-     ],
-     "expected_fits": {"기-2": ["A33"]}}
-  ]
+    {
+      "id": "R1",
+      "note": "문서와 맞는 답변 위주",
+      "answers": [
+        {
+          "answer": "A1",
+          "speech": 85,
+          "fillers": 2,
+          "silence": 3,
+          "delay": 2,
+          "face": 80,
+          "main": "neutral"
+        },
+        {
+          "answer": "A3",
+          "speech": 95,
+          "fillers": 1,
+          "silence": 0,
+          "delay": 1,
+          "face": 85,
+          "main": "neutral"
+        },
+        {
+          "answer": "A16",
+          "speech": 100,
+          "fillers": 0,
+          "silence": 0,
+          "delay": 2,
+          "face": 90,
+          "main": "happy"
+        },
+        {
+          "answer": "A22",
+          "speech": 90,
+          "fillers": 1,
+          "silence": 3,
+          "delay": 3,
+          "face": 75,
+          "main": "neutral"
+        },
+        {
+          "answer": "A8",
+          "speech": 95,
+          "fillers": 1,
+          "silence": 0,
+          "delay": 2,
+          "face": 80,
+          "main": "neutral"
+        }
+      ],
+      "expected_fits": {
+        "기-1": [
+          "A1"
+        ],
+        "기-2": [
+          "A22"
+        ],
+        "기-3": [
+          "A3"
+        ],
+        "기-4": [
+          "A8"
+        ]
+      }
+    },
+    {
+      "id": "R2",
+      "note": "섞임. 모른다고 말한 답변 포함",
+      "answers": [
+        {
+          "answer": "A10",
+          "speech": 80,
+          "fillers": 3,
+          "silence": 3,
+          "delay": 4,
+          "face": 70,
+          "main": "neutral"
+        },
+        {
+          "answer": "A12",
+          "speech": 75,
+          "fillers": 4,
+          "silence": 4,
+          "delay": 5,
+          "face": 60,
+          "main": "sad"
+        },
+        {
+          "answer": "A15",
+          "speech": 90,
+          "fillers": 2,
+          "silence": 0,
+          "delay": 3,
+          "face": null,
+          "main": null
+        },
+        {
+          "answer": "A24",
+          "speech": 85,
+          "fillers": 2,
+          "silence": 3,
+          "delay": 2,
+          "face": 70,
+          "main": "neutral"
+        },
+        {
+          "answer": "A27",
+          "speech": 60,
+          "fillers": 3,
+          "silence": 9,
+          "delay": 12,
+          "face": 45,
+          "main": "fear"
+        }
+      ],
+      "expected_fits": {
+        "기-1": [
+          "A10"
+        ],
+        "기-4": [
+          "A24"
+        ],
+        "비-1": [
+          "A27"
+        ]
+      }
+    },
+    {
+      "id": "R3",
+      "note": "반대 답변과 질문에서 동떨어진 답변",
+      "answers": [
+        {
+          "answer": "A2",
+          "speech": 70,
+          "fillers": 5,
+          "silence": 3,
+          "delay": 6,
+          "face": 55,
+          "main": "fear"
+        },
+        {
+          "answer": "A23",
+          "speech": 65,
+          "fillers": 4,
+          "silence": 6,
+          "delay": 11,
+          "face": 50,
+          "main": "sad"
+        },
+        {
+          "answer": "A25",
+          "speech": 55,
+          "fillers": 6,
+          "silence": 6,
+          "delay": 12,
+          "face": 40,
+          "main": "fear"
+        },
+        {
+          "answer": "A31",
+          "speech": 70,
+          "fillers": 4,
+          "silence": 3,
+          "delay": 5,
+          "face": 55,
+          "main": "neutral"
+        },
+        {
+          "answer": "A33",
+          "speech": 75,
+          "fillers": 3,
+          "silence": 3,
+          "delay": 4,
+          "face": 60,
+          "main": "neutral"
+        }
+      ],
+      "expected_fits": {
+        "기-2": [
+          "A33"
+        ]
+      }
+    },
+    {
+      "id": "R4",
+      "note": "R1 답변(RAG)을 분야가 다른 공고(spring)에 냄",
+      "posting": "spring",
+      "answers": [
+        {
+          "answer": "A1",
+          "speech": 85,
+          "fillers": 2,
+          "silence": 3,
+          "delay": 2,
+          "face": 80,
+          "main": "neutral"
+        },
+        {
+          "answer": "A3",
+          "speech": 95,
+          "fillers": 1,
+          "silence": 0,
+          "delay": 1,
+          "face": 85,
+          "main": "neutral"
+        },
+        {
+          "answer": "A16",
+          "speech": 100,
+          "fillers": 0,
+          "silence": 0,
+          "delay": 2,
+          "face": 90,
+          "main": "happy"
+        },
+        {
+          "answer": "A22",
+          "speech": 90,
+          "fillers": 1,
+          "silence": 3,
+          "delay": 3,
+          "face": 75,
+          "main": "neutral"
+        },
+        {
+          "answer": "A8",
+          "speech": 95,
+          "fillers": 1,
+          "silence": 0,
+          "delay": 2,
+          "face": 80,
+          "main": "neutral"
+        }
+      ],
+      "expected_fits": {}
+    },
+    {
+      "id": "R5",
+      "note": "R2 답변(RAG)을 분야가 다른 공고(spring)에 냄",
+      "posting": "spring",
+      "answers": [
+        {
+          "answer": "A10",
+          "speech": 80,
+          "fillers": 3,
+          "silence": 3,
+          "delay": 4,
+          "face": 70,
+          "main": "neutral"
+        },
+        {
+          "answer": "A12",
+          "speech": 75,
+          "fillers": 4,
+          "silence": 4,
+          "delay": 5,
+          "face": 60,
+          "main": "sad"
+        },
+        {
+          "answer": "A15",
+          "speech": 90,
+          "fillers": 2,
+          "silence": 0,
+          "delay": 3,
+          "face": null,
+          "main": null
+        },
+        {
+          "answer": "A24",
+          "speech": 85,
+          "fillers": 2,
+          "silence": 3,
+          "delay": 2,
+          "face": 70,
+          "main": "neutral"
+        },
+        {
+          "answer": "A27",
+          "speech": 60,
+          "fillers": 3,
+          "silence": 9,
+          "delay": 12,
+          "face": 45,
+          "main": "fear"
+        }
+      ],
+      "expected_fits": {}
+    }
+  ],
+  "postings": {
+    "spring": {
+      "position_name": "백엔드 개발자 (주문·결제)",
+      "job_description": "주문·결제 백엔드 API를 Spring Boot로 개발하고 운영한다. 결제 장애를 분석하고 재발을 막는다.",
+      "functional_talent": "- Spring Boot로 REST API를 설계하고 구현해 본 사람\n- JPA로 트랜잭션과 동시성 문제를 다뤄 본 사람\n- 결제·주문 장애를 재현하고 원인을 기록하는 사람",
+      "nonfunctional_talent": "- 코드 리뷰에서 근거를 들어 의견을 말하는 사람\n- 맡은 일을 일정 안에 끝까지 책임지는 태도"
+    }
+  }
 }
