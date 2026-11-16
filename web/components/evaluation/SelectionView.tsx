@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
-import Badge from "@/components/common/Badge";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import Button from "@/components/common/Button";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { ApiError, apiFetch } from "@/lib/api";
@@ -15,6 +15,7 @@ const errorMessage = (e: unknown) => (e instanceof ApiError ? e.message : "서�
 
 // 화면 20 서류 전형 합격자 선정 (ADM-025). 한 번 확정하면 바꿀 수 없다
 export default function SelectionView({ postingId }: { postingId: number }) {
+  const router = useRouter();
   const [ranking, setRanking] = useState<Ranking | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -22,17 +23,18 @@ export default function SelectionView({ postingId }: { postingId: number }) {
   const [busy, setBusy] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
 
-  const load = useCallback(
-    () =>
-      apiFetch<Ranking>(`/api/admin/postings/${postingId}/stages/document/ranking`)
-        .then(setRanking)
-        .catch((e) => setLoadError(errorMessage(e))),
-    [postingId],
-  );
+  const donePath = `/admin/postings/${postingId}/document/selection/done`;
 
   useEffect(() => {
-    load();
-  }, [load]);
+    apiFetch<Ranking>(`/api/admin/postings/${postingId}/stages/document/ranking`)
+      .then(setRanking)
+      .catch((e) => setLoadError(errorMessage(e)));
+  }, [postingId]);
+
+  // 이미 확정했으면 화면 20-1 합격자 확정 완료로 보낸다
+  useEffect(() => {
+    if (ranking?.confirmed) router.replace(donePath);
+  }, [ranking, donePath, router]);
 
   function toggle(id: number) {
     setSelected((prev) => {
@@ -51,21 +53,18 @@ export default function SelectionView({ postingId }: { postingId: number }) {
         method: "POST",
         body: JSON.stringify({ application_ids: [...selected] }),
       });
-      setConfirming(false);
-      await load();
+      router.push(donePath);
     } catch (e) {
       setConfirmError(errorMessage(e));
-    } finally {
       setBusy(false);
     }
   }
 
   if (loadError) return <p className={styles.loadError}>{loadError}</p>;
-  if (!ranking) return null;
+  if (!ranking || ranking.confirmed) return null;
 
-  const { rows, confirmed } = ranking;
+  const { rows } = ranking;
   const position = ranking.position_name ?? "(제목 없음)";
-  const passedCount = confirmed ? rows.filter((r) => r.result === "합격").length : selected.size;
   return (
     <div className={styles.page}>
       <Link href={`/admin/postings/${postingId}`} className={styles.back}>
@@ -83,25 +82,19 @@ export default function SelectionView({ postingId }: { postingId: number }) {
 
       <p className={`${styles.notice} ${styles.noticeNavy}`}>
         <img src="/admin/dot-navy.svg" alt="" width={6} height={6} className={styles.dot} />
-        {confirmed
-          ? "서류 합격자를 확정했습니다. 지원자는 서류 합격자 발표 일시부터 결과 조회에서 본인 결과만 확인합니다."
-          : // AI 면접 질문 생성은 아직 연결하지 않았다 (면접 질문 생성 설계 뒤)
-            "합격자를 확정하면 합격자의 면접 전형이 시작됩니다. 지원자는 결과 조회에서 본인 결과만 확인합니다. 확정한 뒤에는 바꿀 수 없습니다."}
+        {/* AI 면접 질문 생성은 아직 연결하지 않았다 (면접 질문 생성 설계 뒤) */}
+        합격자를 확정하면 합격자의 면접 전형이 시작됩니다. 지원자는 결과 조회에서 본인 결과만 확인합니다. 확정한 뒤에는 바꿀 수 없습니다.
       </p>
 
       <div className={styles.selectBar}>
-        <span className={styles.selectLabel}>{confirmed ? "확정한 합격자" : "선택한 합격자"}</span>
-        <span className={styles.selectCount}>{passedCount}명</span>
-        {!confirmed && (
-          <>
-            <Button type="button" variant="ghost" inline disabled={selected.size === 0} onClick={() => setSelected(new Set())}>
-              선택 초기화
-            </Button>
-            <Button type="button" inline disabled={selected.size === 0} onClick={() => setConfirming(true)}>
-              합격자 확정
-            </Button>
-          </>
-        )}
+        <span className={styles.selectLabel}>선택한 합격자</span>
+        <span className={styles.selectCount}>{selected.size}명</span>
+        <Button type="button" variant="ghost" inline disabled={selected.size === 0} onClick={() => setSelected(new Set())}>
+          선택 초기화
+        </Button>
+        <Button type="button" inline disabled={selected.size === 0} onClick={() => setConfirming(true)}>
+          합격자 확정
+        </Button>
       </div>
 
       <div className={styles.tableWrap}>
@@ -116,7 +109,7 @@ export default function SelectionView({ postingId }: { postingId: number }) {
           </colgroup>
           <thead>
             <tr>
-              <th>{confirmed ? "결과" : "선택"}</th>
+              <th>선택</th>
               <th>순위</th>
               <th>지원자</th>
               <th>총점</th>
@@ -130,18 +123,13 @@ export default function SelectionView({ postingId }: { postingId: number }) {
               return (
                 <tr key={row.application_id}>
                   <td>
-                    {/* 확정한 뒤에는 바꿀 수 없어 체크박스 대신 결과를 보여 준다 */}
-                    {confirmed ? (
-                      <Badge tone={row.result === "합격" ? "teal" : "gray"}>{row.result ?? "-"}</Badge>
-                    ) : (
-                      <input
-                        type="checkbox"
-                        className={styles.checkbox}
-                        aria-label={`${name} 합격`}
-                        checked={selected.has(row.application_id)}
-                        onChange={() => toggle(row.application_id)}
-                      />
-                    )}
+                    <input
+                      type="checkbox"
+                      className={styles.checkbox}
+                      aria-label={`${name} 합격`}
+                      checked={selected.has(row.application_id)}
+                      onChange={() => toggle(row.application_id)}
+                    />
                   </td>
                   <td className={styles.rank}>{row.rank ?? "-"}</td>
                   <td className={styles.name}>{name}</td>
