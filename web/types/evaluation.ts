@@ -46,7 +46,16 @@ export type DocumentReport = {
   rank: number;
   ranked_count: number;
   summary: string | null;
-  scores: { criteria_id: number; name: string; ratio: number; score: string; weighted: string; evidence: string }[];
+  // scaled_ratio: 면접 보고서에 비언어가 없어 내용·언어 비율을 합 100으로 늘렸을 때의 비율
+  scores: {
+    criteria_id: number;
+    name: string;
+    ratio: number;
+    score: string;
+    weighted: string;
+    scaled_ratio?: string | null;
+    evidence: string;
+  }[];
   fits: { talent_content: string; kind: "기능적" | "비기능적" | null; evidence: string; found: boolean }[];
   strengths: ReportPoint[];
   checks: ReportPoint[];

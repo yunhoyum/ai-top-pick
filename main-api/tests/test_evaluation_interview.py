@@ -117,6 +117,12 @@ def test_interview_report_has_question_results_and_follow_up_count(admin, pid, i
         (1, "캐시를 왜 썼나요?", "AI", "neutral"), (2, "장애를 어떻게 찾았나요?", "AI", "fear")]
     assert [f["found"] for f in data["fits"]] == [True, False]
     assert data["checks"] == [{"criteria_name": "내용", "content": "Q2 근거가 부족하다."}]
+    assert [s["scaled_ratio"] for s in data["scores"]] == [None, None, None]
+    # 비언어가 없는 지원자는 내용·언어 비율을 늘린 값을 함께 준다 (화면에 '36.9 / 30'이 아니라 '/ 37.5'로 보인다)
+    noface = admin.get(f"/api/admin/applications/{interviewed['noface']}/stages/interview/report").json()
+    ratio = _ratios(pid)
+    scale = (ratio["내용"] + ratio["언어"] + ratio["비언어"]) / (ratio["내용"] + ratio["언어"])
+    assert [s["scaled_ratio"] for s in noface["scores"]] == [f"{ratio['내용'] * scale:.1f}", f"{ratio['언어'] * scale:.1f}"]
     # 미응시자는 보고서가 없다
     assert admin.get(f"/api/admin/applications/{interviewed['absent']}/stages/interview/report").status_code == 404
 

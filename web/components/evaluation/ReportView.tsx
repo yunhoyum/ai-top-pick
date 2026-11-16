@@ -141,6 +141,9 @@ export default function ReportView({
             <h2 className={styles.cardTitle}>항목별 점수</h2>
             <p className={styles.cardDesc}>{label} 평가기준 비율 기준</p>
           </div>
+          {report.scores.some((s) => s.scaled_ratio) && (
+            <p className={styles.cardDesc}>표정 분석 결과가 없어 비언어를 빼고 내용·언어 비율을 합 100으로 늘렸습니다.</p>
+          )}
           {report.scores.map((s, i) => (
             <div key={s.criteria_id} className={styles.scoreRow} title={s.evidence}>
               <span className={styles.scoreName}>{s.name}</span>
@@ -148,7 +151,7 @@ export default function ReportView({
                 <span className={`${styles.fill} ${BAR_TONES[stage][i] ?? ""}`} style={{ width: `${Number(s.score)}%` }} />
               </span>
               <span className={styles.scoreValue}>
-                {formatWeighted(s.weighted)} / {s.ratio}
+                {formatWeighted(s.weighted)} / {s.scaled_ratio ? formatWeighted(s.scaled_ratio) : s.ratio}
               </span>
             </div>
           ))}

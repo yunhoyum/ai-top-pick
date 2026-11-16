@@ -57,6 +57,8 @@ class ReportScoreOut(BaseModel):
     ratio: int
     score: Decimal  # 100점 기준
     weighted: Decimal
+    # 면접 보고서에 없는 항목(비언어)이 있어 남은 비율을 합 100으로 늘렸으면 늘린 비율. 아니면 None
+    scaled_ratio: Decimal | None = None
     evidence: str  # 채점 이유 (report_score.evidence)
 
 

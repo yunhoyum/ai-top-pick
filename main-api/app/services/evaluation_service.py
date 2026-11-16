@@ -161,6 +161,7 @@ class EvaluationService:
                     ratio=c.ratio,
                     score=scores[c.criteria_id].score,
                     weighted=round1(calc_weighted(scores[c.criteria_id].score, c.ratio) * factor),
+                    scaled_ratio=round1(c.ratio * factor) if factor != 1 else None,
                     evidence=scores[c.criteria_id].evidence,
                 )
                 for c in criteria
