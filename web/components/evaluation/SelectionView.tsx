@@ -107,6 +107,7 @@ export default function SelectionView({ postingId, stage = "document" }: { posti
             <col style={{ width: 64 }} />
             <col style={{ width: 160 }} />
             <col style={{ width: 90 }} />
+            {stage === "interview" && <col style={{ width: 90 }} />}
             <col />
             <col style={{ width: 96 }} />
           </colgroup>
@@ -116,6 +117,7 @@ export default function SelectionView({ postingId, stage = "document" }: { posti
               <th>순위</th>
               <th>지원자</th>
               <th>총점</th>
+              {stage === "interview" && <th>꼬리질문</th>}
               <th>관리자 의견</th>
               <th>보고서</th>
             </tr>
@@ -138,6 +140,10 @@ export default function SelectionView({ postingId, stage = "document" }: { posti
                   <td className={styles.rank}>{row.rank ?? "-"}</td>
                   <td className={styles.name}>{name}</td>
                   <td className={styles.total}>{row.total ? formatTotal(row.total) : "-"}</td>
+                  {/* 면접은 지원자별 꼬리질문 횟수를 보인다 (ADM-031). 총점에는 더하지 않는다 */}
+                  {stage === "interview" && (
+                    <td className={styles.total}>{row.follow_up_count != null ? `${row.follow_up_count}회` : "-"}</td>
+                  )}
                   <td className={styles.opinionCell} title={row.opinion ?? undefined}>
                     {row.opinion ?? <span className={styles.muted}>-</span>}
                   </td>
