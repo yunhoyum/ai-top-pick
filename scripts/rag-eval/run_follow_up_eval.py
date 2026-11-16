@@ -63,7 +63,7 @@ def run(graph, inputs: dict) -> dict:
         now = time.perf_counter()
         update = update or {}
         step = {"node": node, "seconds": round(now - last, 1)}
-        for key in ("follow_up", "valid", "feedback", "retry_count", "error_count", "errored"):
+        for key in ("follow_up", "based_on", "valid", "feedback", "retry_count", "error_count", "errored"):
             if key in update:
                 step[key] = update[key]
         steps.append(step)
@@ -99,7 +99,10 @@ def main(posting_id: int, experiment: str) -> None:
               "leak": bool(fu and _LEAK.search(fu)), "form_problem": form_problem(fu) if fu else None}
         rows.append(r)
         flags = (" [새어 나옴]" if r["leak"] else "") + (f" [형식: {r['form_problem']}]" if r["form_problem"] else "")
-        print(f"{a['id']:<4} {r['path']:<14} {r['seconds']:>5}s{flags}\n      {fu or '-'}", flush=True)
+        # 꼬리질문이 짚은 답변 문장 (프롬프트 v2부터)
+        r["based_on"] = next((s["based_on"] for s in reversed(r["steps"]) if s.get("based_on")), "")
+        print(f"{a['id']:<4} {r['path']:<14} {r['seconds']:>5}s{flags}\n      짚은 문장: {r['based_on'] or '-'}\n"
+              f"      {fu or '-'}", flush=True)
         for s in r["steps"]:
             if s["node"] == "validate_follow_up" and s.get("feedback"):
                 print(f"      검증 실패: {s['feedback']}", flush=True)
@@ -126,11 +129,11 @@ def main(posting_id: int, experiment: str) -> None:
     review = Path(f"/eval/results/followup-{experiment}-review.csv")
     with review.open("w", encoding="utf-8-sig", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["답변 ID", "면접 질문", "지원자 답변", "꼬리질문", "경로", "자동: 새어 나옴",
+        w.writerow(["답변 ID", "면접 질문", "지원자 답변", "짚은 답변 문장", "꼬리질문", "경로", "자동: 새어 나옴",
                     "[판정] 답변에서 한 말을 이어 묻나 (예/아니오)", "[판정] 하지 않은 일을 전제하나 (예/아니오)",
                     "[판정] 다른 질문과 겹치나 (예/아니오)", "[판정] 메모"])
         for r in rows:
-            w.writerow([r["id"], r["question"], r["answer"], r["follow_up"] or "", r["path"],
+            w.writerow([r["id"], r["question"], r["answer"], r["based_on"], r["follow_up"] or "", r["path"],
                         "예" if r["leak"] else "", "", "", "", ""])
     print(f"저장: {out.name}, {review.name}")
 

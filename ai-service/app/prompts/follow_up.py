@@ -1,11 +1,14 @@
 """꼬리질문 프롬프트 (SYS-008, AI Agent 설계서 2.2 T-11·T-12·T-13). 바꾸면 VERSION을 올린다.
 
 v1: 첫 버전 (2026-11-16). 생성은 직전 답변에서 더 물을 점 하나를 짚는다. 검증은 생성 대화 기록 없이 따로 묻는다.
+v2: 생성을 두 호출로 나눈다. ① 직전 답변의 문장 번호 고르기(회사 문서 없이) ② 고른 문장 하나와 회사 문서로 쓰기.
+    v1은 9개 중 3개가 답변이 아니라 회사 문서 내용을 물었다 (F1-v1: A3·A8·A22). 질문 생성의 v8(Q8)과 같은 방식이다.
+    검증·fallback은 v1 그대로다.
 """
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
-VERSION = "v1"
+VERSION = "v2"
 
 SYSTEM = """너는 채용 면접관이다. 지원자의 답변을 듣고 이어서 물을 꼬리질문을 다룬다.
 - 주어진 자료만 보고 판단한다. 자료에 없는 사실을 지어내지 않는다.
@@ -13,7 +16,6 @@ SYSTEM = """너는 채용 면접관이다. 지원자의 답변을 듣고 이어�
 - JSON 하나만 출력한다. 설명이나 코드 블록 표시를 붙이지 않는다."""
 
 QUESTION_RULES = """- 질문 하나만, 한두 문장으로, 물음표 하나로 끝낸다. 200자를 넘기지 않는다.
-- 지원자가 직전 답변에서 실제로 한 말 하나를 짚어 더 깊이 묻는다 (이유, 방법, 겪은 문제, 결과).
 - 직전 질문을 다시 묻지 않는다. 아래 [이미 나온 질문]과 같은 것을 묻지 않는다."""
 
 
@@ -21,8 +23,30 @@ def _questions(questions: list[str]) -> str:
     return "\n".join(f"- {q}" for q in questions) or "(없음)"
 
 
-def generate(prev_question: str, prev_answer: str, contexts: list[str], compare: list[str], feedback: str) -> list[BaseMessage]:
-    """T-11. 회사 문서는 새로 검색하지 않고 답변 채점 때 찾은 문서를 쓴다 (아키텍처 10)."""
+def pick(prev_question: str, numbered_answer: str) -> list[BaseMessage]:
+    """T-11 앞 단계 (v2). 더 물을 답변 문장 번호만 고른다. 회사 문서를 넣지 않는다.
+    문서를 같이 보면 답변이 아니라 문서 내용을 물었다 (F1-v1)."""
+    return [
+        SystemMessage(content=SYSTEM),
+        HumanMessage(
+            content=f"""[직전 질문]
+{prev_question}
+
+[직전 답변]
+{numbered_answer}
+
+꼬리질문으로 더 물을 답변 문장 하나를 골라 번호를 JSON으로 출력하라.
+- 지원자가 말한 방법이나 판단이 담긴 문장을 고른다. 인사, 간투사, 맺음말만 있는 문장은 고르지 않는다.
+- 번호만 쓴다.
+
+형식: {{"based_on": "1"}}"""
+        ),
+    ]
+
+
+def write(prev_question: str, sentence: str, contexts: list[str], compare: list[str], feedback: str) -> list[BaseMessage]:
+    """T-11 뒤 단계 (v2). 고른 답변 문장 하나를 짚어 묻는다. 회사 문서는 그 문장을 더 깊이 묻는 데만 참고한다.
+    회사 문서는 새로 검색하지 않고 답변 채점 때 찾은 문서를 쓴다 (아키텍처 10)."""
     docs = "\n".join(f"- {c}" for c in contexts) or "(없음)"
     retry = f"\n\n[앞 꼬리질문의 문제]\n{feedback}\n이 문제를 고쳐 다시 쓴다." if feedback else ""
     return [
@@ -34,13 +58,14 @@ def generate(prev_question: str, prev_answer: str, contexts: list[str], compare:
 [직전 질문]
 {prev_question}
 
-[직전 답변]
-{prev_answer}
+[지원자가 한 말]
+{sentence}
 
 [이미 나온 질문]
 {_questions(compare)}{retry}
 
-직전 답변에 이어서 물을 꼬리질문을 하나 쓴다.
+[지원자가 한 말]을 짚어 이어서 물을 꼬리질문을 하나 쓴다.
+- [지원자가 한 말]에 나온 방법이나 판단을 더 깊이 묻는다 (이유, 방법, 한계, 다른 경우). 다른 주제로 넘어가지 않는다.
 {QUESTION_RULES}
 
 형식: {{"question": "..."}}"""

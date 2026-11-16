@@ -34,8 +34,32 @@ class FakeModel:
 
 
 def _kinds(model):
-    return ["검증" if "꼬리질문이 아래를 모두" in p else "fallback" if "왜 그렇게 했는지" in p else "생성"
-            for p in model.prompts]
+    return ["검증" if "꼬리질문이 아래를 모두" in p else "fallback" if "왜 그렇게 했는지" in p
+            else "고르기" if "더 물을 답변 문장" in p else "생성" for p in model.prompts]
+
+
+TWO_SENTENCES = INPUTS | {"prev_answer": "음 먼저 인사드립니다. 주문 API 응답이 느려서 Redis 캐시를 넣었습니다."}
+
+
+def test_answer_sentence_is_picked_without_documents_then_written_with_it():
+    model = FakeModel({"based_on": "2"}, GOOD, VALID)
+    assert make_follow_up(model, TWO_SENTENCES) == GOOD["question"]
+    pick, write, _ = model.prompts
+    assert "[2] 주문 API 응답이 느려서" in pick and "Redis로 응답을 캐시한다" not in pick  # 고르기는 회사 문서 없이
+    assert "주문 API 응답이 느려서 Redis 캐시를 넣었습니다." in write and "먼저 인사드립니다" not in write
+    assert "Redis로 응답을 캐시한다" in write  # 쓰기는 고른 문장과 회사 문서를 본다
+
+
+def test_wrong_sentence_number_counts_as_error_and_skips_writing():
+    model = FakeModel({"based_on": "9"}, {"based_on": "2"}, GOOD, VALID)
+    assert make_follow_up(model, TWO_SENTENCES) == GOOD["question"]
+    assert _kinds(model) == ["고르기", "고르기", "생성", "검증"]
+
+
+def test_single_sentence_answer_needs_no_pick_call():
+    model = FakeModel(GOOD, VALID)
+    make_follow_up(model, INPUTS)
+    assert _kinds(model) == ["생성", "검증"]
 
 
 def test_valid_follow_up_is_confirmed():

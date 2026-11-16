@@ -17,9 +17,9 @@ from langchain_core.runnables import Runnable
 from langgraph.graph import END, START, StateGraph
 
 from app.chains.structured import invoke_structured
-from app.graphs.question import form_problem
+from app.graphs.question import form_problem, numbered, pick_sentence
 from app.prompts import follow_up as prompts
-from app.schemas.llm_outputs import FollowUpValidation, QuestionOutput
+from app.schemas.llm_outputs import BasePick, FollowUpValidation, QuestionOutput
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +33,7 @@ class FollowUpState(TypedDict, total=False):
     contexts: list[str]  # 질문·답변 검색 결과 청크 본문
     compare_questions: list[str]  # 비교 대상 질문 (AI Agent 설계서 2.2)
     follow_up: str | None
+    based_on: str  # 꼬리질문이 짚은 답변 문장 (프롬프트 v2)
     valid: bool
     feedback: str
     retry_count: int  # 검증 실패
@@ -42,13 +43,23 @@ class FollowUpState(TypedDict, total=False):
 
 def build_follow_up_graph(model: Runnable):
     def generate_follow_up(state: FollowUpState) -> dict:
-        """T-11 꼬리질문 생성. 검증 피드백을 반영한다."""
+        """T-11 꼬리질문 생성 (프롬프트 v2). ① 더 물을 답변 문장 번호를 고른다(회사 문서 없이) ② 그 문장 하나와
+        회사 문서로 쓴다. 답변이 한 문장이면 ①을 부르지 않는다. 번호가 틀리면 ②를 부르지 않고 에러로 센다.
+        검증 피드백은 ②에 넘긴다."""
+        numbered_answer, sentences = numbered(state["prev_answer"])
         try:
-            out = invoke_structured(model, prompts.generate(
-                state["prev_question"], state["prev_answer"], state.get("contexts", []),
+            if len(sentences) == 1:
+                sentence = sentences[0]
+            else:
+                pick = invoke_structured(model, prompts.pick(state["prev_question"], numbered_answer), BasePick)
+                sentence = pick_sentence(pick.based_on, sentences)
+                if not sentence:
+                    raise ValueError(f"답변 문장 번호가 틀렸다: {pick.based_on}")
+            out = invoke_structured(model, prompts.write(
+                state["prev_question"], sentence, state.get("contexts", []),
                 state.get("compare_questions", []), state.get("feedback", ""),
             ), QuestionOutput)
-            return {"follow_up": out.question.strip(), "errored": False}
+            return {"follow_up": out.question.strip(), "based_on": sentence, "errored": False}
         except Exception as e:
             log.warning("꼬리질문 생성 에러: %s", e)
             return {"follow_up": None, "errored": True, "error_count": state.get("error_count", 0) + 1}
