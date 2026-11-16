@@ -61,6 +61,7 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
   const [draft, setDraft] = useState("");
   const [suspended, setSuspended] = useState(false);
   const inquiryRef = useRef<number | null>(null);
+  const chatLinesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     apiFetch<InterviewGuide>(`/api/applications/${applicationId}/interview/guide`).then(setGuide).catch(() => {});
@@ -218,6 +219,12 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
     };
   }, [applicationId, sessionId, router, startMic, stopMic, startRecording, stopRecording]);
 
+  // 챗봇 창은 새 메시지가 오면 맨 아래로 내린다
+  useEffect(() => {
+    const el = chatLinesRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [chat, waitingReply, chatOpen]);
+
   // 남은 시간 표시
   useEffect(() => {
     if (phase !== "think" && phase !== "answer") return;
@@ -373,7 +380,7 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
                 </button>
               </div>
               <p className={styles.smallNote}>문의하는 동안에도 질문 시간은 흐릅니다.</p>
-              <div className={styles.chatLines}>
+              <div ref={chatLinesRef} className={styles.chatLines}>
                 {chat.map((line, i) => {
                   const mine = line.speaker === "지원자";
                   return (
