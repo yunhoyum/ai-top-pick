@@ -184,12 +184,16 @@ class InterviewSocketHandler:
         """question_id가 없는 새 질문(꼬리질문, 대체 질문)을 저장하고 짝을 남긴다. 순번은 빠진 질문의 것을 이어받는다."""
         replaced = self.removed or {}
         self.removed = None
+        # 대체되는 질문도 새로 만든 질문이었다면 ai-service는 그 키(r…·꼬리질문 키)로, 재접속한 main-api는 q{id}로 안다
+        key = replaced.get("qkey")
+        if key not in self.seq and replaced.get("question_id") is not None:
+            key = f"q{replaced['question_id']}"
         async with AsyncSessionLocal() as db:
-            qid = await InterviewService(db).save_new_question(self.session_id, question, self.seq.get(replaced.get("qkey")))
+            qid = await InterviewService(db).save_new_question(self.session_id, question, self.seq.get(key))
         self.bindings.append({"qkey": question["qkey"], "question_id": qid})
-        self.seq[question["qkey"]] = self.seq.get(replaced.get("qkey"))
-        if replaced.get("qkey") in self.order:
-            self.order[question["qkey"]] = self.order.pop(replaced["qkey"])
+        self.seq[question["qkey"]] = self.seq.get(key)
+        if key in self.order:
+            self.order[question["qkey"]] = self.order.pop(key)
         else:  # 재접속으로 다시 온 새 질문: 진행 목록 끝에 둔다
             self.order.setdefault(question["qkey"], len(self.order) + 1)
         return question | {"question_id": qid}

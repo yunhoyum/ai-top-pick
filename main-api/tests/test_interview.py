@@ -756,3 +756,36 @@ def test_inquiry_admin_api_is_own_postings_only(client, admin, applicant):
     assert other.get("/api/admin/inquiries").json() == []
     assert admin.get("/api/admin/inquiries/999999999").status_code == 404
     assert applicant.get("/api/admin/inquiries").status_code == 403
+
+
+class ReplaceAgainAi(FakeAi):
+    """재시험으로 다시 접속하면, 앞의 재시험에서 만든 대체 질문(ai-service 쪽 키 r…)을 또 대체한다."""
+
+    def __init__(self, qids, replaced_qid):
+        super().__init__(qids)
+        self.replaced_qid = replaced_qid
+
+    async def start_interview(self, session_id, payload):
+        self.starts.append(payload)
+        return {"actions": [
+            {"type": "invalidate", "keep_question": False,
+             "question": {"qkey": "rold", "question_id": self.replaced_qid, "kind": "AI", "text": "앞의 대체 질문?"}},
+            {"type": "present", "audio_b64": None,
+             "question": {"qkey": "rnew", "question_id": None, "kind": "AI", "question_type": "직무", "parent_qkey": None,
+                          "text": "또 대체 질문?"}},
+        ]}
+
+
+def test_replacing_a_replacement_keeps_its_seq(monkeypatch, applicant, ready):
+    """대체 질문을 다시 대체해도 같은 순번을 이어받는다. main-api는 그 질문을 q{id}로, ai-service는 r…로 안다."""
+    aid, qids = ready
+    sid = _enter(applicant, aid).json()["session_id"]
+    _sql("update interview_question set question_status = '무효' where question_id = :q", q=qids[0])
+    old = _sql("insert into interview_question (application_id, question_type, seq, content, is_revealed) "
+               "values (:a, '직무', 1, '앞의 대체 질문?', true) returning question_id", a=aid)[0][0]
+    monkeypatch.setattr(ws_interview, "get_ai_client", lambda: ReplaceAgainAi(qids[1:], old))
+    with _socket(applicant, sid) as ws:
+        new = _recv(ws, "question")
+    assert (new["text"], new["seq"], new["total"]) == ("또 대체 질문?", 1, 3)
+    assert _sql("select seq, question_status from interview_question where question_id = :q", q=new["question_id"])[0] == (1, "유효")
+    assert _sql("select question_status from interview_question where question_id = :q", q=old)[0][0] == "무효"
