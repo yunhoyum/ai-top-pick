@@ -4,11 +4,13 @@
 - evaluate_answer: [STT 보정 → 답변 검색 → 내용 점수]와 표정 분석을 동시에, 발화 수치·발화 점수
 - wait_expression: 표정 분석이 실패하면 main-api가 다시 분석한 결과를 기다린다 (아키텍처 8)
 - score_answer: 표정 점수와 답변 점수
-꼬리질문(4단계)과 문의(5단계)는 아직 없다. score_answer 다음은 load_question이다.
+- follow_up: 꼬리질문 서브그래프를 돌려, 만들면 바로 다음 직무 질문을 빼고 꼬리질문을 지금 질문으로 둔다 (SYS-008)
+문의(5단계)는 아직 없다.
 """
 
 import base64
 import logging
+import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass
 from decimal import Decimal
@@ -40,6 +42,7 @@ Search = Callable[[int, list[str]], list[Chunk]]  # (공고 ID, 검색어) → �
 Analyze = Callable[[str], list[dict]]  # 영상 경로 → 프레임별 감정
 ScoreContent = Callable[..., ContentScore]
 JudgeTopic = Callable[..., object]
+FollowUp = Callable[[dict], str | None]  # 꼬리질문 서브그래프 입력 → 확정된 꼬리질문 (없으면 None)
 
 
 @dataclass
@@ -49,6 +52,7 @@ class Deps:
     fillers: list[str]
     search: Search
     analyze: Analyze
+    follow_up: FollowUp
     score_content: ScoreContent = score_content
     judge_topic: JudgeTopic = judge_question_topic
 
@@ -61,6 +65,22 @@ _topics: dict[tuple[int, str], Future] = {}
 
 def _chunks(items: list[dict]) -> list[Chunk]:
     return [Chunk(**c) for c in items]
+
+
+def _bind(current: dict, bindings: list[dict]) -> dict:
+    """main-api가 새 질문(꼬리질문)을 저장하고 알려 준 question_id를 지금 질문에 넣는다 (규약 2.1 Binding)."""
+    ids = {b["qkey"]: b["question_id"] for b in bindings or []}
+    return current | {"question_id": ids[current["qkey"]]} if current["qkey"] in ids else current
+
+
+def parent_qkey(question: dict) -> str:
+    """꼬리질문의 부모는 꼬리질문이 시작된 최상위 기본 질문이다. 꼬리질문의 꼬리질문도 같은 부모를 둔다 (SYS-008)."""
+    return question.get("parent_qkey") or question["qkey"]
+
+
+def next_job_question(queue: list[dict]) -> dict | None:
+    """아직 제시하지 않은 바로 다음 직무 기본 질문. queue는 직무 → 인성 → 기업 순서다."""
+    return queue[0] if queue and queue[0].get("kind") == "AI" and queue[0].get("question_type") == "직무" else None
 
 
 def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
@@ -92,7 +112,7 @@ def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
         """interrupt로 멈춘다. 재개 값(답변 또는 문의)을 받는다.
         재개될 때마다 actions를 비운다. 이번 요청에 돌려줄 행동만 쌓이게 하기 위해서다."""
         value = interrupt({"waiting": "answer", "qkey": state["current"]["qkey"]})
-        return {"last_input": value, "actions": []}
+        return {"last_input": value, "actions": [], "current": _bind(state["current"], value.get("bindings"))}
 
     def _content(state: InterviewState, answer_text: str) -> tuple[ContentScore | None, list[dict]]:
         """보정된 답변으로 회사 문서를 검색하고 내용 점수를 낸다. 검색이나 채점이 끝까지 실패하면 (None, []).
@@ -167,6 +187,7 @@ def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
         waiting = [{"type": "await_expression", "question": state["current"]}] if evaluation["needs_expression"] else []
         return {
             "answered": state.get("answered", []) + [state["current"]["qkey"]],
+            "history": state.get("history", []) + [{"question": state["current"], "answer": answer_text}],
             "answer_context": answer_context,
             "last_evaluation": evaluation,
             "actions": state.get("actions", []) + waiting,
@@ -180,7 +201,8 @@ def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
             "expression_ratio": value.get("expression_ratio"),
             "needs_expression": False,
         }
-        return {"last_evaluation": evaluation, "actions": []}
+        # 규약 2.5: 요청마다 받은 질문 ID 짝을 반영한다
+        return {"last_evaluation": evaluation, "actions": [], "current": _bind(state["current"], value.get("bindings"))}
 
     def score_answer(state: InterviewState) -> dict:
         """표정 점수와 답변 점수를 낸다 (SYS-007). 표정이 없으면 내용·발화 비율을 늘려 계산한다.
@@ -191,6 +213,35 @@ def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
             Decimal(str(e["content_score"])), expression, Decimal(str(e["speech_score"])), state["settings"]["ratios"]
         )
         return {"last_evaluation": e | {"expression_score": expression, "answer_score": answer}}
+
+    def follow_up(state: InterviewState) -> dict:
+        """꼬리질문 서브그래프(3.6)를 돌린다. 확정되면 current를 꼬리질문으로 바꾸고 queue에서 바로 다음 직무 질문을 뺀다.
+        actions에는 '제거'만 넣는다. '제시'는 present_question이 넣는다 (TTS, 꼬리질문으로 한 검색, 질문 주제 판정).
+        만들지 못하면 다음 직무 질문을 빼지 않는다 (AI Agent 설계서 5.2)."""
+        current, queue, history = state["current"], state.get("queue", []), state.get("history", [])
+        parent = parent_qkey(current)
+        removed = next_job_question(queue)
+        parent_text = next((h["question"]["text"] for h in history if h["question"]["qkey"] == parent), current["text"])
+        # 비교 대상: 답변 받은 질문 + 아직 제시하지 않은 질문. 부모와 그 꼬리질문, 바로 다음 직무 질문은 뺀다 (2.2)
+        compare = [h["question"]["text"] for h in history if parent_qkey(h["question"]) != parent]
+        compare += [q["text"] for q in queue if q is not removed]
+        contexts = [c["content"] for c in state.get("question_context", []) + state.get("answer_context", [])]
+        question = deps.follow_up({
+            "prev_question": current["text"], "prev_answer": history[-1]["answer"] if history else "",
+            "parent_question": parent_text, "contexts": list(dict.fromkeys(contexts)), "compare_questions": compare,
+        })
+        if question is None:
+            return {"follow_up_created": False}
+        new = {"qkey": f"f{uuid.uuid4().hex}", "question_id": None, "kind": "꼬리", "question_type": "직무",
+               "parent_qkey": parent, "text": question}
+        counts = state.get("follow_up_counts", {})
+        return {
+            "follow_up_created": True,
+            "current": new,
+            "queue": [q for q in queue if q is not removed],
+            "follow_up_counts": counts | {parent: counts.get(parent, 0) + 1},
+            "actions": state.get("actions", []) + [{"type": "remove", "question": removed}],
+        }
 
     def end_interview(state: InterviewState) -> dict:
         """actions에 '종료'를 넣는다 (워크플로우 5-7)."""
@@ -203,5 +254,6 @@ def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
         "evaluate_answer": evaluate_answer,
         "wait_expression": wait_expression,
         "score_answer": score_answer,
+        "follow_up": follow_up,
         "end_interview": end_interview,
     }

@@ -1,10 +1,11 @@
 """면접 그래프 빌더 (ai-service 3.5, AI Agent 설계서 4.1·4.4).
 
-흐름 (꼬리질문·문의는 4·5단계):
+흐름 (문의는 5단계):
   START → load_question → (queue 비었음) end_interview → END
                         → present_question → wait_answer(interrupt) → evaluate_answer
-                          → (표정 실패) wait_expression(interrupt) → score_answer → load_question
-                          → score_answer → load_question
+                          → (표정 실패) wait_expression(interrupt) → score_answer
+                          → score_answer → (꼬리질문 조건) follow_up → (만듦) present_question / (못 만듦) load_question
+                                         → load_question
 thread_id는 session-{session_id}다. 재접속·재시험은 같은 체크포인트로 이어간다.
 """
 
@@ -15,7 +16,13 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.types import Command
 
 from app.graphs.interview.nodes import Deps, Tts, make_nodes
-from app.graphs.interview.routes import route_after_eval, route_after_load, route_after_wait
+from app.graphs.interview.routes import (
+    route_after_eval,
+    route_after_follow_up,
+    route_after_load,
+    route_after_score,
+    route_after_wait,
+)
 from app.graphs.interview.state import InterviewState
 from app.schemas.internal import AnswerRequest, ExpressionRequest, StartInterviewRequest
 
@@ -39,7 +46,8 @@ def build_interview_graph(checkpointer: BaseCheckpointSaver, deps: Deps):
     g.add_conditional_edges("wait_answer", route_after_wait, ["evaluate_answer"])
     g.add_conditional_edges("evaluate_answer", route_after_eval, ["wait_expression", "score_answer"])
     g.add_edge("wait_expression", "score_answer")
-    g.add_edge("score_answer", "load_question")
+    g.add_conditional_edges("score_answer", route_after_score, ["follow_up", "load_question"])
+    g.add_conditional_edges("follow_up", route_after_follow_up, ["present_question", "load_question"])
     g.add_edge("end_interview", END)
     return g.compile(checkpointer=checkpointer)
 
@@ -94,7 +102,7 @@ def submit_answer(graph, session_id: int, req: AnswerRequest) -> tuple[dict, lis
     current = _waiting_question(graph, config)
     if current is None or current["qkey"] != req.qkey:
         raise NotWaitingError(req.qkey)
-    # bindings(새 질문의 question_id 짝)는 꼬리질문·대체 질문이 생기는 4·5단계에서 반영한다
+    # bindings(새 질문의 question_id 짝)는 wait_answer가 지금 질문에 반영한다
     state = graph.invoke(Command(resume={"type": "answer", **req.model_dump()}), config)
     return state["last_evaluation"], state["actions"]
 

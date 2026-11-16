@@ -1,4 +1,4 @@
-"""면접 그래프·내부 API 테스트 (실시간 면접 1~3단계). TTS·LLM·검색·vision·내용 채점은 가짜, 체크포인터는 메모리다."""
+"""면접 그래프·내부 API 테스트 (실시간 면접 1~4단계). TTS·LLM·검색·vision·내용 채점은 가짜, 체크포인터는 메모리다."""
 
 import base64
 import json
@@ -67,8 +67,10 @@ CHUNK = Chunk(chunk_id=7, source_type="프로젝트 문서", source_id=3, seq=0,
 class Fakes:
     """검색·vision·내용 채점·질문 주제 판정 가짜. 받은 인자를 기록한다."""
 
-    def __init__(self, frames=None, vision_error=False, score_error=False, answer_search_error=False):
-        self.searches, self.scored, self.topics = [], [], []
+    def __init__(self, frames=None, vision_error=False, score_error=False, answer_search_error=False,
+                 content="70.00", follow_ups=()):
+        self.searches, self.scored, self.topics, self.follow_up_inputs = [], [], [], []
+        self.content, self.follow_ups = content, list(follow_ups)
         self.score_error, self.answer_search_error = score_error, answer_search_error
         self.frames = frames if frames is not None else [{"emotion": "neutral"}] * 8 + [{"emotion": "fear"}] * 2
         self.vision_error = vision_error
@@ -93,7 +95,12 @@ class Fakes:
         if self.score_error:
             raise RuntimeError("LLM 형식 오류")
         evidence = [EvidenceSentence("프로젝트 문서", 3, 7, "캐시로 응답을 줄였다.")]
-        return ContentScore(Decimal("70.00"), "캐시 이유가 분명하다.", EvidenceStatus.FOUND, evidence, {})
+        return ContentScore(Decimal(self.content), "캐시 이유가 분명하다.", EvidenceStatus.FOUND, evidence, {})
+
+    def follow_up(self, inputs):
+        """정해 둔 꼬리질문을 차례로 낸다. None이면 만들지 못한 것이다."""
+        self.follow_up_inputs.append(inputs)
+        return self.follow_ups.pop(0) if self.follow_ups else None
 
 
 def _answer(qkey, question_id, end_reason="button", **over):
@@ -103,7 +110,7 @@ def _answer(qkey, question_id, end_reason="button", **over):
 def _build(saver, tts, llm=None, fakes=None):
     f = fakes or Fakes()
     deps = Deps(tts=tts, model=llm or FakeLlm(), fillers=FILLERS, search=f.search, analyze=f.analyze,
-                score_content=f.score_content, judge_topic=f.judge_topic)
+                follow_up=f.follow_up, score_content=f.score_content, judge_topic=f.judge_topic)
     return builder.build_interview_graph(saver, deps)
 
 
@@ -372,3 +379,114 @@ def test_content_scoring_failure_keeps_interview_going_without_answer_score(fail
     assert (evaluation["content_score"], evaluation["content_reason"], evaluation["answer_score"]) == (None, None, None)
     assert (evaluation["speech_score"], evaluation["expression_score"]) == (Decimal("92.00"), Decimal("80.00"))
     assert actions[0]["question"]["qkey"] == "q12"
+
+
+# ---------- 꼬리질문 (4단계, SYS-008) ----------
+
+
+JOB_QUESTIONS = [
+    {"qkey": "q21", "question_id": 21, "kind": "AI", "question_type": "직무", "text": "캐시를 왜 썼나요?"},
+    {"qkey": "q22", "question_id": 22, "kind": "AI", "question_type": "직무", "text": "장애를 어떻게 막았나요?"},
+    {"qkey": "q23", "question_id": 23, "kind": "AI", "question_type": "직무", "text": "배포는 어떻게 했나요?"},
+    {"qkey": "q24", "question_id": 24, "kind": "AI", "question_type": "인성", "text": "모른다고 말한 경험은?"},
+]
+FOLLOW_BODY = BODY | {"questions": JOB_QUESTIONS}
+
+
+def _follow_setup(enabled=True, **fake_args):
+    """내용 90점이면 답변 점수 (90 × 50 + 92 × 30 + 80 × 20) ÷ 100 = 88.6 → 꼬리질문 조건 ③ 참."""
+    fakes = Fakes(**({"content": "90.00"} | fake_args))
+    tts = FakeTts()
+    graph = _build(InMemorySaver(), tts, fakes=fakes)
+    settings = FOLLOW_BODY["settings"] | {"follow_up_enabled": enabled}
+    builder.start_or_resume(graph, StartInterviewRequest(**(FOLLOW_BODY | {"settings": settings})), tts)
+    nodes._topic_pool.submit(lambda: None).result()
+    return graph, fakes, tts
+
+
+def _job_answer(qkey, question_id, **over):
+    return _answer(qkey, question_id, raw_text=RAW, words=WORDS, answer_start_sec=2.0, video_path=VIDEO, **over)
+
+
+def _state(graph):
+    return graph.get_state(builder.graph_config(5)).values
+
+
+def test_high_score_job_answer_gets_a_follow_up_and_next_job_question_is_removed():
+    graph, fakes, tts = _follow_setup(follow_ups=["Redis 캐시가 오래된 값을 주지 않게 어떻게 했나요?"])
+    evaluation, actions = builder.submit_answer(graph, 5, _job_answer("q21", 21))
+    assert evaluation["answer_score"] == Decimal("88.60")
+    remove, present = actions
+    assert (remove["type"], remove["question"]["qkey"]) == ("remove", "q22")  # 바로 다음 직무 질문
+    follow = present["question"]
+    assert present["type"] == "present" and follow["kind"] == "꼬리" and follow["parent_qkey"] == "q21"
+    assert follow["question_id"] is None and follow["qkey"].startswith("f")
+    assert base64.b64decode(present["audio_b64"]) == f"wav:{follow['text']}".encode()  # 꼬리질문도 읽어준다
+    # 꼬리질문 입력: 직전 답변은 보정문, 비교 대상에서 부모와 바로 다음 직무 질문은 뺀다
+    inputs = fakes.follow_up_inputs[0]
+    assert inputs["prev_answer"] == "음, API 응답을 캐시로 줄였습니다. 그 결과 빨라졌습니다."
+    assert inputs["parent_question"] == "캐시를 왜 썼나요?" and inputs["contexts"] == [CHUNK.content]
+    assert inputs["compare_questions"] == ["배포는 어떻게 했나요?", "모른다고 말한 경험은?"]
+    state = _state(graph)
+    assert [q["qkey"] for q in state["queue"]] == ["q23", "q24"] and state["follow_up_counts"] == {"q21": 1}
+    # 꼬리질문으로도 회사 문서를 미리 검색한다 (AI Agent 설계서 4.1)
+    assert fakes.searches[-1] == (1, [follow["text"]])
+
+
+def test_binding_sets_question_id_and_follow_up_of_follow_up_keeps_the_same_parent():
+    graph, fakes, _ = _follow_setup(follow_ups=["꼬리 1?", "꼬리 2?"])
+    _, actions = builder.submit_answer(graph, 5, _job_answer("q21", 21))
+    first = actions[1]["question"]
+    binding = {"qkey": first["qkey"], "question_id": 901}
+    _, actions = builder.submit_answer(graph, 5, _job_answer(first["qkey"], 901, bindings=[binding]))
+    assert _state(graph)["history"][-1]["question"]["question_id"] == 901  # 짝을 반영한 뒤 답변을 기록했다
+    remove, present = actions
+    assert remove["question"]["qkey"] == "q23" and present["question"]["parent_qkey"] == "q21"
+    assert _state(graph)["follow_up_counts"] == {"q21": 2}
+    # 비교 대상: 부모(q21)와 그 꼬리질문은 빼고, 다음 직무 질문(q23)도 뺀다
+    assert fakes.follow_up_inputs[1]["compare_questions"] == ["모른다고 말한 경험은?"]
+
+
+def test_third_follow_up_is_not_made_for_the_same_parent():
+    jobs = JOB_QUESTIONS[:3] + [{"qkey": "q25", "question_id": 25, "kind": "AI", "question_type": "직무",
+                                  "text": "테스트는 어떻게 했나요?"}]
+    fakes = Fakes(content="90.00", follow_ups=["꼬리 1?", "꼬리 2?", "꼬리 3?"])
+    tts = FakeTts()
+    graph = _build(InMemorySaver(), tts, fakes=fakes)
+    builder.start_or_resume(graph, StartInterviewRequest(**(BODY | {"questions": jobs})), tts)
+    _, a = builder.submit_answer(graph, 5, _job_answer("q21", 21))
+    _, a = builder.submit_answer(graph, 5, _job_answer(a[1]["question"]["qkey"], 0))
+    _, a = builder.submit_answer(graph, 5, _job_answer(a[1]["question"]["qkey"], 0))
+    assert [x["type"] for x in a] == ["present"] and a[0]["question"]["qkey"] == "q25"  # 부모당 2개까지
+    assert len(fakes.follow_up_inputs) == 2
+
+
+def test_no_follow_up_when_disabled_or_low_score_or_not_job_or_no_job_left():
+    graph, fakes, _ = _follow_setup(enabled=False, follow_ups=["꼬리?"])
+    assert builder.submit_answer(graph, 5, _job_answer("q21", 21))[1][0]["question"]["qkey"] == "q22"
+    graph, fakes, _ = _follow_setup(content="60.00", follow_ups=["꼬리?"])  # 답변 점수 68.6
+    assert builder.submit_answer(graph, 5, _job_answer("q21", 21))[1][0]["question"]["qkey"] == "q22"
+    assert fakes.follow_up_inputs == []
+    # 기본 질문 목록: q11 직무 다음이 인성 질문이라 남은 직무 질문이 없다
+    fakes = Fakes(content="90.00", follow_ups=["꼬리?"])
+    tts = FakeTts()
+    graph = _build(InMemorySaver(), tts, fakes=fakes)
+    builder.start_or_resume(graph, StartInterviewRequest(**BODY), tts)
+    assert builder.submit_answer(graph, 5, _job_answer("q11", 11))[1][0]["question"]["qkey"] == "q12"
+    assert fakes.follow_up_inputs == []
+
+
+def test_failed_follow_up_keeps_the_next_job_question():
+    graph, fakes, _ = _follow_setup(follow_ups=[None])
+    _, actions = builder.submit_answer(graph, 5, _job_answer("q21", 21))
+    assert [(a["type"], a["question"]["qkey"]) for a in actions] == [("present", "q22")]
+    assert len(fakes.follow_up_inputs) == 1 and _state(graph)["follow_up_counts"] == {}
+
+
+def test_follow_up_is_judged_after_expression_reanalysis_too():
+    graph, fakes, _ = _follow_setup(vision_error=True, follow_ups=["꼬리?"])
+    _, actions = builder.submit_answer(graph, 5, _job_answer("q21", 21))
+    assert [a["type"] for a in actions] == ["await_expression"] and fakes.follow_up_inputs == []
+    _, actions = builder.submit_expression(graph, 5, ExpressionRequest(
+        qkey="q21", answer_id=1, main_expression="neutral", expression_ratio={"neutral": 1.0}))
+    assert [a["type"] for a in actions] == ["remove", "present"]

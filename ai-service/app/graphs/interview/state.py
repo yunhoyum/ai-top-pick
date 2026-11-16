@@ -21,6 +21,8 @@ class InterviewState(TypedDict, total=False):
     question_context: list  # 질문 출제 때 미리 검색한 회사 문서 (3단계)
     answer_context: list  # 보정된 답변으로 검색한 회사 문서 (3단계)
     last_evaluation: dict | None  # 마지막 답변 평가 결과 (3단계)
+    history: list[dict]  # 답변 받은 질문과 보정된 답변 [{question, answer}]. 꼬리질문의 비교 대상·직전 답변 (4단계)
+    follow_up_created: bool  # follow_up 노드가 꼬리질문을 만들었는지 (4단계)
     inquiry: dict | None  # 문의 중 대화, 판단 결과, ai_attempt_count (5단계)
     pending_answer: dict | None  # 문의 중 들어온 답변 (보류. 유지보수 때 설계)
     last_input: dict | None  # wait_answer가 받은 재개 값 (답변 또는 문의)

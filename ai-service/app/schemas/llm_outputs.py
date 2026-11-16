@@ -99,6 +99,13 @@ class QuestionValidation(BaseModel):
     feedback: str = ""
 
 
+class FollowUpValidation(BaseModel):
+    """T-12 꼬리질문 검증. 적절성·배타성·부모 질문 반복을 한 번에 본다 (AI Agent 설계서 2.2)."""
+
+    is_valid: bool
+    feedback: str = ""
+
+
 class OverlapCheck(BaseModel):
     """T-03·T-07의 배타성. 확정 질문 하나와 비교한 결과 (프롬프트 v2). 둘 중 하나라도 참이면 겹친다."""
 

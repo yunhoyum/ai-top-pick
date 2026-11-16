@@ -14,6 +14,7 @@ from app.core.internal_auth import verify_internal_token
 from app.core.llm import get_chat_model
 from app.db.checkpointer import get_checkpointer
 from app.graphs.interview import builder
+from app.graphs.interview.follow_up_nodes import make_follow_up
 from app.graphs.interview.nodes import Deps
 from app.rag.retriever import search_company_docs
 from app.schemas.internal import (
@@ -35,9 +36,11 @@ def get_tts():
 
 @lru_cache
 def get_interview_graph():
+    model = get_chat_model()
     deps = Deps(
-        tts=get_tts(), model=get_chat_model(), fillers=get_settings().FILLER_WORDS,
+        tts=get_tts(), model=model, fillers=get_settings().FILLER_WORDS,
         search=search_company_docs, analyze=VisionClient().analyze,
+        follow_up=lambda inputs: make_follow_up(model, inputs),
     )
     return builder.build_interview_graph(get_checkpointer(), deps)
 
