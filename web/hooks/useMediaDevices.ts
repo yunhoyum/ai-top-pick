@@ -5,6 +5,29 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // 마이크 입력이 이 값보다 크면 소리가 들어온 것으로 본다 (0~1, 제안)
 const MIC_OK_LEVEL = 0.08;
 
+// 면접 중 기술 문의의 시스템 재검사: 이미 연 스트림의 카메라가 살아 있고, sec초 안에 마이크 입력이 기준을 넘는지
+export async function recheckStream(stream: MediaStream | null, sec = 5): Promise<boolean> {
+  if (!stream || !stream.getVideoTracks().some((t) => t.readyState === "live")) return false;
+  if (!stream.getAudioTracks().some((t) => t.readyState === "live")) return false;
+  const ctx = new AudioContext();
+  try {
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    const data = new Float32Array(analyser.fftSize);
+    const until = Date.now() + sec * 1000;
+    while (Date.now() < until) {
+      analyser.getFloatTimeDomainData(data);
+      const rms = Math.sqrt(data.reduce((sum, v) => sum + v * v, 0) / data.length);
+      if (Math.min(1, rms * 5) >= MIC_OK_LEVEL) return true;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return false;
+  } finally {
+    ctx.close();
+  }
+}
+
 export type MediaCheck = {
   stream: MediaStream | null;
   cameraOk: boolean;

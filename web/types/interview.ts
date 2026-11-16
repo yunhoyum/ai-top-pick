@@ -30,4 +30,10 @@ export type ServerMessage =
   | { type: "answer_end"; question_id: number; reason: "button" | "silence" | "timeout" }
   | { type: "evaluating"; question_id: number }
   | { type: "interview_end"; answered_count: number; ended_at: string }
+  // 기술 문의 (5단계). inquiry_reply의 check: system이면 브라우저가 장치를 다시 검사해 보내고, applicant면 지원자에게 묻는다
+  // inquiry_id가 없는 inquiry_reply는 안내만 한다(답변 평가 중이라 받아 둠, 면접이 끝남)
+  | { type: "inquiry_opened"; inquiry_id: number }
+  | { type: "inquiry_reply"; inquiry_id: number | null; text: string; check: "system" | "applicant" | null }
+  | { type: "inquiry_result"; inquiry_id: number; resolved: boolean; cause: string; follow_up: string }
+  | { type: "suspended"; message: string; needs_admin: boolean }
   | { type: "error"; code: string; message: string };

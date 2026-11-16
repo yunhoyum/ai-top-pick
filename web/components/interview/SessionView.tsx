@@ -6,6 +6,7 @@ import Badge from "@/components/common/Badge";
 import Button from "@/components/common/Button";
 import BrandLogo from "@/components/layout/BrandLogo";
 import { useAnswerRecorder } from "@/hooks/useAnswerRecorder";
+import { recheckStream } from "@/hooks/useMediaDevices";
 import { useMicStream } from "@/hooks/useMicStream";
 import { apiFetch } from "@/lib/api";
 import { connectInterview } from "@/lib/ws";
@@ -15,6 +16,10 @@ import styles from "./Interview.module.css";
 type Question = Extract<ServerMessage, { type: "question" }>;
 // audio: 질문을 읽어 주는 중, think: 생각 시간, answer: 답변 시간, evaluating: 답변을 보내고 다음 질문을 기다림
 type Phase = "connecting" | "audio" | "think" | "answer" | "evaluating" | "closed";
+type ChatLine = { speaker: "지원자" | "챗봇"; text: string };
+// 해결 확인 방법. system: 브라우저가 카메라·마이크를 다시 검사, applicant: 지원자에게 예/아니오를 묻는다
+type Check = "system" | "applicant" | null;
+const RECHECK_NOTE = "카메라와 마이크를 다시 검사하고 있습니다. 마이크에 대고 말씀해 주세요.";
 
 function remainingSec(endsAt: string | null, now: number): number {
   return endsAt ? Math.max(0, Math.ceil((new Date(endsAt).getTime() - now) / 1000)) : 0;
@@ -27,7 +32,8 @@ function mmss(sec: number): string {
 // 화면 24 화상 면접 화면 (APP-016, SYS-011)
 // 질문을 받으면 글을 보여 주고 음성을 재생한다. 재생이 끝나면 서버에 알리고, 서버가 생각·답변 시간을 정한다
 // 답변 시간에는 음성을 서버로 보내 자막을 받고(Deepgram), 답변을 녹화해 끝나면 올린다
-// 기술 문의는 실시간 면접 5단계에서 연다
+// 기술 문의(SYS-003, APP-013·014): 질문을 받은 뒤 챗봇 창을 연다. 문의 중에도 질문 시간은 흐른다
+// 챗봇이 해결 확인을 물으면 시스템 재검사는 자동으로, 지원자 확인은 예/아니오로 답한다. 3회 해결되지 않으면 서버가 면접을 중단한다
 export default function SessionView({ applicationId, sessionId }: { applicationId: number; sessionId: number }) {
   const router = useRouter();
   const wsRef = useRef<WebSocket | null>(null);
@@ -46,6 +52,15 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
   // 이번 답변의 자막. 확정 문장과 아직 바뀔 수 있는 중간 결과
   const [finals, setFinals] = useState<string[]>([]);
   const [interim, setInterim] = useState("");
+  // 기술 문의
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chat, setChat] = useState<ChatLine[]>([]);
+  const [inquiryId, setInquiryId] = useState<number | null>(null);
+  const [check, setCheck] = useState<Check>(null);
+  const [waitingReply, setWaitingReply] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [suspended, setSuspended] = useState(false);
+  const inquiryRef = useRef<number | null>(null);
 
   useEffect(() => {
     apiFetch<InterviewGuide>(`/api/applications/${applicationId}/interview/guide`).then(setGuide).catch(() => {});
@@ -75,6 +90,7 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
     let current: Question | null = null;
     let ended = false;
     const send = (msg: object) => ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify(msg));
+    const botSays = (text: string) => setChat((c) => [...c, { speaker: "챗봇", text }]);
     // 답변이 끝나면 녹화를 멈추고 영상을 올린다. 서버는 영상이 올라올 때까지 기다렸다가 평가로 넘긴다
     const finishAnswer = (questionId: number) => {
       stopMic();
@@ -144,8 +160,46 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
             `/interview/${applicationId}/done?answered=${msg.answered_count}&ended=${encodeURIComponent(msg.ended_at)}`,
           );
           break;
+        case "inquiry_opened":
+          inquiryRef.current = msg.inquiry_id;
+          setInquiryId(msg.inquiry_id);
+          break;
+        case "inquiry_reply":
+          botSays(msg.text);
+          setChatOpen(true);
+          setWaitingReply(false);
+          setCheck(msg.inquiry_id === null ? null : msg.check);
+          if (msg.check === "system" && msg.inquiry_id !== null) {
+            // 시스템 재검사: 지금 쓰는 카메라·마이크를 다시 검사해 결과를 보낸다
+            const id = msg.inquiry_id;
+            botSays(RECHECK_NOTE);
+            setWaitingReply(true);
+            recheckStream(streamRef.current).then((ok) => send({ type: "inquiry_check", inquiry_id: id, resolved: ok }));
+          }
+          break;
+        case "inquiry_result":
+          inquiryRef.current = null;
+          setInquiryId(null);
+          setCheck(null);
+          setWaitingReply(false);
+          botSays(
+            msg.resolved
+              ? msg.follow_up === "기존 질문 그대로 진행"
+                ? "문제가 해결되었습니다. 진행 중인 질문에 이어서 답변해 주세요."
+                : "문제가 해결되었습니다. 진행 중이던 질문을 다시 제시합니다."
+              : "3회 시도했지만 해결하지 못했습니다. 지금까지의 답변을 저장하고 면접을 중단합니다.",
+          );
+          break;
+        case "suspended":
+          ended = true;
+          setSuspended(true);
+          setError(msg.message);
+          stopMic();
+          stopRecording();
+          break;
         case "error":
           setError(msg.message);
+          setWaitingReply(false);
           break;
       }
     };
@@ -179,6 +233,36 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
   const answerFill = phase === "answer" && answerSec ? 1 - left / answerSec : phase === "evaluating" ? 1 : 0;
   const total = question?.total ?? guide?.question_count ?? 0;
 
+  const send = (msg: object) => {
+    const ws = wsRef.current;
+    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+  };
+
+  // '기술 문의': 창을 열고, 진행 중인 문의가 없으면 서버에 문의를 연다
+  function openInquiry() {
+    setChatOpen(true);
+    if (inquiryRef.current !== null || waitingReply || !question) return;
+    setWaitingReply(true);
+    send({ type: "inquiry_open", question_id: question.question_id });
+  }
+
+  function sendInquiry() {
+    const text = draft.trim();
+    if (!text || inquiryId === null || waitingReply) return;
+    setChat((c) => [...c, { speaker: "지원자", text }]);
+    setDraft("");
+    setWaitingReply(true);
+    send({ type: "inquiry_message", inquiry_id: inquiryId, text });
+  }
+
+  function answerCheck(resolved: boolean) {
+    if (inquiryId === null) return;
+    setChat((c) => [...c, { speaker: "지원자", text: resolved ? "해결됐어요." : "아직 해결되지 않았어요." }]);
+    setCheck(null);
+    setWaitingReply(true);
+    send({ type: "inquiry_check", inquiry_id: inquiryId, resolved });
+  }
+
   function answerDone() {
     if (question && phase === "answer") {
       wsRef.current?.send(JSON.stringify({ type: "answer_done", question_id: question.question_id }));
@@ -198,8 +282,7 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
             녹화 중
           </span>
         )}
-        {/* 문의(챗봇)는 실시간 면접 5단계에서 연다 */}
-        <Button type="button" variant="secondary" inline disabled title="준비 중입니다">
+        <Button type="button" variant="secondary" inline disabled={!question || phase === "closed"} onClick={openInquiry}>
           기술 문의
         </Button>
       </header>
@@ -257,6 +340,13 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
           </div>
 
           {error && <p className={styles.message}>{error}</p>}
+          {suspended && (
+            <div>
+              <Button type="button" variant="secondary" inline onClick={() => router.replace("/applications")}>
+                내 지원 현황으로
+              </Button>
+            </div>
+          )}
           <div className={styles.footer}>
             <p className={styles.footerNote}>
               {phase === "audio"
@@ -274,6 +364,60 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
         </div>
 
         <aside className={styles.side}>
+          {chatOpen && (
+            <section className={`${styles.card} ${styles.chat}`}>
+              <div className={styles.cardHead}>
+                <h2 className={styles.cardTitle}>기술 문의</h2>
+                <button type="button" className={styles.chatClose} onClick={() => setChatOpen(false)} aria-label="닫기">
+                  ✕
+                </button>
+              </div>
+              <p className={styles.smallNote}>문의하는 동안에도 질문 시간은 흐릅니다.</p>
+              <div className={styles.chatLines}>
+                {chat.map((line, i) => {
+                  const mine = line.speaker === "지원자";
+                  return (
+                    <div key={i} className={`${styles.chatRow} ${mine ? styles.chatRowMine : ""}`}>
+                      <div className={`${styles.bubble} ${mine ? styles.bubbleMine : ""}`}>
+                        <span className={`${styles.speaker} ${mine ? styles.speakerMine : ""}`}>{line.speaker}</span>
+                        <span>{line.text}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+                {waitingReply && <p className={styles.smallNote}>확인하고 있습니다…</p>}
+              </div>
+              {check === "applicant" && !waitingReply ? (
+                <div className={styles.chatChecks}>
+                  <Button type="button" inline onClick={() => answerCheck(true)}>
+                    해결됐어요
+                  </Button>
+                  <Button type="button" variant="secondary" inline onClick={() => answerCheck(false)}>
+                    아직 안 돼요
+                  </Button>
+                </div>
+              ) : (
+                <form
+                  className={styles.chatInput}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    sendInquiry();
+                  }}
+                >
+                  <input
+                    className={styles.chatText}
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    placeholder="어떤 문제가 있는지 적어 주세요"
+                    disabled={inquiryId === null || waitingReply || suspended}
+                  />
+                  <Button type="submit" inline disabled={!draft.trim() || inquiryId === null || waitingReply}>
+                    보내기
+                  </Button>
+                </form>
+              )}
+            </section>
+          )}
           <section className={`${styles.card} ${styles.transcript}`}>
             <div className={styles.cardHead}>
               <h2 className={styles.cardTitle}>실시간 답변 기록</h2>

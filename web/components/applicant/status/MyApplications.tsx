@@ -17,6 +17,8 @@ const TONES: Record<string, BadgeTone> = {
   "서류 전형 진행 중": "navy",
   "면접 전형 예정": "navy",
   "면접 전형 진행 중": "teal",
+  "처리 중": "amber",
+  "재접속 가능": "teal",
   "면접 결과 대기": "navy",
   "면접 전형 완료": "teal",
   "전형 종료": "gray",
@@ -94,6 +96,30 @@ function ResultBox({ a }: { a: ApplicationStatusItem }) {
         <Badge tone={pass ? "teal" : "gray"}>면접 전형 결과</Badge>
         <p className={styles.resultTitle}>{pass ? "면접 전형에 합격했습니다" : "이번 면접 전형에서는 합격하지 못했습니다"}</p>
         <p className={styles.resultText}>{pass ? "다음 절차는 채용 담당자가 따로 안내합니다." : "지원해 주셔서 감사합니다."}</p>
+      </div>
+    );
+  }
+  // 면접이 문의 처리로 중단됐을 때 (APP-018, 화면 21-2·21-3). 처리 중에는 응시할 수 없다
+  if (a.status === "처리 중" || a.status === "재접속 가능") {
+    const hold = a.status === "처리 중";
+    return (
+      <div className={`${styles.result} ${styles.resultPass}`}>
+        <Badge tone={hold ? "amber" : "navy"}>{hold ? "면접 중단" : "재접속 가능"}</Badge>
+        <p className={styles.resultTitle}>{hold ? "면접 중 생긴 문제를 처리하고 있습니다" : "면접을 이어서 응시할 수 있습니다"}</p>
+        <p className={styles.resultText}>
+          {hold
+            ? "기술적 문제로 면접이 중단되었습니다. 지금까지의 답변은 저장되어 있습니다. 담당자가 처리를 마치면 다시 응시할 수 있다고 알려드립니다. 처리 중에는 면접에 응시할 수 없습니다."
+            : `문제 처리가 끝났습니다. 면접 마감(${formatFullDate(a.interview_end_at)}) 전까지 이어서 응시해 주세요. 이미 답변한 질문은 유지됩니다. 접속하면 기술적 테스트를 다시 하고, 중단된 질문을 다시 제시합니다. 추가 시간은 없습니다.`}
+        </p>
+        <Button
+          type="button"
+          variant={hold ? "secondary" : "primary"}
+          inline
+          disabled={!a.can_view_interview_guide}
+          onClick={() => router.push(`/interview/${a.application_id}/guide`)}
+        >
+          AI 면접 응시
+        </Button>
       </div>
     );
   }

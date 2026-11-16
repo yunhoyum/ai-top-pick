@@ -1,0 +1,315 @@
+/* 화면 26·26-1 문의·예외 처리 (Figma 92:5116, 92:5254) */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.headText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  line-height: 1.5;
+}
+
+.title {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.subtitle {
+  font-size: 14px;
+  color: var(--gray-500);
+}
+
+.error {
+  font-size: 14px;
+  color: var(--danger);
+}
+
+.layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 340px;
+  flex-shrink: 0;
+  padding: 16px;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tab {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--gray-100);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--gray-500);
+  cursor: pointer;
+}
+
+.tabOn {
+  background: var(--primary-700);
+  font-weight: 700;
+  color: #fff;
+}
+
+.empty {
+  padding: 14px 4px;
+  font-size: 13px;
+  color: var(--gray-500);
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.itemOn {
+  background: var(--primary-50);
+}
+
+.itemHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.itemName {
+  flex: 1 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--gray-900);
+}
+
+.itemSub {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--gray-500);
+}
+
+.detail {
+  display: flex;
+  flex: 1 0 0;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cardTitle {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--gray-900);
+}
+
+.grow {
+  flex: 1 0 0;
+}
+
+.result {
+  gap: 14px;
+}
+
+.columns {
+  display: flex;
+  gap: 32px;
+}
+
+.column {
+  display: flex;
+  flex: 1 0 0;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.kv {
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.kvLabel {
+  width: 120px;
+  flex-shrink: 0;
+  color: var(--gray-500);
+}
+
+.kvLabelWide {
+  width: 110px;
+}
+
+.kvValue {
+  flex: 1 0 0;
+  min-width: 0;
+  font-weight: 500;
+  color: var(--gray-900);
+}
+
+.row {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.half {
+  flex: 1 0 0;
+  min-width: 0;
+}
+
+.logs {
+  gap: 10px;
+}
+
+.bubbleRow {
+  display: flex;
+}
+
+.bubbleRowMine {
+  justify-content: flex-end;
+}
+
+.bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 300px;
+  max-width: 100%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--gray-50);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--gray-700);
+}
+
+.bubbleMine {
+  background: var(--primary-50);
+}
+
+.speaker {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gray-500);
+}
+
+.speakerMine {
+  color: var(--primary-700);
+}
+
+.log {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--gray-50);
+  font-family: Inter, sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.logError {
+  background: var(--red-50);
+}
+
+.logTime {
+  flex-shrink: 0;
+  color: var(--gray-500);
+}
+
+.logText {
+  flex: 1 0 0;
+  min-width: 0;
+  color: var(--gray-700);
+}
+
+.note {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 10px;
+  line-height: 1.5;
+}
+
+.noteFail {
+  background: var(--red-50);
+}
+
+.noteFail .noteTitle {
+  color: var(--red-600);
+}
+
+.noteOk {
+  background: var(--accent-50);
+}
+
+.noteOk .noteTitle {
+  color: var(--accent-600);
+}
+
+.noteInfo {
+  background: var(--primary-50);
+}
+
+.noteInfo .noteTitle {
+  color: var(--primary-700);
+}
+
+.noteTitle {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.noteText {
+  font-size: 14px;
+  color: var(--gray-700);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}

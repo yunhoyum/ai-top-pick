@@ -122,3 +122,22 @@ export function formatFullDateWeek(iso: string | null): string {
   );
   return `${p.year}.${p.month}.${p.day} (${p.weekday})`;
 }
+
+// 문의 시각: "14:20:05" (Asia/Seoul)
+export function formatTime(iso: string | null): string {
+  if (!iso) return "-";
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Seoul",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date(iso));
+}
+
+// 걸린 시간: "11분 35초"
+export function formatDuration(fromIso: string | null, toIso: string | null): string {
+  if (!fromIso || !toIso) return "-";
+  const sec = Math.max(0, Math.round((new Date(toIso).getTime() - new Date(fromIso).getTime()) / 1000));
+  return sec >= 60 ? `${Math.floor(sec / 60)}분 ${sec % 60}초` : `${sec}초`;
+}

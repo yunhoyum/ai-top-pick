@@ -605,3 +605,76 @@
   font-weight: 500;
   color: var(--gray-900);
 }
+
+/* 기술 문의 챗봇 창 (화면 24. 말풍선은 화면 26 챗봇 대화 기록과 같다) */
+.chat {
+  gap: 12px;
+}
+
+.chatClose {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  font-size: 14px;
+  color: var(--gray-500);
+  cursor: pointer;
+}
+
+.chatLines {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.chatRow {
+  display: flex;
+}
+
+.chatRowMine {
+  justify-content: flex-end;
+}
+
+.bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--gray-50);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--gray-700);
+}
+
+.bubbleMine {
+  background: var(--primary-50);
+}
+
+.speaker {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gray-500);
+}
+
+.speakerMine {
+  color: var(--primary-700);
+}
+
+.chatChecks,
+.chatInput {
+  display: flex;
+  gap: 8px;
+}
+
+.chatText {
+  flex: 1 0 0;
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  font-size: 14px;
+}
