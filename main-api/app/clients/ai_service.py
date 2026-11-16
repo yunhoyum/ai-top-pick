@@ -20,6 +20,12 @@ class AiServiceClient:
         r.raise_for_status()
         return r.json()
 
+    def create_interview_report(self, payload: dict) -> dict:
+        """InterviewReportRequest → ReportResult (규약 3.4)."""
+        r = self._client.post("/internal/reports/interview", json=payload)
+        r.raise_for_status()
+        return r.json()
+
     def generate_questions(self, payload: dict) -> dict:
         """QuestionGenRequest → QuestionGenResponse (규약 3.2)."""
         r = self._client.post("/internal/questions/generate", json=payload)

@@ -9,7 +9,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.domain.enums import ItemName, StageType
+from app.domain.enums import ItemName, StageType, ValidStatus
 from app.models.application import (
     ApplicantProject,
     ApplicantSkill,
@@ -20,8 +20,10 @@ from app.models.application import (
     Portfolio,
     SkillCase,
 )
+from app.models.interview import InterviewAnswer, InterviewQuestion, InterviewSession, SttRecord
 from app.models.posting import (
     BasicItem,
+    CompanyQuestion,
     EssayTopic,
     EvalCriteria,
     JobPosting,
@@ -45,6 +47,48 @@ def build_document_report_payload(db: Session, application_id: int) -> dict:
         "posting": posting_brief(posting),
         "criteria": _criteria(db, posting.posting_id, StageType.DOCUMENT.value),
         "documents": applicant_documents(db, application),
+    }
+
+
+def build_interview_report_payload(db: Session, application_id: int) -> dict:
+    """InterviewReportRequest (규약 3.4). 유효 질문의 유효 답변만 질문 순서(순번)대로 넣는다 (루브릭 설계서 8.1).
+    답변 글은 STT 보정 구간을 시간 순서로 잇는다. 기업 질문 내용은 company_question에 있다."""
+    application = db.get(Application, application_id)
+    posting = db.get(JobPosting, application.posting_id)
+    rows = db.execute(
+        select(InterviewAnswer, InterviewQuestion, CompanyQuestion.content)
+        .join(InterviewQuestion, InterviewQuestion.question_id == InterviewAnswer.question_id)
+        .join(InterviewSession, InterviewSession.session_id == InterviewAnswer.session_id)
+        .outerjoin(CompanyQuestion, CompanyQuestion.company_question_id == InterviewQuestion.company_question_id)
+        .where(
+            InterviewSession.application_id == application_id,
+            InterviewAnswer.answer_status == ValidStatus.VALID.value,
+            InterviewQuestion.question_status == ValidStatus.VALID.value,
+        )
+        .order_by(InterviewQuestion.seq, InterviewQuestion.question_id)
+    ).all()
+    answers = []
+    for a, q, company in rows:
+        texts = db.scalars(
+            select(SttRecord.corrected_text).where(SttRecord.answer_id == a.answer_id)
+            .order_by(SttRecord.time_offset_sec, SttRecord.stt_id)
+        )
+        answers.append({
+            "question_text": q.content or company or "",
+            "kind": "기업" if q.company_question_id else ("꼬리" if q.parent_question_id else "AI"),
+            "corrected_text": " ".join(t for t in texts if t),
+            # 숫자(Decimal)는 JSON으로 보낼 수 있게 문자열로 바꾼다. ai-service가 Decimal로 읽는다
+            "answer_score": _num(a.answer_score), "content_score": _num(a.content_score), "content_reason": a.content_reason,
+            "speech_score": _num(a.speech_score or 0), "expression_score": _num(a.expression_score),
+            "main_expression": a.main_expression, "expression_ratio": a.expression_ratio,
+            "silence_sec": _num(a.silence_sec or 0), "filler_count": a.filler_count or 0,
+            "response_delay_sec": _num(a.response_delay_sec or 0),
+        })
+    return {
+        "application_id": application_id,
+        "posting": posting_brief(posting),
+        "criteria": _criteria(db, posting.posting_id, StageType.INTERVIEW.value),
+        "answers": answers,
     }
 
 
@@ -163,6 +207,10 @@ def _criteria(db: Session, posting_id: int, stage_type: str) -> list[dict]:
         {"criteria_id": c.criteria_id, "name": c.criteria_name, "description": c.description, "ratio": ratio or 0}
         for c, ratio in rows
     ]
+
+
+def _num(value) -> str | None:
+    return None if value is None else str(value)
 
 
 def _month(d: date | None) -> str | None:

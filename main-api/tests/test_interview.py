@@ -160,6 +160,15 @@ class FakeRelay:
 
 
 @pytest.fixture(autouse=True)
+def sent_jobs(monkeypatch):
+    """실제 Celery로 작업(면접 보고서 등)을 보내지 않게 막고, 보낸 작업을 (작업 종류, job_id)로 모은다.
+    작업을 바로 돌려야 하는 테스트는 job_queue.send를 다시 바꾼다."""
+    sent = []
+    monkeypatch.setattr(job_queue, "send", lambda job_type, job_id: sent.append((job_type, job_id)))
+    return sent
+
+
+@pytest.fixture(autouse=True)
 def fake_relay(monkeypatch):
     """실제 Deepgram에 붙지 않게 한다. 영상을 올리지 않는 테스트는 기다리지 않고 넘어간다."""
     FakeRelay.made = []
@@ -407,10 +416,10 @@ class FakeVision:
 
 
 def _run_worker_inline(monkeypatch, vision):
-    """job_queue.send 대신 worker 작업을 바로 돌린다."""
+    """job_queue.send 대신 표정 재분석 작업을 바로 돌린다. 면접을 마치며 보내는 '면접 보고서' 작업은 돌리지 않는다."""
     def send(job_type, job_id):
-        assert job_type == "표정 분석 재처리"
-        expression_batch.reprocess_expressions(job_id, client=vision)
+        if job_type == "표정 분석 재처리":
+            expression_batch.reprocess_expressions(job_id, client=vision)
     monkeypatch.setattr(job_queue, "send", send)
 
 
@@ -789,3 +798,62 @@ def test_replacing_a_replacement_keeps_its_seq(monkeypatch, applicant, ready):
     assert (new["text"], new["seq"], new["total"]) == ("또 대체 질문?", 1, 3)
     assert _sql("select seq, question_status from interview_question where question_id = :q", q=new["question_id"])[0] == (1, "유효")
     assert _sql("select question_status from interview_question where question_id = :q", q=old)[0][0] == "무효"
+
+
+# ---------- 면접 보고서 작업 (6단계, 아키텍처 8, Celery 4, 루브릭 설계서 8·9) ----------
+class ReportClient:
+    """ai-service 가짜. 받은 InterviewReportRequest를 남기고 정해 둔 ReportResult를 돌려준다."""
+
+    def __init__(self):
+        self.payloads = []
+
+    def create_interview_report(self, payload):
+        self.payloads.append(payload)
+        return {
+            "scores": [{"criteria_id": 5, "score": "70.00", "evidence": "Q1. 캐시 이유가 분명하다.", "evidence_sentences": []},
+                       {"criteria_id": 6, "score": "92.00", "evidence": "평균 간투사 1.0회", "evidence_sentences": []}],
+            "fits": [{"talent_content": "Spring 기반 REST API 경험", "evidence": 'Q1 답변: "API 캐시를 썼습니다."'}],
+            "points": [{"point_type": "강점", "criteria_id": 5, "content": "Q1 캐시 이유가 분명하다."}],
+            "summary": "요약.",
+        }
+
+
+def test_finished_interview_registers_report_job_and_worker_saves_report(monkeypatch, applicant, ready, sent_jobs):
+    from app.services import interview_report_batch
+
+    aid, qids = ready
+    sid = _enter(applicant, aid).json()["session_id"]
+    monkeypatch.setattr(ws_interview, "get_ai_client", lambda: FakeAi(qids))
+    with _socket(applicant, sid) as ws:
+        ws.receive_json()
+        for qid in qids:
+            _answer_one(ws, qid, press=True)
+        assert ws.receive_json()["type"] == "interview_end"
+    # 응시 '완료' → '면접 보고서' 작업 등록·전송
+    job_id, status = _sql("select job_id, status from batch_job where application_id = :a and job_type = '면접 보고서'", a=aid)[0]
+    assert status == "대기" and ("면접 보고서", job_id) in sent_jobs
+    # 유효 꼬리질문 1개와 무효 꼬리질문 1개. 횟수에는 유효한 것만 센다 (SYS-008)
+    for state in ("유효", "무효"):
+        _sql("insert into interview_question (application_id, parent_question_id, question_type, seq, content, question_status) "
+             "values (:a, :p, '직무', 9, '꼬리?', :s)", a=aid, p=qids[0], s=state)
+
+    client = ReportClient()
+    report_id = interview_report_batch.generate_interview_report(job_id, client=client)
+    payload = client.payloads[0]
+    assert [c["name"] for c in payload["criteria"]] == ["내용", "언어", "비언어"]
+    # 유효 답변만 질문 순서대로. 기업 질문 내용은 company_question에서, 답변 글은 보정 구간을 잇는다
+    assert [(a["kind"], a["question_text"]) for a in payload["answers"]] == [
+        ("AI", "캐시를 왜 썼나요?"), ("AI", "모른다고 말한 경험은?"), ("기업", "지원 동기는?")]
+    first = payload["answers"][0]
+    assert first["corrected_text"] == "API 캐시를 썼습니다. 빨라졌습니다."
+    assert (first["content_score"], first["speech_score"], first["expression_score"], first["filler_count"]) == (
+        "70.00", "92.00", "80.00", 1)
+    json.dumps(payload)  # JSON으로 보낼 수 있다
+
+    assert _sql("select r.report_id, s.stage_type, r.ai_summary, r.follow_up_count from stage_report r "
+                "join application_stage s using (application_stage_id) where s.application_id = :a", a=aid) == [
+        (report_id, "면접", "요약.", 1)]
+    assert _sql("select criteria_id, score::text from report_score where report_id = :r order by criteria_id", r=report_id) == [
+        (5, "70.00"), (6, "92.00")]
+    assert _sql("select count(*) from report_fit where report_id = :r", r=report_id)[0][0] == 1
+    assert _sql("select status from batch_job where job_id = :j", j=job_id)[0][0] == "완료"

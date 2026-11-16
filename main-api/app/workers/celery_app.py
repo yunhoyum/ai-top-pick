@@ -11,6 +11,7 @@ celery_app.conf.timezone = "Asia/Seoul"
 # LLM 작업은 llm 큐로 보내고 그 큐는 동시 1개로 받는다. 실시간 면접 응답이 늦어지지 않게 한다 (Celery 2장, 아키텍처 8)
 celery_app.conf.task_routes = {
     "report.generate_document_report": {"queue": "llm"},
+    "report.generate_interview_report": {"queue": "llm"},
     "question.generate_interview_questions": {"queue": "llm"},
 }
 celery_app.conf.beat_schedule = {

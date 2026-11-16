@@ -202,12 +202,16 @@ class InterviewService:
         await self.db.commit()
 
     async def finish_session(self, session_id: int, now: datetime | None = None) -> None:
-        """워크플로우 5-8 응시 '완료', 종료 일시 기록.
-        '면접 보고서' 작업 등록(아키텍처 8)은 면접 보고서를 만드는 실시간 면접 6단계에서 넣는다."""
+        """워크플로우 5-8 응시 '완료', 종료 일시 기록 → '면접 보고서' 작업 등록 (아키텍처 8, Celery 4)."""
         session = await self.db.get(InterviewSession, session_id)
         session.status = SessionStatus.COMPLETED.value
         session.ended_at = now or datetime.now(timezone.utc)
+        application = await self.db.get(Application, session.application_id)
+        job_id = await job_queue.request(
+            self.db, JobType.INTERVIEW_REPORT.value, application.posting_id, application.application_id
+        )
         await self.db.commit()
+        job_queue.send(JobType.INTERVIEW_REPORT.value, job_id)
 
     async def save_answer_video(self, member: Member, session_id: int, question_id: int, upload: UploadFile) -> None:
         """APP-016 답변 영상(webm) 저장. 본인의 '진행 중' 응시와 그 지원서의 질문만 받는다.

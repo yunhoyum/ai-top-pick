@@ -95,12 +95,16 @@ def generate_document_report(
     return report_id
 
 
-def _save(db: Session, application_id: int, result: dict) -> int:
+def _save(
+    db: Session, application_id: int, result: dict, stage_type: str = StageType.DOCUMENT.value,
+    follow_up_count: int | None = None,
+) -> int:
     """ReportResult를 stage_report, report_score, evidence_sentence, report_fit, report_point에 넣는다.
-    서류 전형 행이 없으면 결과를 비워 만든다(합격·불합격은 관리자가 정한다). 이전 보고서가 있으면 지운다."""
+    전형 행이 없으면 결과를 비워 만든다(합격·불합격은 관리자가 정한다). 이전 보고서가 있으면 지운다.
+    면접 보고서도 이 함수로 저장한다 (follow_up_count는 면접만)."""
     stage_id = db.execute(
         insert(ApplicationStage)
-        .values(application_id=application_id, stage_type=StageType.DOCUMENT.value)
+        .values(application_id=application_id, stage_type=stage_type)
         .on_conflict_do_nothing(index_elements=["application_id", "stage_type"])
         .returning(ApplicationStage.application_stage_id)
     ).scalar_one_or_none()
@@ -108,7 +112,7 @@ def _save(db: Session, application_id: int, result: dict) -> int:
         stage_id = db.scalar(
             select(ApplicationStage.application_stage_id).where(
                 ApplicationStage.application_id == application_id,
-                ApplicationStage.stage_type == StageType.DOCUMENT.value,
+                ApplicationStage.stage_type == stage_type,
             )
         )
 
@@ -119,7 +123,7 @@ def _save(db: Session, application_id: int, result: dict) -> int:
             db.execute(delete(table).where(table.report_id == old))
         db.execute(delete(StageReport).where(StageReport.report_id == old))
 
-    report = StageReport(application_stage_id=stage_id, ai_summary=result["summary"])
+    report = StageReport(application_stage_id=stage_id, ai_summary=result["summary"], follow_up_count=follow_up_count)
     db.add(report)
     db.flush()
     for s in result["scores"]:
