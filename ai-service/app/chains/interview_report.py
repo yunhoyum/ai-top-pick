@@ -33,7 +33,12 @@ DELAY_SEC = 10  # 응답 지연 감점 기준 (루브릭 설계서 4.2)
 NOT_ANSWERED = RELEVANCE_CAP_NOTES["안 함"]  # 내용 채점이 '질문에 답하지 않음'으로 판정한 답변의 이유 끝 문구
 NO_FIT_NOTE = "면접 답변에서 이 인재상을 보여 주는 내용을 찾지 못했다."
 NO_CONTENT_NOTE = "내용 점수가 있는 답변이 없다."
+LOW_CONTENT_NOTE = "내용 점수가 낮다."
 _BULLET = re.compile(r"^[-•*]\s*")
+# 확인 필요에 보일 채점 이유 문장: 모자란 점을 말하는 문장. 첫 문장은 대개 칭찬이라 쓰면 '확인 필요'와 어긋난다 (실험 R1)
+_WEAK = re.compile(r"부족|않|없|낮|반대|다르|빗나|모호|아쉽")
+# 답변 채점 이유에 남은 영어 축 이름. 요약에 그대로 옮겨 쓴다 (R1)
+_AXIS_WORDS = {"specificity": "구체성", "relevance": "질문 적합성"}
 
 
 @dataclass(frozen=True)
@@ -109,9 +114,15 @@ def _fits(model: Runnable, posting: PostingBrief, answers: list[AnswerRecord]) -
     talent_lines = "\n".join(f"[{tid}] {text}" for tid, text in talents)
     out = invoke_structured(model, prompts.talent_fit(talent_lines, _numbered_answers(answers, sentences)), TalentFitOutput)
     picked = {f.talent_id: f.sentence_ids for f in out.fits}
+    low = {f"Q{n}" for n, a in enumerate(answers, start=1) if a.content_score is not None and a.content_score < CHECK_BELOW}
     fits = []
     for tid, text in talents:
-        ids = [sid for sid in dict.fromkeys(picked.get(tid, [])) if sid in sentences][:MAX_FIT_SENTENCES]  # 없는 번호는 버린다
+        ids = [sid for sid in dict.fromkeys(picked.get(tid, [])) if sid in sentences]  # 없는 번호는 버린다
+        if tid.startswith("기"):
+            # 기능적(직무) 인재상은 내용 점수가 낮은 답변으로 확인하지 않는다. 문서가 채택하지 않은 방법을
+            # 근거로 골랐다 (R1 R3 '청크를 2천 토큰으로'). 비기능적(태도)은 점수와 상관없다 ('잘 모르겠습니다'의 정직함)
+            ids = [sid for sid in ids if sid.split("-")[0] not in low]
+        ids = ids[:MAX_FIT_SENTENCES]
         evidence = " / ".join(f"{sid.split('-')[0]} 답변: \"{sentences[sid]}\"" for sid in ids)
         fits.append(Fit(text, evidence or NO_FIT_NOTE))
     return out, fits
@@ -127,12 +138,12 @@ def _points(answers: list[AnswerRecord], items: list[ItemResult]) -> list[Point]
     strong = sorted(((n, a) for n, a in numbered if a.content_score is not None and a.content_score >= STRENGTH_FROM),
                     key=lambda x: -x[1].content_score)[:MAX_STRENGTHS]
     for n, a in strong:
-        points.append(Point("강점", CONTENT, f"Q{n} '{a.question_text}': {_first_sentence(a.content_reason)}"))
+        points.append(Point("강점", CONTENT, f"Q{n} '{a.question_text}': {_first_sentence(_korean(a.content_reason or ''))}"))
     for n, a in numbered:
         if a.content_reason and NOT_ANSWERED in a.content_reason:
             points.append(Point("확인 필요", CONTENT, f"Q{n} '{a.question_text}': 질문이 묻는 것에 답하지 않았다. 같은 내용을 다시 확인한다."))
         elif a.content_score is not None and a.content_score < CHECK_BELOW:
-            points.append(Point("확인 필요", CONTENT, f"Q{n} '{a.question_text}': {_first_sentence(a.content_reason)}"))
+            points.append(Point("확인 필요", CONTENT, f"Q{n} '{a.question_text}': {_weak_sentence(a.content_reason)}"))
     for item in items:
         if item.name != CONTENT and item.score < CHECK_BELOW:
             points.append(Point("확인 필요", item.name, f"{item.name} 점수가 낮다: {item.evidence}"))
@@ -142,13 +153,16 @@ def _points(answers: list[AnswerRecord], items: list[ItemResult]) -> list[Point]
 def _report_brief(answers: list[AnswerRecord], items: list[ItemResult], fits: list[Fit], points: list[Point]) -> str:
     """요약을 쓸 자료. 점수는 높음·보통·낮음으로 넣는다. 숫자를 넣으면 요약에 옮겨 쓴다 (서류 D6-v6)."""
     parts = [f"[{i.name}] 항목 점수 {_band(i.score)}" for i in items]
-    for n, a in enumerate(answers, start=1):
+    for a in answers:
         level = _band(a.content_score) if a.content_score is not None else "채점 안 됨"
-        parts.append(f"[Q{n} {a.kind} 질문] {a.question_text}\n내용 점수 {level}. {a.content_reason or ''}".strip())
-    found = sum(f.evidence != NO_FIT_NOTE for f in fits)
-    parts.append(f"[인재상 적합도] {len(fits)}개 중 {found}개 확인\n" + "\n".join(
-        f"- {f.talent_content}: {'확인됨' if f.evidence != NO_FIT_NOTE else '면접에서 확인되지 않음'}" for f in fits))
-    parts.append("[강점·확인 필요]\n" + ("\n".join(f"- ({p.point_type}, {p.item}) {p.content}" for p in points) or "- 없음"))
+        parts.append(f"[질문] {a.question_text}\n내용 점수 {level}. {_korean(a.content_reason or '')}".strip())
+    # 확인된 것과 안 된 것을 나눠 준다. 한 목록으로 주면 확인된 인재상을 확인되지 않았다고 썼다 (R1)
+    found = [f.talent_content for f in fits if f.evidence != NO_FIT_NOTE]
+    missing = [f.talent_content for f in fits if f.evidence == NO_FIT_NOTE]
+    parts.append("[면접에서 확인된 인재상]\n" + ("\n".join(f"- {t}" for t in found) or "- 없음"))
+    parts.append("[면접에서 확인되지 않은 인재상]\n" + ("\n".join(f"- {t}" for t in missing) or "- 없음"))
+    parts.append("[강점·확인 필요]\n" + ("\n".join(
+        f"- ({p.point_type}, {p.item}) {_korean(_QNUM.sub('', p.content))}" for p in points) or "- 없음"))
     return "\n\n".join(parts)
 
 
@@ -172,6 +186,23 @@ def _numbered_answers(answers: list[AnswerRecord], sentences: dict[str, str]) ->
         lines = [f"[{sid}] {text}" for sid, text in sentences.items() if sid.startswith(f"Q{n}-")]
         blocks.append(f"Q{n}. {a.question_text}\n" + ("\n".join(lines) or "(답변 없음)"))
     return "\n\n".join(blocks)
+
+
+_QNUM = re.compile(r"^Q\d+ ")
+
+
+def _korean(text: str) -> str:
+    for word, korean in _AXIS_WORDS.items():
+        text = text.replace(word, korean)
+    return text
+
+
+def _weak_sentence(reason: str | None) -> str:
+    """채점 이유에서 모자란 점을 말하는 문장. 없으면 일치 단계 문장, 그것도 없으면 '내용 점수가 낮다.'"""
+    sentences = split_sentences(_korean(reason or ""))
+    weak = next((s for s in sentences if _WEAK.search(s)), None)
+    match = next((s for s in sentences if "일치 단계" in s), None)
+    return weak or match or LOW_CONTENT_NOTE
 
 
 def _first_sentence(reason: str | None) -> str:

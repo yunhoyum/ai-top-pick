@@ -86,7 +86,25 @@ def test_report_fits_use_verified_answer_sentences_and_points_come_from_scores()
     # 답변 문장에 번호를 붙여 보인다. 요약 자료에는 점수 숫자가 없다
     assert "[Q1-2] 원인을 문서로 정리했습니다." in model.calls[0][-1].content
     brief = model.calls[1][-1].content
-    assert "[내용] 항목 점수 보통" in brief and "61.67" not in brief and "2개 중 1개 확인" in brief
+    assert "[내용] 항목 점수 보통" in brief and "61.67" not in brief
+    assert "[면접에서 확인된 인재상]\n- 결제 장애를 재현하고 원인을 기록하는 사람" in brief
+    assert "[면접에서 확인되지 않은 인재상]\n- 모르면 모른다고 말하는 정직함" in brief
+    assert "Q2 '" not in brief  # 질문 번호를 요약에 옮겨 쓰지 않게 뺀다
+
+
+def test_functional_talent_is_not_confirmed_by_a_low_scoring_answer():
+    """기능적 인재상은 내용 점수 60 미만 답변으로 확인하지 않는다. 비기능적(정직함)은 점수와 상관없다 (실험 R1)."""
+    model = FakeModel({"fits": [{"talent_id": "기-1", "sentence_ids": ["Q2-1"]}, {"talent_id": "비-1", "sentence_ids": ["Q2-1"]}]},
+                      {"summary": "요약."})
+    fits = build_interview_report(POSTING, ANSWERS, model=model).fits
+    assert [f.evidence for f in fits] == [NO_FIT_NOTE, 'Q2 답변: "잘 모르겠습니다."']
+
+
+def test_check_point_uses_the_weak_sentence_of_the_reason():
+    """확인 필요에는 채점 이유 중 모자란 점을 말하는 문장을 쓴다. 첫 문장은 대개 칭찬이다 (실험 R1)."""
+    answers = [_answer("Q?", "답.", "50", "답변은 질문에 잘 대응한다. 그러나 사례가 부족하다. specificity 점수가 낮다.")]
+    points = build_interview_report(POSTING, answers, model=FakeModel({"fits": []}, {"summary": "요약."})).points
+    assert [p.content for p in points] == ["Q1 'Q?': 그러나 사례가 부족하다."]
 
 
 def test_api_interview_report(monkeypatch):
