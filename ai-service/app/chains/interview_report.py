@@ -16,6 +16,8 @@ from langchain_core.runnables import Runnable
 
 from app.chains.answer_content import RELEVANCE_CAP_NOTES
 from app.chains.structured import invoke_structured
+from app.clients.embed import EmbedClient
+from app.core.config import get_settings
 from app.core.llm import get_chat_model
 from app.prompts import interview_report as prompts
 from app.rag.evidence import split_sentences
@@ -77,11 +79,13 @@ class InterviewReport:
     llm_outputs: dict = field(default_factory=dict)  # 평가 스크립트가 원래 출력을 남긴다
 
 
-def build_interview_report(posting: PostingBrief, answers: list[AnswerRecord], model: Runnable | None = None) -> InterviewReport:
-    """① 항목 점수(코드) → ② 인재상 적합도(LLM 번호 고르기) → ③ 강점·확인 필요(코드) → ④ 요약(LLM)."""
+def build_interview_report(
+    posting: PostingBrief, answers: list[AnswerRecord], model: Runnable | None = None, embed: EmbedClient | None = None
+) -> InterviewReport:
+    """① 항목 점수(코드) → ② 인재상 적합도(LLM 번호 고르기, 유사도로 거르기) → ③ 강점·확인 필요(코드) → ④ 요약(LLM)."""
     model = model or get_chat_model()
     items = score_items(answers)
-    fit_out, fits = _fits(model, posting, answers)
+    fit_out, fits = _fits(model, embed or EmbedClient(), posting, answers)
     points = _points(answers, items)
     summary = invoke_structured(model, prompts.summary(_report_brief(answers, items, fits, points)), SummaryOutput)
     return InterviewReport(items, fits, points, summary.summary,
@@ -109,7 +113,9 @@ def score_items(answers: list[AnswerRecord]) -> list[ItemResult]:
     return items
 
 
-def _fits(model: Runnable, posting: PostingBrief, answers: list[AnswerRecord]) -> tuple[TalentFitOutput | None, list[Fit]]:
+def _fits(
+    model: Runnable, embed: EmbedClient, posting: PostingBrief, answers: list[AnswerRecord]
+) -> tuple[TalentFitOutput | None, list[Fit]]:
     """인재상 문장마다 LLM이 고른 답변 문장 번호를 검증해 답변 원문을 근거로 넣는다. 지원자 말을 바꿔 쓰지 않는다.
     서류 보고서에서 LLM이 근거를 직접 쓰게 했더니 원문과 다른 문장을 지어냈다 (RAG 설계서 5.8 D4-v4)."""
     talents = _talents(posting)
@@ -125,9 +131,12 @@ def _fits(model: Runnable, posting: PostingBrief, answers: list[AnswerRecord]) -
     # 재현율이 63%에서 38%로 떨어졌다 (R2 재생). 그래서 동떨어진 답변(A31, 일부)을 고르는 경우는 남는다
     low = {f"Q{n}" for n, a in enumerate(answers, start=1)
            if (a.content_score is not None and a.content_score < CHECK_BELOW) or NOT_ANSWERED in (a.content_reason or "")}
+    near = _similar_pairs(embed, talents, sentences, picked)
     fits = []
     for tid, text in talents:
         ids = [sid for sid in dict.fromkeys(picked.get(tid, [])) if sid in sentences]  # 없는 번호는 버린다
+        # 인재상과 답변 문장이 너무 다르면 버린다. 분야가 다른 인재상에도 억지로 짝을 지었다 (e2e 세션 565, 실험 R3)
+        ids = [sid for sid in ids if (tid, sid) in near]
         if tid.startswith("기"):
             # 기능적(직무) 인재상은 내용 점수가 낮은 답변으로 확인하지 않는다. 문서가 채택하지 않은 방법을
             # 근거로 골랐다 (R1 R3 '청크를 2천 토큰으로'). 비기능적(태도)은 점수와 상관없다 ('잘 모르겠습니다'의 정직함)
@@ -136,6 +145,21 @@ def _fits(model: Runnable, posting: PostingBrief, answers: list[AnswerRecord]) -
         evidence = " / ".join(f"{sid.split('-')[0]} 답변: \"{sentences[sid]}\"" for sid in ids)
         fits.append(Fit(text, evidence or NO_FIT_NOTE))
     return out, fits
+
+
+def _similar_pairs(embed: EmbedClient, talents: list[tuple[str, str]], sentences: dict[str, str],
+                   picked: dict[str, list[str]]) -> set[tuple[str, str]]:
+    """LLM이 고른 (인재상 번호, 답변 문장 번호) 짝 중 KURE 유사도가 FIT_MIN_SIMILARITY 이상인 것."""
+    talent_text = dict(talents)
+    pairs = [(tid, sid) for tid, ids in picked.items() if tid in talent_text for sid in ids if sid in sentences]
+    if not pairs:
+        return set()
+    texts = list(dict.fromkeys([talent_text[t] for t, _ in pairs] + [sentences[s] for _, s in pairs]))
+    # embed-server는 길이 1로 정규화한 벡터를 준다. 내적이 코사인 유사도다
+    vectors = dict(zip(texts, embed.embed(texts)))
+    threshold = get_settings().FIT_MIN_SIMILARITY
+    return {(t, s) for t, s in pairs
+            if sum(a * b for a, b in zip(vectors[talent_text[t]], vectors[sentences[s]])) >= threshold}
 
 
 def _points(answers: list[AnswerRecord], items: list[ItemResult]) -> list[Point]:

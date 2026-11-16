@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     RAG_MIN_SIMILARITY: float = 0.50
     # 주장과 근거 문장의 유사도가 이보다 낮은 근거는 저장하지 않는다. 판정은 바꾸지 않는다 (RAG 설계서 5.5 P11)
     EVIDENCE_MIN_SIMILARITY: float = 0.50
+    # 면접 보고서 인재상 적합도: LLM이 고른 (인재상 문장, 답변 문장) 짝의 KURE 유사도가 이보다 낮으면 버린다 (제안).
+    # 실험 R3: 맞는 짝 0.438~0.559, 분야가 다른 인재상에 억지로 고른 짝 0.268~0.446 (짝 17개라 다시 볼 값)
+    FIT_MIN_SIMILARITY: float = 0.43
 
     # ---------- LLM (OpenAI 호환 API, 아키텍처 4.2) ----------
     LLM_URL: str = ""

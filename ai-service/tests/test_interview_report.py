@@ -6,6 +6,8 @@
 import json
 from decimal import Decimal
 
+import pytest
+
 from fastapi.testclient import TestClient
 from langchain_core.messages import AIMessage
 
@@ -35,6 +37,21 @@ ANSWERS = [
     _answer("캐시를 왜 썼나요?", "잘 모르겠습니다.", "40", "근거가 부족하다.", speech="50", face=None, main=None, fillers=4, delay="12"),
     _answer("지원 동기는?", "결제 시스템에 관심이 많습니다.", "55", "답이 짧다. " + RELEVANCE_CAP_NOTES["안 함"], face="60", main="fear"),
 ]
+
+
+class FakeEmbed:
+    """embed-server 가짜. 정해 둔 글은 그 벡터를, 그 밖에는 [1, 0]을 준다(서로 유사도 1)."""
+
+    def __init__(self, vectors=None):
+        self.vectors = vectors or {}
+
+    def embed(self, texts):
+        return [self.vectors.get(t, [1.0, 0.0]) for t in texts]
+
+
+@pytest.fixture(autouse=True)
+def fake_embed(monkeypatch):
+    monkeypatch.setattr(chain, "EmbedClient", FakeEmbed)
 
 
 class FakeModel:
@@ -134,3 +151,11 @@ def test_check_point_prefers_code_written_notes_over_llm_text():
     points = build_interview_report(POSTING, answers, model=FakeModel({"fits": []}, {"summary": "요약."})).points
     assert [p.content for p in points] == [
         "Q1 'Q1?': " + RELEVANCE_CAP_NOTES["일부"], "Q2 'Q2?': 답변 내용이 회사 문서와 맞지 않는다."]
+
+
+def test_fit_pairs_far_from_the_talent_are_dropped():
+    """LLM이 고른 짝이라도 인재상과 답변 문장의 유사도가 FIT_MIN_SIMILARITY 미만이면 버린다 (실험 R3)."""
+    model = FakeModel({"fits": [{"talent_id": "기-1", "sentence_ids": ["Q1-1", "Q1-2"]}]}, {"summary": "요약."})
+    embed = FakeEmbed({"원인을 문서로 정리했습니다.": [0.0, 1.0]})  # 인재상([1, 0])과 유사도 0
+    fits = build_interview_report(POSTING, ANSWERS, model=model, embed=embed).fits
+    assert fits[0].evidence == 'Q1 답변: "로그를 남겨 재현했습니다."'
