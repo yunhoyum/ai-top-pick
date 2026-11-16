@@ -92,6 +92,31 @@ class DocumentReportRequest(BaseModel):
     documents: ApplicantDocuments
 
 
+class AnswerRecord(BaseModel):
+    """면접 보고서 입력: 유효 답변 하나 (규약 3.4). 질문 순서대로 보낸다. 점수는 실시간 채점 값이다 (루브릭 설계서 8.2)."""
+
+    question_text: str
+    kind: Literal["AI", "꼬리", "기업"]
+    corrected_text: str
+    answer_score: Decimal | None = None
+    content_score: Decimal | None = None  # 내용 채점이 끝까지 실패하면 None
+    content_reason: str | None = None
+    speech_score: Decimal
+    expression_score: Decimal | None = None  # 표정 재분석도 실패하면 None
+    main_expression: str | None = None
+    expression_ratio: dict[str, float] | None = None
+    silence_sec: Decimal
+    filler_count: int
+    response_delay_sec: Decimal
+
+
+class InterviewReportRequest(BaseModel):
+    application_id: int
+    posting: PostingBrief
+    criteria: list[CriteriaItem]  # 면접 3개 (내용, 언어, 비언어)
+    answers: list[AnswerRecord]  # 유효 답변만
+
+
 # ---------- 2. 면접 내부 API (main-api → ai-service) ----------
 
 

@@ -70,6 +70,17 @@ class SummaryOutput(BaseModel):
     summary: str = Field(min_length=1)
 
 
+class TalentEvidence(BaseModel):
+    talent_id: str  # 인재상 문장 번호 (기-1, 비-2)
+    sentence_ids: list[str]  # 그 인재상을 보여 주는 답변 문장 번호 (Q1-2). 없으면 빈 목록
+
+
+class TalentFitOutput(BaseModel):
+    """면접 보고서 인재상 적합도 (루브릭 설계서 10.2). LLM은 번호만 고르고 코드가 검증한다."""
+
+    fits: list[TalentEvidence]
+
+
 # ---------- 면접 질문 생성 (AI Agent 설계서 2.1) ----------
 
 
