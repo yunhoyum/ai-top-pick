@@ -96,6 +96,16 @@ class FollowUpAction(str, Enum):
     REPRESENT_AND_RESUME = "질문 다시 제시 후 재개"
     CONTINUE_AS_IS = "기존 질문 그대로 진행"
     ABORT_AND_RETAKE = "중단 후 재시험"
+    ADMIN_THEN_RETAKE = "중단 후 관리자 처리, 재시험"
+
+
+class HandlingStatus(str, Enum):
+    """inquiry.handling_status (SYS-003). 해결: AI 처리 / 미해결·지원자 측: AI 미처리 / 미해결·시스템 측·판단 불가: 관리자 대기."""
+
+    AI_HANDLED = "AI 처리"
+    AI_UNHANDLED = "AI 미처리"
+    ADMIN_WAITING = "관리자 대기"
+    ADMIN_DONE = "관리자 처리 완료"
 
 
 class Speaker(str, Enum):

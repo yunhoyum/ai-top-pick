@@ -4,7 +4,7 @@ from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Identity, Inte
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, in_check
-from app.domain.enums import DefectCause, FollowUpAction, JudgmentCode, Speaker
+from app.domain.enums import DefectCause, FollowUpAction, HandlingStatus, JudgmentCode, Speaker
 
 
 class JudgmentType(Base):
@@ -24,6 +24,7 @@ class JudgmentType(Base):
 
 class Inquiry(Base):
     __tablename__ = "inquiry"
+    __table_args__ = (in_check("handling_status", HandlingStatus),)
 
     inquiry_id: Mapped[int] = mapped_column(BigInteger, Identity(always=True), primary_key=True)
     session_id: Mapped[int] = mapped_column(ForeignKey("interview_session.session_id"))
@@ -37,6 +38,11 @@ class Inquiry(Base):
     judgment_basis: Mapped[str | None] = mapped_column(Text)
     ai_action: Mapped[str | None] = mapped_column(Text)
     handling_detail: Mapped[str | None] = mapped_column(Text)
+    handling_status: Mapped[str | None] = mapped_column(String(255))
+    # 관리자가 '재개'한 시각 (ADM-041)
+    handled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # 해결방안대로 시도했지만 실패한 횟수 (SYS-003)
+    ai_attempt_count: Mapped[int] = mapped_column(Integer, server_default="0")
 
 
 class ChatMessage(Base):

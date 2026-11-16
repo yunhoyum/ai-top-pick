@@ -41,13 +41,14 @@ EVAL_CRITERIA = [
 _RESUME = FollowUpAction.REPRESENT_AND_RESUME.value
 _CONTINUE = FollowUpAction.CONTINUE_AS_IS.value
 _RETAKE = FollowUpAction.ABORT_AND_RETAKE.value
+_ADMIN_RETAKE = FollowUpAction.ADMIN_THEN_RETAKE.value
 JUDGMENT_TYPES = [
     (JudgmentCode.RESOLVED_SYSTEM, DefectCause.SYSTEM, True, _RESUME),
     (JudgmentCode.RESOLVED_APPLICANT, DefectCause.APPLICANT, True, _CONTINUE),
     (JudgmentCode.RESOLVED_UNKNOWN, DefectCause.UNKNOWN, True, _RESUME),
-    (JudgmentCode.UNRESOLVED_SYSTEM, DefectCause.SYSTEM, False, _RETAKE),
+    (JudgmentCode.UNRESOLVED_SYSTEM, DefectCause.SYSTEM, False, _ADMIN_RETAKE),
     (JudgmentCode.UNRESOLVED_APPLICANT, DefectCause.APPLICANT, False, _RETAKE),
-    (JudgmentCode.UNRESOLVED_UNKNOWN, DefectCause.UNKNOWN, False, _RETAKE),
+    (JudgmentCode.UNRESOLVED_UNKNOWN, DefectCause.UNKNOWN, False, _ADMIN_RETAKE),
 ]
 
 

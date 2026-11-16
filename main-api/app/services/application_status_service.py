@@ -3,18 +3,22 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domain.enums import ApplicationWriteStatus, SessionStatus, StageResult, StageType
+from app.domain.enums import ApplicationWriteStatus, HandlingStatus, SessionStatus, StageResult, StageType
 from app.domain.rules import is_accepting_applications
 from app.models.application import Application, ApplicationStage
 from app.models.interview import InterviewSession
 from app.models.member import Member
 from app.models.posting import JobPosting
+from app.repositories.inquiry_repo import InquiryRepo
 from app.schemas.application_status import ApplicationStatusItem
 
 STATUS_DRAFT = "작성 중"
 STATUS_DOC_PENDING = "서류 전형 진행 중"
 STATUS_INTERVIEW_UPCOMING = "면접 전형 예정"
 STATUS_INTERVIEW_ONGOING = "면접 전형 진행 중"
+# 면접이 문의 처리로 중단됐을 때 (APP-018, 화면 21-2·21-3). 관리자 대기면 처리 중, 그 밖에는 재접속 가능
+STATUS_INTERVIEW_HOLD = "처리 중"
+STATUS_INTERVIEW_RECONNECT = "재접속 가능"
 STATUS_INTERVIEW_WAITING = "면접 결과 대기"
 STATUS_DONE = "면접 전형 완료"
 STATUS_ENDED = "전형 종료"
@@ -54,6 +58,13 @@ class ApplicationStatusService:
                 )
             )
         )
+        # 중단된 응시: 지원서 → 관리자 대기인지 (마지막 미해결 문의의 처리 상태, 코드베이스 6.4)
+        suspended = {}
+        for s in await self.db.scalars(select(InterviewSession).where(
+            InterviewSession.application_id.in_(ids), InterviewSession.status == SessionStatus.ABORTED.value
+        )):
+            last = await InquiryRepo(self.db).get_last_unresolved(s.session_id)
+            suspended[s.application_id] = last is not None and last.handling_status == HandlingStatus.ADMIN_WAITING.value
 
         items = []
         for application, posting in rows:
@@ -80,7 +91,10 @@ class ApplicationStatusService:
                     position_name=posting.position_name,
                     write_status=application.write_status,
                     submitted_at=application.submitted_at,
-                    status=self._status(application, posting, doc_result, interview_result, now),
+                    status=self._interview_hold(
+                        self._status(application, posting, doc_result, interview_result, now),
+                        suspended.get(application.application_id),
+                    ),
                     doc_end_at=posting.doc_end_at,
                     doc_result_at=posting.doc_result_at,
                     interview_start_at=posting.interview_start_at,
@@ -91,10 +105,19 @@ class ApplicationStatusService:
                     interview_taken=application.application_id in taken,
                     can_view_interview_guide=doc_result == "합격"
                     and posting.interview_end_at is not None
-                    and now < posting.interview_end_at,
+                    and now < posting.interview_end_at
+                    # 관리자 처리 전에는 응시 버튼을 막는다 (APP-018)
+                    and suspended.get(application.application_id) is not True,
                 )
             )
         return items
+
+    @staticmethod
+    def _interview_hold(status: str, waiting_admin: bool | None) -> str:
+        """면접 기간 중 중단된 응시면 처리 중(관리자 대기) 또는 재접속 가능. 마감이 지나면 원래 상태다."""
+        if waiting_admin is None or status != STATUS_INTERVIEW_ONGOING:
+            return status
+        return STATUS_INTERVIEW_HOLD if waiting_admin else STATUS_INTERVIEW_RECONNECT
 
     @staticmethod
     def _status(

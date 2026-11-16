@@ -1,6 +1,7 @@
 """AI 화상 면접 응시 (실시간 면접 1~3단계: APP-014·015·016·018, SYS-004·005·007·011). ai-service·Deepgram·vision은 가짜다."""
 
 import base64
+import json
 from decimal import Decimal
 
 import pytest
@@ -541,11 +542,217 @@ def test_same_follow_up_coming_again_reuses_the_row(applicant, ready):
 
     async def save_twice():
         async with AsyncSessionLocal() as db:
-            first = await InterviewService(db).save_follow_up(sid, follow, 2)
+            first = await InterviewService(db).save_new_question(sid, follow, 2)
         async with AsyncSessionLocal() as db:
-            second = await InterviewService(db).save_follow_up(sid, follow, None)
+            second = await InterviewService(db).save_new_question(sid, follow, None)
         return first, second
 
     first, second = asyncio.run(save_twice())
     assert first == second
     assert _sql("select count(*) from interview_question where parent_question_id = :p", p=qids[0])[0][0] == 1
+
+
+# ---------- 문의·예외 처리 (5단계, SYS-003·APP-013·014·018, ADM-026·041) ----------
+class InquiryAi(FakeAi):
+    """문의 가짜. 메시지에는 안내를 주고, 해결 확인은 resolved_on번째 시도에서 해결된다(None이면 끝내 미해결).
+    해결 + 시스템 측이면 지금 질문을 무효로 하고 대체 질문을 낸다. 3회 미해결이면 중단."""
+
+    def __init__(self, qids, cause="지원자 측", resolved_on=1):
+        super().__init__(qids)
+        self.cause, self.resolved_on, self.inquiries, self.attempts = cause, resolved_on, [], 0
+
+    async def send_inquiry(self, session_id, payload):
+        self.inquiries.append(payload)
+        if payload["event"] == "open":
+            return {"reply": "어떤 문제가 있으신가요?", "check": None, "judgment": None, "actions": []}
+        if payload["event"] == "message":
+            return {"reply": "마이크를 다시 연결해 보세요.", "check": "system", "judgment": None, "actions": []}
+        self.attempts += 1
+        resolved = payload["resolved"]
+        if not resolved and self.attempts < 3:
+            return {"reply": f"다른 방법 {self.attempts}", "check": "applicant", "judgment": None, "actions": []}
+        judgment = {"resolved": resolved, "cause": self.cause, "judgment_basis": "마이크 입력 없음",
+                    "ai_action": "다시 연결 안내", "handling_detail": "처리 내용", "ai_attempt_count": self.attempts - resolved}
+        if not resolved:
+            return {"reply": None, "check": None, "judgment": judgment, "actions": [{"type": "suspend"}]}
+        actions = []
+        if self.cause != "지원자 측":
+            q = self._present(0)["question"]
+            actions = [{"type": "invalidate", "question": q, "keep_question": False},
+                       {"type": "present", "audio_b64": base64.b64encode(b"wavR").decode(),
+                        "question": {"qkey": "rnew", "question_id": None, "kind": "AI", "question_type": "직무",
+                                     "parent_qkey": None, "text": "대체 질문?"}}]
+        return {"reply": None, "check": None, "judgment": judgment, "actions": actions}
+
+
+def _recv(ws, kind):
+    """kind 메시지가 올 때까지 받는다. 그 사이의 다른 메시지와 질문 음성(바이너리)은 넘긴다."""
+    while True:
+        msg = ws.receive()
+        if msg.get("text") and json.loads(msg["text"])["type"] == kind:
+            return json.loads(msg["text"])
+
+
+def _to_answer_phase(ws, qid):
+    _recv(ws, "question")
+    ws.send_json({"type": "question_audio_ended", "question_id": qid})
+    assert _recv(ws, "phase")["phase"] == "think"
+    assert _recv(ws, "phase")["phase"] == "answer"
+
+
+def _inquire(ws, qid):
+    ws.send_json({"type": "inquiry_open", "question_id": qid})
+    inquiry_id = _recv(ws, "inquiry_opened")["inquiry_id"]
+    assert _recv(ws, "inquiry_reply")["text"] == "어떤 문제가 있으신가요?"
+    ws.send_json({"type": "inquiry_message", "inquiry_id": inquiry_id, "text": "마이크가 안 돼요"})
+    reply = _recv(ws, "inquiry_reply")
+    assert (reply["text"], reply["check"]) == ("마이크를 다시 연결해 보세요.", "system")
+    return inquiry_id
+
+
+def _long_answer_time(aid):
+    _sql("update job_posting set answer_time_sec = 30 where posting_id = "
+         "(select posting_id from application where application_id = :a)", a=aid)
+
+
+def _inquiry_row(inquiry_id):
+    return _sql("select handling_status, judgment_code, ai_attempt_count, question_id from inquiry where inquiry_id = :i",
+                i=inquiry_id)[0]
+
+
+def test_inquiry_resolved_on_applicant_side_continues_the_question(monkeypatch, applicant, ready):
+    aid, qids = ready
+    _long_answer_time(aid)
+    sid = _enter(applicant, aid).json()["session_id"]
+    fake = InquiryAi(qids[:1], cause="지원자 측")
+    monkeypatch.setattr(ws_interview, "get_ai_client", lambda: fake)
+    with _socket(applicant, sid) as ws:
+        _to_answer_phase(ws, qids[0])
+        inquiry_id = _inquire(ws, qids[0])
+        ws.send_json({"type": "inquiry_check", "inquiry_id": inquiry_id, "resolved": True})
+        result = _recv(ws, "inquiry_result")
+        assert (result["resolved"], result["cause"], result["follow_up"]) == (True, "지원자 측", "기존 질문 그대로 진행")
+        ws.send_json({"type": "answer_done", "question_id": qids[0]})  # 같은 질문의 답변을 이어서 낸다
+        assert _recv(ws, "answer_end")["reason"] == "button"
+        _recv(ws, "interview_end")
+    assert _inquiry_row(inquiry_id) == ("AI 처리", "RESOLVED_APPLICANT", 0, qids[0])
+    assert _sql("select speaker, content from chat_message where inquiry_id = :i order by seq", i=inquiry_id) == [
+        ("챗봇", "어떤 문제가 있으신가요?"), ("지원자", "마이크가 안 돼요"), ("챗봇", "마이크를 다시 연결해 보세요.")]
+    # 진행 중인 질문이 시작된 때부터의 이벤트가 시스템 로그로 남는다
+    logs = [r[0] for r in _sql("select content from system_log where inquiry_id = :i order by log_id", i=inquiry_id)]
+    assert logs[0].startswith("질문 제시") and "답변 시간 시작" in logs
+    assert len(fake.answers) == 1  # 답변은 한 번만 보냈다
+
+
+def test_inquiry_resolved_on_system_side_represents_a_new_question(monkeypatch, applicant, ready):
+    aid, qids = ready
+    _long_answer_time(aid)
+    sid = _enter(applicant, aid).json()["session_id"]
+    fake = InquiryAi(qids[:1], cause="시스템 측")
+    monkeypatch.setattr(ws_interview, "get_ai_client", lambda: fake)
+    with _socket(applicant, sid) as ws:
+        _to_answer_phase(ws, qids[0])
+        inquiry_id = _inquire(ws, qids[0])
+        ws.send_json({"type": "inquiry_check", "inquiry_id": inquiry_id, "resolved": True})
+        assert _recv(ws, "inquiry_result")["follow_up"] == "질문 다시 제시 후 재개"
+        # 진행 중이던 질문 대신 새 질문이 같은 순번으로 나온다. 생각·답변 시간은 처음부터
+        new = _recv(ws, "question")
+        assert (new["text"], new["seq"], new["total"]) == ("대체 질문?", 1, 3)
+        ws.send_json({"type": "question_audio_ended", "question_id": new["question_id"]})
+        _recv(ws, "phase"), _recv(ws, "phase")
+        ws.send_json({"type": "answer_done", "question_id": new["question_id"]})
+        _recv(ws, "interview_end")
+    assert _sql("select question_status from interview_question where question_id = :q", q=qids[0])[0][0] == "무효"
+    assert _sql("select seq, parent_question_id, content from interview_question where question_id = :q",
+                q=new["question_id"])[0] == (1, None, "대체 질문?")
+    # 앞 질문의 답변은 보내지 않았고, 새 질문의 짝을 답변 요청에 실었다
+    assert [a["question_id"] for a in fake.answers] == [new["question_id"]]
+    assert fake.answers[0]["bindings"] == [{"qkey": "rnew", "question_id": new["question_id"]}]
+    assert _inquiry_row(inquiry_id)[:2] == ("AI 처리", "RESOLVED_SYSTEM")
+
+
+def test_unresolved_system_side_suspends_waits_for_admin_then_retake(monkeypatch, client, admin, applicant, ready):
+    aid, qids = ready
+    _long_answer_time(aid)
+    sid = _enter(applicant, aid).json()["session_id"]
+    fake = InquiryAi(qids[:1], cause="시스템 측", resolved_on=None)
+    monkeypatch.setattr(ws_interview, "get_ai_client", lambda: fake)
+    with _socket(applicant, sid) as ws:
+        _to_answer_phase(ws, qids[0])
+        inquiry_id = _inquire(ws, qids[0])
+        for n in (1, 2):
+            ws.send_json({"type": "inquiry_check", "inquiry_id": inquiry_id, "resolved": False})
+            assert _recv(ws, "inquiry_reply")["text"] == f"다른 방법 {n}"  # 다른 방법으로 다시 안내
+        ws.send_json({"type": "inquiry_check", "inquiry_id": inquiry_id, "resolved": False})
+        assert _recv(ws, "inquiry_result")["follow_up"] == "중단 후 관리자 처리, 재시험"
+        suspended = _recv(ws, "suspended")
+        assert suspended["needs_admin"] is True and "담당자가 확인한 뒤" in suspended["message"]
+    assert fake.answers == []
+    assert _sql("select status from interview_session where session_id = :s", s=sid)[0][0] == "중단"
+    assert _inquiry_row(inquiry_id)[:3] == ("관리자 대기", "UNRESOLVED_SYSTEM", 3)
+    # 관리자 처리 전: 처리 중, 응시 버튼 막힘, 입장 거부 (APP-018)
+    mine = next(i for i in applicant.get("/api/applications").json() if i["application_id"] == aid)
+    assert (mine["status"], mine["can_view_interview_guide"]) == ("처리 중", False)
+    r = _enter(applicant, aid)
+    assert r.status_code == 409 and "처리하고 있습니다" in r.json()["message"]
+    # 관리자 화면 26: 목록·상세·재개 (ADM-026·041)
+    listed = admin.get("/api/admin/inquiries", params={"handling_status": "관리자 대기"}).json()
+    assert inquiry_id in [i["inquiry_id"] for i in listed]
+    detail = admin.get(f"/api/admin/inquiries/{inquiry_id}").json()
+    assert (detail["cause"], detail["follow_up"], detail["ai_attempt_count"]) == ("시스템 측", "중단 후 관리자 처리, 재시험", 3)
+    assert [m["speaker"] for m in detail["messages"]][:3] == ["챗봇", "지원자", "챗봇"] and detail["logs"]
+    pid = _sql("select posting_id from application where application_id = :a", a=aid)[0][0]
+    stats = admin.get(f"/api/admin/postings/{pid}/stats").json()
+    assert stats["ai_unhandled_error_count"] == 1  # 대시보드 오류 확인 (ADM-003)
+    resumed = admin.post(f"/api/admin/inquiries/{inquiry_id}/resume").json()
+    assert resumed["handling_status"] == "관리자 처리 완료" and resumed["handled_at"]
+    assert admin.post(f"/api/admin/inquiries/{inquiry_id}/resume").status_code == 409
+    assert admin.get(f"/api/admin/postings/{pid}/stats").json()["ai_unhandled_error_count"] == 0
+    # 관리자 처리 뒤: 재접속 가능, 같은 응시로 재시험 (APP-014)
+    mine = next(i for i in applicant.get("/api/applications").json() if i["application_id"] == aid)
+    assert (mine["status"], mine["can_view_interview_guide"]) == ("재접속 가능", True)
+    again = _enter(applicant, aid).json()
+    assert (again["session_id"], again["status"], again["resumed"]) == (sid, "진행 중", True)
+
+
+def test_unresolved_applicant_side_can_retake_right_away(monkeypatch, applicant, ready):
+    aid, qids = ready
+    _long_answer_time(aid)
+    sid = _enter(applicant, aid).json()["session_id"]
+    monkeypatch.setattr(ws_interview, "get_ai_client", lambda: InquiryAi(qids[:1], cause="지원자 측", resolved_on=None))
+    with _socket(applicant, sid) as ws:
+        _to_answer_phase(ws, qids[0])
+        inquiry_id = _inquire(ws, qids[0])
+        for _ in range(3):
+            ws.send_json({"type": "inquiry_check", "inquiry_id": inquiry_id, "resolved": False})
+        assert _recv(ws, "suspended")["needs_admin"] is False
+    assert _inquiry_row(inquiry_id)[:2] == ("AI 미처리", "UNRESOLVED_APPLICANT")
+    mine = next(i for i in applicant.get("/api/applications").json() if i["application_id"] == aid)
+    assert mine["status"] == "재접속 가능"
+    assert _enter(applicant, aid).json()["status"] == "진행 중"
+
+
+def test_inquiry_during_evaluation_is_held_until_the_next_question(monkeypatch, applicant, ready):
+    aid, qids = ready
+    sid = _enter(applicant, aid).json()["session_id"]
+    fake = InquiryAi(qids[:2])
+    monkeypatch.setattr(ws_interview, "get_ai_client", lambda: fake)
+    with _socket(applicant, sid) as ws:
+        _to_answer_phase(ws, qids[0])
+        assert _recv(ws, "answer_end")["reason"] == "timeout"  # 답변 시간 1초
+        ws.send_json({"type": "inquiry_open", "question_id": qids[0]})
+        assert _recv(ws, "inquiry_reply")["text"].startswith("답변을 처리하고 있습니다")
+        # 다음 질문을 낸 뒤 문의가 열린다. 그 질문이 문의의 진행 질문이다
+        assert _recv(ws, "question")["question_id"] == qids[1]
+        inquiry_id = _recv(ws, "inquiry_opened")["inquiry_id"]
+    assert _inquiry_row(inquiry_id)[3] == qids[1]
+    # 받아 둔 문의는 이전 질문이 시작된 때부터의 로그를 보낸다 (AI Agent 설계서 4.5)
+    logs = [l["content"] for l in fake.inquiries[0]["system_logs"]]
+    assert sum(c.startswith("질문 제시") for c in logs) == 2
+
+
+def test_inquiry_admin_api_is_own_postings_only(client, admin, applicant):
+    other = _login(TestClient(client.app), "관리자")  # 공고가 없는 다른 관리자
+    assert other.get("/api/admin/inquiries").json() == []
+    assert admin.get("/api/admin/inquiries/999999999").status_code == 404
+    assert applicant.get("/api/admin/inquiries").status_code == 403

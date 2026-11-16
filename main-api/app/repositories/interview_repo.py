@@ -88,12 +88,13 @@ class InterviewRepo:
             update(InterviewQuestion).where(InterviewQuestion.question_id == question_id).values(question_status=status)
         )
 
-    async def find_follow_up(self, application_id: int, parent_question_id: int, content: str) -> InterviewQuestion | None:
-        """같은 부모·같은 내용의 유효한 꼬리질문. 재접속으로 같은 꼬리질문이 다시 오면 새 행을 만들지 않는다."""
+    async def find_follow_up(self, application_id: int, parent_question_id: int | None, content: str) -> InterviewQuestion | None:
+        """같은 부모(없을 수 있음)·같은 내용의 유효한 질문. 재접속으로 같은 새 질문이 다시 오면 새 행을 만들지 않는다."""
         return await self.db.scalar(
             select(InterviewQuestion).where(
                 InterviewQuestion.application_id == application_id,
-                InterviewQuestion.parent_question_id == parent_question_id,
+                InterviewQuestion.parent_question_id.is_(parent_question_id) if parent_question_id is None
+                else InterviewQuestion.parent_question_id == parent_question_id,
                 InterviewQuestion.content == content,
                 InterviewQuestion.question_status == ValidStatus.VALID.value,
             )

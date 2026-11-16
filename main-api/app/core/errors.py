@@ -37,6 +37,9 @@ class ErrorCode(str, Enum):
     INTERVIEW_NOT_AVAILABLE = "INTERVIEW_NOT_AVAILABLE"
     # 본인의 진행 중 응시가 아니거나 그 응시의 질문이 아니다 (답변 영상 업로드)
     INTERVIEW_NOT_FOUND = "INTERVIEW_NOT_FOUND"
+    INQUIRY_NOT_FOUND = "INQUIRY_NOT_FOUND"
+    # 관리자 대기가 아닌 문의는 재개할 수 없다 (ADM-041)
+    INQUIRY_NOT_WAITING = "INQUIRY_NOT_WAITING"
 
 
 class AppError(Exception):

@@ -56,5 +56,11 @@ class AsyncAiServiceClient:
         r.raise_for_status()
         return r.json()
 
+    async def send_inquiry(self, session_id: int, payload: dict) -> dict:
+        """InquiryRequest → InquiryResponse (규약 2.4)."""
+        r = await self._client.post(f"/internal/interview/{session_id}/inquiry", json=payload)
+        r.raise_for_status()
+        return r.json()
+
     async def aclose(self) -> None:
         await self._client.aclose()

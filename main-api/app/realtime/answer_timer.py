@@ -7,28 +7,45 @@
 
 import asyncio
 import time
-from dataclasses import dataclass
-from typing import Literal
+from dataclasses import dataclass, field
+from typing import Callable, Literal
 
 EndReason = Literal["button", "silence", "timeout", "disconnect"]
 DISCONNECTED = {"type": "__disconnected__"}  # 읽는 쪽이 연결이 끊기면 넣는다
 SPEECH = {"type": "__speech__"}  # Deepgram이 말소리를 인식할 때마다 넣는다 (무발화 판단)
+INTERRUPT = {"type": "__interrupt__"}  # 문의 판단이 질문을 다시 제시하거나 면접을 중단할 때 넣는다 (5단계)
+
+
+class Interrupted(Exception):
+    """문의 판단으로 지금 질문을 끝낸다. actions는 ai-service가 준 다음 행동(무효·제시 또는 중단)이다."""
+
+    def __init__(self, actions: list[dict]):
+        super().__init__("interrupted by inquiry")
+        self.actions = actions
 
 
 @dataclass
 class AnswerTimer:
     events: asyncio.Queue
     question_id: int
+    # 끼어들기 신호를 받으면 부른다. 받을 행동이 있으면 돌려주고, 이미 처리했으면(남은 신호) None
+    take_interrupt: Callable[[], list[dict] | None] = field(default=lambda: None)
 
     async def _next(self, deadline: float) -> dict | None:
-        """deadline까지 다음 메시지. 시간이 다 되면 None."""
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            return None
-        try:
-            return await asyncio.wait_for(self.events.get(), remaining)
-        except asyncio.TimeoutError:
-            return None
+        """deadline까지 다음 메시지. 시간이 다 되면 None. 문의 판단의 끼어들기면 Interrupted를 던진다."""
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None
+            try:
+                msg = await asyncio.wait_for(self.events.get(), remaining)
+            except asyncio.TimeoutError:
+                return None
+            if msg is INTERRUPT:
+                if (actions := self.take_interrupt()) is not None:
+                    raise Interrupted(actions)
+                continue
+            return msg
 
     async def wait_audio_end(self, max_sec: float) -> bool:
         """질문 음성 재생이 끝났다는 메시지를 기다린다. 브라우저가 알려 주지 않아도 max_sec 뒤에는 넘어간다.

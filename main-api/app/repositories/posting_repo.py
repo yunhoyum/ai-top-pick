@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.enums import (
     ApplicationWriteStatus,
+    HandlingStatus,
     PostingWriteStatus,
     ProgressStatus,
     SessionStatus,
@@ -10,7 +11,7 @@ from app.domain.enums import (
     StageType,
 )
 from app.models.application import Application, ApplicationStage
-from app.models.inquiry import Inquiry, JudgmentType
+from app.models.inquiry import Inquiry
 from app.models.interview import InterviewSession
 from app.models.posting import (
     CompanyQuestion,
@@ -124,8 +125,9 @@ class PostingRepo:
             .select_from(Inquiry)
             .join(InterviewSession, InterviewSession.session_id == Inquiry.session_id)
             .join(Application, Application.application_id == InterviewSession.application_id)
-            .join(JudgmentType, JudgmentType.judgment_code == Inquiry.judgment_code)
-            .where(Application.posting_id == posting_id, JudgmentType.ai_handled.is_(False))
+            # 처리 상태가 'AI 미처리' 또는 '관리자 대기'인 문의 (ADM-003). 관리자가 처리하면 빠진다
+            .where(Application.posting_id == posting_id,
+                   Inquiry.handling_status.in_([HandlingStatus.AI_UNHANDLED.value, HandlingStatus.ADMIN_WAITING.value]))
         )
         return submitted, target, done, shortfall, unhandled
 

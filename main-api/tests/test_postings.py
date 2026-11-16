@@ -1128,16 +1128,17 @@ def test_stats_count_skill_shortfall(admin, posting_id):
 
 def test_stats_count_only_unhandled_inquiries(admin, posting_id):
     session = _add_session(_add_application(posting_id))
-    for code in ("UNRESOLVED_SYSTEM", "UNRESOLVED_APPLICANT", "RESOLVED_SYSTEM", "RESOLVED_APPLICANT"):
-        _sql("insert into inquiry (session_id, judgment_code) values (:s, :c)", s=session, c=code)
-    # 판단 결과가 아직 없는 문의는 미처리로 세지 않는다
+    # 처리 상태가 'AI 미처리' 또는 '관리자 대기'인 문의만 센다 (ADM-003). 관리자가 처리하면 빠진다
+    for status in ("관리자 대기", "AI 미처리", "AI 처리", "관리자 처리 완료"):
+        _sql("insert into inquiry (session_id, handling_status) values (:s, :h)", s=session, h=status)
+    # 판단이 아직 끝나지 않은 문의는 세지 않는다
     _sql("insert into inquiry (session_id) values (:s)", s=session)
     assert _stats(admin, posting_id)["ai_unhandled_error_count"] == 2
 
 
 def test_stats_unhandled_errors_are_per_posting(admin, posting_id):
     other = admin.post("/api/admin/postings").json()["posting_id"]
-    _sql("insert into inquiry (session_id, judgment_code) values (:s, 'UNRESOLVED_UNKNOWN')", s=_add_session(_add_application(other)))
+    _sql("insert into inquiry (session_id, handling_status) values (:s, '관리자 대기')", s=_add_session(_add_application(other)))
     assert _stats(admin, posting_id)["ai_unhandled_error_count"] == 0
     assert _stats(admin, other)["ai_unhandled_error_count"] == 1
 

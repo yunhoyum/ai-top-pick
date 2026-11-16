@@ -12,7 +12,8 @@ class ApplicationStatusItem(BaseModel):
     # '임시 저장'(작성 중)/'제출'
     write_status: str
     submitted_at: datetime | None
-    # 카드 위쪽 배지: 작성 중, 서류 전형 진행 중, 면접 전형 예정, 면접 전형 진행 중, 면접 결과 대기, 면접 전형 완료, 전형 종료
+    # 카드 위쪽 배지: 작성 중, 서류 전형 진행 중, 면접 전형 예정, 면접 전형 진행 중, 처리 중, 재접속 가능,
+    # 면접 결과 대기, 면접 전형 완료, 전형 종료
     status: str
     doc_end_at: datetime | None
     doc_result_at: datetime | None

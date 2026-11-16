@@ -3,7 +3,8 @@
 실시간 면접 1단계: 안내(22), 응시 입구(23), 그래프 시작 요청 본문, 질문 공개 표시, 응시 완료.
 2단계: 답변 영상 저장(save_answer_video), 답변·STT 저장(persist_answer).
 3단계: 점수·표정·근거 문장 저장, 표정 분석 재처리 요청(request_expression_reprocess).
-4단계: 꼬리질문 저장(save_follow_up), 빠진 직무 질문 무효(invalidate_question). 중단(suspend_session)은 5단계.
+4단계: 새 질문 저장(save_new_question), 빠진 직무 질문 무효(invalidate_question).
+5단계: 응시 중단(suspend_session), 문의 처리로 진행 중이던 질문 무효(invalidate_presented), 재시험 입장(enter_session).
 """
 
 import asyncio
@@ -16,7 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError, ErrorCode
-from app.domain.enums import JobStatus, JobType, SessionStatus, StageResult, StageType, ValidStatus
+from app.domain.enums import HandlingStatus, JobStatus, JobType, SessionStatus, StageResult, StageType, ValidStatus
 from app.domain.rules import is_interview_open
 from app.models.application import Application, ApplicationStage
 from app.models.batch import BatchJob
@@ -24,6 +25,7 @@ from app.models.interview import InterviewAnswer, InterviewQuestion, InterviewSe
 from app.models.member import Member
 from app.models.posting import EvalCriteria, JobPosting, PostingEvalRatio
 from app.realtime import upload_registry
+from app.repositories.inquiry_repo import InquiryRepo
 from app.repositories.interview_repo import InterviewRepo
 from app.schemas.interview import InterviewGuide, SessionOut
 from app.services import file_service
@@ -105,10 +107,14 @@ class InterviewService:
         session = await self.repo.get_session_by_application(application.application_id)
         if session and session.status == SessionStatus.COMPLETED.value:
             return "이미 면접을 마쳤습니다."
-        if session and session.status == SessionStatus.ABORTED.value:
-            # 문의 처리 상태에 따른 재시험은 실시간 면접 5단계(문의·예외 처리)에서 넣는다
-            return "중단된 면접입니다. 처리 결과를 기다려 주세요."
+        if session and session.status == SessionStatus.ABORTED.value and await self._waiting_admin(session.session_id):
+            return "면접 중 생긴 문제를 처리하고 있습니다. 처리가 끝나면 다시 응시할 수 있습니다."
         return None
+
+    async def _waiting_admin(self, session_id: int) -> bool:
+        """중단된 응시의 마지막 미해결 문의가 '관리자 대기'인지. 'AI 미처리'·'관리자 처리 완료'면 재시험할 수 있다 (APP-014)."""
+        last = await InquiryRepo(self.db).get_last_unresolved(session_id)
+        return last is not None and last.handling_status == HandlingStatus.ADMIN_WAITING.value
 
     async def enter_session(
         self, member: Member, application_id: int, camera_ok: bool, mic_ok: bool, now: datetime | None = None
@@ -125,6 +131,9 @@ class InterviewService:
         resumed = session is not None
         if session is None:
             session = await self.repo.create_session(application_id, camera_ok, mic_ok, now)
+        elif session.status == SessionStatus.ABORTED.value:
+            # 재시험: 같은 응시를 '진행 중'으로 되돌린다. 그래프는 같은 체크포인트로 이어 간다 (APP-014)
+            session.status = SessionStatus.IN_PROGRESS.value
         await self.db.commit()
         return SessionOut(session_id=session.session_id, status=session.status, resumed=resumed)
 
@@ -271,12 +280,13 @@ class InterviewService:
         await self.repo.set_question_status(question_id, ValidStatus.INVALID.value)
         await self.db.commit()
 
-    async def save_follow_up(self, session_id: int, question: dict, seq: int | None) -> int:
-        """ai-service가 만든 꼬리질문을 interview_question 행으로 저장하고 question_id를 돌려준다 (규약 2.1 present).
-        부모는 꼬리질문이 시작된 최상위 기본 질문이다(qkey 'q{question_id}'). 순번은 빠진 직무 질문의 순번을 쓴다.
-        같은 부모·같은 내용의 유효한 꼬리질문이 이미 있으면(재접속으로 다시 온 경우) 그 행을 쓴다."""
+    async def save_new_question(self, session_id: int, question: dict, seq: int | None) -> int:
+        """ai-service가 만든 새 질문(꼬리질문, 문의 처리로 만든 대체 질문)을 interview_question 행으로 저장하고
+        question_id를 돌려준다 (규약 2.1 present). 꼬리질문의 부모는 최상위 기본 질문이다(qkey 'q{question_id}').
+        순번은 그 질문이 대신하는 질문(빠진 직무 질문, 무효 처리한 질문)의 순번을 쓴다.
+        같은 부모·같은 내용의 유효한 질문이 이미 있으면(재접속으로 다시 온 경우) 그 행을 쓴다."""
         session = await self.db.get(InterviewSession, session_id)
-        parent_id = int(question["parent_qkey"].removeprefix("q"))
+        parent_id = int(question["parent_qkey"].removeprefix("q")) if question.get("parent_qkey") else None
         existing = await self.repo.find_follow_up(session.application_id, parent_id, question["text"])
         if existing is not None:
             return existing.question_id
@@ -286,3 +296,17 @@ class InterviewService:
         ))
         await self.db.commit()
         return row.question_id
+
+    async def invalidate_presented(self, session_id: int, question_id: int, keep_question: bool) -> None:
+        """문의 처리로 진행 중이던 질문과 답변을 무효로 한다 (규약 2.1 invalidate, 워크플로우 6-11).
+        기업 질문은 같은 질문을 다시 제시하므로 질문은 두고 답변만 무효로 한다(keep_question)."""
+        await self.repo.invalidate_answer(session_id, question_id)
+        if not keep_question:
+            await self.repo.set_question_status(question_id, ValidStatus.INVALID.value)
+        await self.db.commit()
+
+    async def suspend_session(self, session_id: int) -> None:
+        """APP-013·014 응시 '중단'. 종료 일시는 넣지 않는다(완료 때만). 진행 중이던 답변은 아직 저장하지 않았다."""
+        session = await self.db.get(InterviewSession, session_id)
+        session.status = SessionStatus.ABORTED.value
+        await self.db.commit()
