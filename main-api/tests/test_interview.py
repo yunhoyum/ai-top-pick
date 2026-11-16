@@ -475,3 +475,77 @@ def test_answer_without_content_score_is_saved(monkeypatch, applicant, ready):
         _one_answer(ws, qids[0])
     row = _answer_row(sid)
     assert (row[2], row[3], row[4], row[6]) == (None, None, 92, None)
+
+
+# ---------- 꼬리질문 (4단계, SYS-008) ----------
+class FollowUpAi(FakeAi):
+    """첫 답변 뒤에 바로 다음 질문(qids[1])을 빼고 꼬리질문을 낸다. 꼬리질문 답변 뒤에는 qids[2], 그다음 종료."""
+
+    FOLLOW = "Redis 캐시가 오래된 값을 주지 않게 어떻게 했나요?"
+
+    async def submit_answer(self, session_id, payload):
+        self.answers.append(payload)
+        q1, q2, q3 = self.qids
+        if len(self.answers) == 1:
+            follow = {"qkey": "fabc", "question_id": None, "kind": "꼬리", "question_type": "직무",
+                      "parent_qkey": f"q{q1}", "text": self.FOLLOW}
+            actions = [{"type": "remove", "question": self._present(1)["question"]},
+                       {"type": "present", "question": follow, "audio_b64": base64.b64encode(b"wavF").decode()}]
+        elif len(self.answers) == 2:
+            actions = [self._present(2)]
+        else:
+            actions = [{"type": "end"}]
+        return {"evaluation": EVALUATION, "actions": actions}
+
+
+def test_follow_up_replaces_the_next_question_and_its_id_is_sent_back(monkeypatch, applicant, ready):
+    aid, qids = ready
+    sid = _enter(applicant, aid).json()["session_id"]
+    fake = FollowUpAi(qids)
+    monkeypatch.setattr(ws_interview, "get_ai_client", lambda: fake)
+    with _socket(applicant, sid) as ws:
+        assert ws.receive_json()["type"] == "connected"
+        _answer_one(ws, qids[0], press=True)
+        follow = ws.receive_json()
+        assert ws.receive_bytes() == b"wavF"
+        # 꼬리질문은 빠진 질문의 순번(2)을 이어받는다. 전체 질문 수는 그대로다
+        assert (follow["text"], follow["seq"], follow["total"]) == (FollowUpAi.FOLLOW, 2, 3)
+        new_id = follow["question_id"]
+        ws.send_json({"type": "question_audio_ended", "question_id": new_id})
+        ws.receive_json(), ws.receive_json()
+        ws.send_json({"type": "answer_done", "question_id": new_id})
+        ws.receive_json(), ws.receive_json()
+        _answer_one(ws, qids[2], press=True)
+        assert ws.receive_json()["type"] == "interview_end"
+    # 새 질문의 짝은 꼬리질문 답변 요청에 한 번만 실린다 (규약 2.1 Binding)
+    assert [a["bindings"] for a in fake.answers] == [[], [{"qkey": "fabc", "question_id": new_id}], []]
+    assert fake.answers[1]["question_id"] == new_id
+    rows = _sql("select question_id, parent_question_id, question_type, seq, content, is_revealed, question_status "
+                "from interview_question where application_id = :a order by question_id", a=aid)
+    by_id = {r[0]: r for r in rows}
+    assert by_id[qids[1]][6] == "무효"  # 빠진 질문
+    assert tuple(by_id[new_id][1:]) == (qids[0], "직무", 2, FollowUpAi.FOLLOW, True, "유효")
+    assert _sql("select count(*) from interview_answer where question_id = :q", q=new_id)[0][0] == 1
+
+
+def test_same_follow_up_coming_again_reuses_the_row(applicant, ready):
+    """짝을 보내기 전에 끊겨 재접속하면 같은 꼬리질문이 question_id 없이 다시 온다. 행을 하나만 둔다."""
+    import asyncio
+
+    from app.db.session import AsyncSessionLocal
+    from app.services.interview_service import InterviewService
+
+    aid, qids = ready
+    sid = _enter(applicant, aid).json()["session_id"]
+    follow = {"qkey": "fabc", "question_type": "직무", "parent_qkey": f"q{qids[0]}", "text": "꼬리질문?"}
+
+    async def save_twice():
+        async with AsyncSessionLocal() as db:
+            first = await InterviewService(db).save_follow_up(sid, follow, 2)
+        async with AsyncSessionLocal() as db:
+            second = await InterviewService(db).save_follow_up(sid, follow, None)
+        return first, second
+
+    first, second = asyncio.run(save_twice())
+    assert first == second
+    assert _sql("select count(*) from interview_question where parent_question_id = :p", p=qids[0])[0][0] == 1

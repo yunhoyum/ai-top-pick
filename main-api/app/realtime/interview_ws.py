@@ -50,6 +50,9 @@ class InterviewSocketHandler:
         self.relay: DeepgramRelay | None = None  # 답변 시간에만 열려 있다
         self.events: asyncio.Queue = asyncio.Queue()
         self.order: dict[str, int] = {}  # qkey → 순번 (질문 진행 목록 표시용)
+        self.seq: dict[str, int | None] = {}  # qkey → interview_question.seq (꼬리질문이 빠진 질문의 순번을 이어받는다)
+        self.removed: dict | None = None  # 방금 remove로 빠진 질문 (다음 present가 그 자리를 이어받는다)
+        self.bindings: list[dict] = []  # 새로 저장한 질문의 qkey·question_id 짝. 다음 요청에 실어 보낸다 (규약 2.1)
         self.settings: dict = {}
 
     async def run(self) -> None:
@@ -69,6 +72,7 @@ class InterviewSocketHandler:
         await self.ws.accept()
         self.settings = payload["settings"]
         self.order = {q["qkey"]: i for i, q in enumerate(payload["questions"], start=1)}
+        self.seq = {q["qkey"]: q.get("seq") for q in payload["questions"]}
         await self.ws.send_json({"type": "connected", "session_id": self.session_id})
         reader = asyncio.create_task(self._read())
         try:
@@ -112,10 +116,13 @@ class InterviewSocketHandler:
 
     async def handle_actions(self, actions: list[dict]) -> list[dict]:
         """ai-service가 준 행동을 반영한다. 다음에 처리할 행동을 돌려준다. 끝났으면 빈 목록.
-        행동은 present(질문 제시), await_expression(표정 재분석), end(종료)다. remove·invalidate·suspend는 4·5단계에서."""
+        행동은 present(질문 제시), remove(꼬리질문 때문에 빠지는 직무 질문), await_expression(표정 재분석), end(종료)다.
+        invalidate·suspend는 5단계에서."""
         next_actions: list[dict] = []
         for action in actions:
-            if action["type"] == "present":
+            if action["type"] == "remove":
+                await self.remove(action["question"])
+            elif action["type"] == "present":
                 next_actions = await self.present(action)
                 if next_actions is None:  # 연결이 끊겼다
                     return []
@@ -126,9 +133,34 @@ class InterviewSocketHandler:
                 return []
         return next_actions
 
+    async def remove(self, question: dict) -> None:
+        """빠진 질문을 '무효'로 바꾼다. 질문 진행 목록의 그 순번은 다음에 제시할 꼬리질문이 이어받는다."""
+        async with AsyncSessionLocal() as db:
+            await InterviewService(db).invalidate_question(question["question_id"])
+        self.removed = question
+
+    async def bind_new_question(self, question: dict) -> dict:
+        """question_id가 없는 새 질문(꼬리질문)을 저장하고 짝을 남긴다. 순번은 빠진 질문의 것을 이어받는다."""
+        replaced = self.removed or {}
+        self.removed = None
+        async with AsyncSessionLocal() as db:
+            qid = await InterviewService(db).save_follow_up(self.session_id, question, self.seq.get(replaced.get("qkey")))
+        self.bindings.append({"qkey": question["qkey"], "question_id": qid})
+        if replaced.get("qkey") in self.order:
+            self.order[question["qkey"]] = self.order.pop(replaced["qkey"])
+        else:  # 재접속으로 다시 온 꼬리질문: 진행 목록 끝에 둔다
+            self.order.setdefault(question["qkey"], len(self.order) + 1)
+        return question | {"question_id": qid}
+
+    def take_bindings(self) -> list[dict]:
+        bindings, self.bindings = self.bindings, []
+        return bindings
+
     async def present(self, action: dict) -> list[dict] | None:
         """질문을 보내고, 생각·답변 시간을 거쳐 답변을 ai-service에 보낸다. 연결이 끊기면 None."""
         question = action["question"]
+        if question.get("question_id") is None:
+            question = await self.bind_new_question(question)
         qid = question["question_id"]
         await self.send_question(question, action.get("audio_b64"))
         timer = AnswerTimer(self.events, qid)
@@ -153,7 +185,7 @@ class InterviewSocketHandler:
         if video_path is None:
             log.warning("면접 %s 질문 %s 영상이 오지 않았다", self.session_id, qid)
         resp = await self.ai.submit_answer(self.session_id, {
-            "qkey": question["qkey"], "question_id": qid, "bindings": [], "end_reason": reason,
+            "qkey": question["qkey"], "question_id": qid, "bindings": self.take_bindings(), "end_reason": reason,
             # Deepgram 단어 시각은 스트림 시작(=답변 시간 시작) 기준이다
             "raw_text": raw_text, "words": words, "answer_start_sec": 0.0, "video_path": video_path,
         })
@@ -172,7 +204,7 @@ class InterviewSocketHandler:
             job_id, answer_id = requested
             answer = await service.wait_expression(job_id, answer_id, get_settings().EXPRESSION_WAIT_SEC)
             resp = await self.ai.submit_expression(self.session_id, {
-                "qkey": question["qkey"], "answer_id": answer_id, "bindings": [],
+                "qkey": question["qkey"], "answer_id": answer_id, "bindings": self.take_bindings(),
                 "main_expression": answer.main_expression, "expression_ratio": answer.expression_ratio,
             })
             await service.save_expression_result(answer_id, resp["expression_score"], resp["answer_score"])

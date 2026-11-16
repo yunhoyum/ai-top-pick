@@ -82,3 +82,24 @@ class InterviewRepo:
                 InterviewAnswer.answer_status == ValidStatus.VALID.value,
             )
         )
+
+    async def set_question_status(self, question_id: int, status: str) -> None:
+        await self.db.execute(
+            update(InterviewQuestion).where(InterviewQuestion.question_id == question_id).values(question_status=status)
+        )
+
+    async def find_follow_up(self, application_id: int, parent_question_id: int, content: str) -> InterviewQuestion | None:
+        """같은 부모·같은 내용의 유효한 꼬리질문. 재접속으로 같은 꼬리질문이 다시 오면 새 행을 만들지 않는다."""
+        return await self.db.scalar(
+            select(InterviewQuestion).where(
+                InterviewQuestion.application_id == application_id,
+                InterviewQuestion.parent_question_id == parent_question_id,
+                InterviewQuestion.content == content,
+                InterviewQuestion.question_status == ValidStatus.VALID.value,
+            )
+        )
+
+    async def insert_question(self, question: InterviewQuestion) -> InterviewQuestion:
+        self.db.add(question)
+        await self.db.flush()
+        return question

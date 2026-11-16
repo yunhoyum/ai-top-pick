@@ -2,7 +2,8 @@
 
 실시간 면접 1단계: 안내(22), 응시 입구(23), 그래프 시작 요청 본문, 질문 공개 표시, 응시 완료.
 2단계: 답변 영상 저장(save_answer_video), 답변·STT 저장(persist_answer).
-3단계: 점수·표정·근거 문장 저장, 표정 분석 재처리 요청(request_expression_reprocess). 중단(suspend_session)은 5단계.
+3단계: 점수·표정·근거 문장 저장, 표정 분석 재처리 요청(request_expression_reprocess).
+4단계: 꼬리질문 저장(save_follow_up), 빠진 직무 질문 무효(invalidate_question). 중단(suspend_session)은 5단계.
 """
 
 import asyncio
@@ -161,6 +162,8 @@ class InterviewService:
                 "question_type": q.question_type,
                 "parent_qkey": f"q{q.parent_question_id}" if q.parent_question_id else None,
                 "text": q.content or company or "",
+                # ai-service는 쓰지 않는다. 꼬리질문이 빠진 질문의 순번을 이어받을 때 main-api가 쓴다
+                "seq": q.seq,
             }
             for q, company in rows
         ]
@@ -262,3 +265,24 @@ class InterviewService:
         answer = await self.db.get(InterviewAnswer, answer_id)
         answer.expression_score, answer.answer_score = _dec(expression_score), _dec(answer_score)
         await self.db.commit()
+
+    async def invalidate_question(self, question_id: int) -> None:
+        """꼬리질문 때문에 빠지는 바로 다음 직무 질문을 '무효'로 바꾼다 (규약 2.1 remove, SYS-008)."""
+        await self.repo.set_question_status(question_id, ValidStatus.INVALID.value)
+        await self.db.commit()
+
+    async def save_follow_up(self, session_id: int, question: dict, seq: int | None) -> int:
+        """ai-service가 만든 꼬리질문을 interview_question 행으로 저장하고 question_id를 돌려준다 (규약 2.1 present).
+        부모는 꼬리질문이 시작된 최상위 기본 질문이다(qkey 'q{question_id}'). 순번은 빠진 직무 질문의 순번을 쓴다.
+        같은 부모·같은 내용의 유효한 꼬리질문이 이미 있으면(재접속으로 다시 온 경우) 그 행을 쓴다."""
+        session = await self.db.get(InterviewSession, session_id)
+        parent_id = int(question["parent_qkey"].removeprefix("q"))
+        existing = await self.repo.find_follow_up(session.application_id, parent_id, question["text"])
+        if existing is not None:
+            return existing.question_id
+        row = await self.repo.insert_question(InterviewQuestion(
+            application_id=session.application_id, parent_question_id=parent_id, question_type=question["question_type"],
+            seq=seq, content=question["text"], is_revealed=False, question_status=ValidStatus.VALID.value,
+        ))
+        await self.db.commit()
+        return row.question_id
