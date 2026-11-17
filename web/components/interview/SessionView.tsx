@@ -6,7 +6,7 @@ import Badge from "@/components/common/Badge";
 import Button from "@/components/common/Button";
 import BrandLogo from "@/components/layout/BrandLogo";
 import { useAnswerRecorder } from "@/hooks/useAnswerRecorder";
-import { recheckStream } from "@/hooks/useMediaDevices";
+import { CAMERA_CONSTRAINTS, recheckStream } from "@/hooks/useMediaDevices";
 import { useMicStream } from "@/hooks/useMicStream";
 import { apiFetch } from "@/lib/api";
 import { connectInterview } from "@/lib/ws";
@@ -71,7 +71,7 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
   useEffect(() => {
     let stream: MediaStream | null = null;
     navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
+      .getUserMedia({ video: CAMERA_CONSTRAINTS, audio: true })
       .then((s) => {
         stream = s;
         streamRef.current = s;

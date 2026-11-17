@@ -5,6 +5,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // 마이크 입력이 이 값보다 크면 소리가 들어온 것으로 본다 (0~1, 제안)
 const MIC_OK_LEVEL = 0.08;
 
+// 해상도를 정하지 않으면 Chrome이 640×480으로 연다. 카메라가 지원하면 720p로 받는다
+export const CAMERA_CONSTRAINTS: MediaTrackConstraints = { width: { ideal: 1280 }, height: { ideal: 720 } };
+
 // 면접 중 기술 문의의 시스템 재검사: 이미 연 스트림의 카메라가 살아 있고, sec초 안에 마이크 입력이 기준을 넘는지
 export async function recheckStream(stream: MediaStream | null, sec = 5): Promise<boolean> {
   if (!stream || !stream.getVideoTracks().some((t) => t.readyState === "live")) return false;
@@ -66,7 +69,7 @@ export function useMediaDevices(): MediaCheck {
       setMicLevel(0);
       setError(null);
       try {
-        const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const s = await navigator.mediaDevices.getUserMedia({ video: CAMERA_CONSTRAINTS, audio: true });
         if (cancelled) {
           s.getTracks().forEach((t) => t.stop());
           return;

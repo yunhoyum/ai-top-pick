@@ -188,7 +188,8 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* 녹화·표정 분석은 화면 전체를 쓰므로 자르지 않고 보여 준다. cover면 넓은 칸에서 눈·코만 보였다 */
+  object-fit: contain;
   /* 거울처럼 보이게 좌우를 뒤집는다 */
   transform: scaleX(-1);
 }
