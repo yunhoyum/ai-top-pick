@@ -618,6 +618,74 @@ def test_disconnect_during_inquiry_cancels_it_and_represents_the_question():
     assert builder.submit_inquiry(graph, 5, InquiryRequest(inquiry_id=8, event="open"))["reply"] == GREETING
 
 
+def test_retake_after_reconnect_with_an_empty_inquiry_and_three_failures_presents_a_question():
+    """통합테스트 IT-INQ-001 세션 627: 메시지 없이 연 문의 → 재접속 → 다시 문의해 3회 실패(중단) → 재접속.
+    재시험이 새 질문을 낸 뒤 면접을 끝내 버렸다."""
+    graph, _, tts = _inquiry_setup(cause="지원자 측", checkable=False)
+    resume = StartInterviewRequest(**(BODY | {"resume": True}))
+    builder.submit_inquiry(graph, 5, _inq("open"))  # 메시지 없이 열린 채로 끊겼다
+    assert [a["type"] for a in builder.start_or_resume(graph, resume, tts)] == ["present"]
+    builder.submit_inquiry(graph, 5, InquiryRequest(inquiry_id=8, event="open"))
+    builder.submit_inquiry(graph, 5, InquiryRequest(inquiry_id=8, event="message", text="안 돼요."))
+    for _ in range(3):
+        last = builder.submit_inquiry(graph, 5, InquiryRequest(inquiry_id=8, event="check", resolved=False))
+    assert last["actions"] == [{"type": "suspend"}]
+    actions = builder.start_or_resume(graph, resume, tts)
+    assert [a["type"] for a in actions] == ["invalidate", "present"]
+
+
+def test_session_627_sequence_retake_presents_a_question_instead_of_ending():
+    """통합테스트 IT-INQ-001 세션 627의 요청 순서를 그대로 따른다 (PC2 ai-service 로그)."""
+    five = [
+        {"qkey": "j1", "question_id": 2271, "kind": "AI", "question_type": "직무", "text": "직무 1?"},
+        {"qkey": "j2", "question_id": 2272, "kind": "AI", "question_type": "직무", "text": "직무 2?"},
+        {"qkey": "j3", "question_id": 2273, "kind": "AI", "question_type": "직무", "text": "직무 3?"},
+        {"qkey": "p1", "question_id": 2274, "kind": "AI", "question_type": "인성", "text": "인성 1?"},
+        {"qkey": "c1", "question_id": 2275, "kind": "기업", "question_type": None, "text": "기업 1?"},
+    ]
+    graph, fakes, tts = _inquiry_setup(cause="지원자 측", checkable=False, questions=five)
+    fakes.content = "20.00"  # 꼬리질문이 나오지 않는 점수
+    resume = StartInterviewRequest(**(BODY | {"resume": True, "questions": five}))
+    inq = lambda i, event, **kw: builder.submit_inquiry(graph, 5, InquiryRequest(inquiry_id=i, event=event, **kw))
+
+    # 209: 지원자 측으로 해결 → 같은 질문을 이어서 답한다
+    inq(209, "open"); inq(209, "message", text="질문 음성이 재생되지 않아요"); inq(209, "check", resolved=True)
+    assert builder.submit_answer(graph, 5, _answer("j1", 2271))[1][0]["question"]["qkey"] == "j2"
+    # 210: 원인 판단 불가로 3회 실패 → 중단, 관리자 재개 뒤 재시험
+    fakes.cause = "원인 판단 불가"
+    inq(210, "open"); inq(210, "message", text="질문 음성이 재생되지 않아요")
+    for _ in range(3):
+        last = inq(210, "check", resolved=False)
+    assert last["actions"] == [{"type": "suspend"}]
+    actions = builder.start_or_resume(graph, resume, tts)
+    assert [a["type"] for a in actions] == ["invalidate", "present"]
+    r1 = actions[1]["question"]
+    # 대체 질문에 답한다 (표정은 다시 분석해서 보낸다)
+    fakes.vision_error = True
+    _, actions = builder.submit_answer(graph, 5, _answer(
+        r1["qkey"], 2292, video_path="interviews/627/2292.webm", bindings=[{"qkey": r1["qkey"], "question_id": 2292}]))
+    assert [a["type"] for a in actions] == ["await_expression"]
+    _, actions = builder.submit_expression(graph, 5, ExpressionRequest(
+        qkey=r1["qkey"], answer_id=502, main_expression=None, expression_ratio=None))
+    assert actions[-1]["question"]["qkey"] == "j3"
+    # 재접속 두 번 → 211: 지원자 측 해결 → 재접속 → 212: 메시지 없이 열림 → 재접속
+    fakes.cause = "지원자 측"
+    for _ in range(2):
+        assert [a["type"] for a in builder.start_or_resume(graph, resume, tts)] == ["present"]
+    inq(211, "open"); inq(211, "message", text="안녕하세요?"); inq(211, "check", resolved=True)
+    assert [a["type"] for a in builder.start_or_resume(graph, resume, tts)] == ["present"]
+    inq(212, "open")
+    assert [a["type"] for a in builder.start_or_resume(graph, resume, tts)] == ["present"]
+    # 213: 지원자 측(카메라·마이크 재검사)으로 3회 실패 → 중단 → 바로 재접속
+    fakes.checkable = True
+    inq(213, "open"); inq(213, "message", text="안 돼요.")
+    for _ in range(3):
+        last = inq(213, "check", resolved=False)
+    assert last["actions"] == [{"type": "suspend"}]
+    actions = builder.start_or_resume(graph, resume, tts)
+    assert [a["type"] for a in actions] == ["invalidate", "present"]
+
+
 def test_inquiry_requests_out_of_place_are_rejected():
     graph, _, _ = _inquiry_setup()
     with pytest.raises(builder.NotWaitingError):

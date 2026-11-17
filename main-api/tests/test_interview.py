@@ -284,6 +284,25 @@ def test_reconnect_sends_resume_after_a_question_was_presented(monkeypatch, appl
     assert _sql("select status from interview_session where session_id = :s", s=sid)[0][0] == "진행 중"  # 끊겨도 진행 중
 
 
+def test_second_connection_to_the_same_session_closes_the_first(monkeypatch, applicant, ready):
+    """통합테스트 IT-INQ-001 세션 627: 두 창에서 같은 응시에 붙으면 두 연결이 각자 ai-service로 면접을 진행했다.
+    새 연결이 오면 이전 연결을 끊어 한 연결만 면접을 진행한다."""
+    aid, qids = ready
+    _sql("update job_posting set answer_time_sec = 30 where posting_id = (select posting_id from application where application_id = :a)", a=aid)
+    sid = _enter(applicant, aid).json()["session_id"]
+    fake = FakeAi(qids)
+    monkeypatch.setattr(ws_interview, "get_ai_client", lambda: fake)
+    with _socket(applicant, sid) as first:
+        first.receive_json(), first.receive_json(), first.receive_bytes()  # 첫 창: 질문을 받고 기다린다
+        with _socket(applicant, sid) as second:
+            assert second.receive_json()["type"] == "connected"
+            # 이전 연결은 '다른 창에서 접속' 안내를 받고 닫힌다
+            msg = first.receive_json()
+            assert (msg["type"], msg["code"]) == ("error", "CONNECTED_ELSEWHERE")
+            with pytest.raises(WebSocketDisconnect):
+                first.receive_json()
+
+
 def test_socket_rejects_without_login_or_others_session(monkeypatch, client, applicant, ready):
     aid, qids = ready
     sid = _enter(applicant, aid).json()["session_id"]

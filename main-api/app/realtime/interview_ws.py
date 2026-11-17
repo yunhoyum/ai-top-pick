@@ -41,6 +41,7 @@ INQUIRY_TYPES = {"inquiry_open", "inquiry_message", "inquiry_check"}
 # 답변 평가 중 문의를 받아 둘 때의 안내 (AI Agent 설계서 4.5 '나중에 정한다', 5단계에서 정함)
 INQUIRY_QUEUED = "답변을 처리하고 있습니다. 다음 질문이 나오면 바로 이어서 도와드리겠습니다."
 INQUIRY_AFTER_END = "면접 전형이 끝났습니다. 회사에 문의하세요."  # AI Agent 설계서 4.5
+CONNECTED_ELSEWHERE = "다른 창에서 면접에 접속해 이 창의 연결을 끊었습니다. 접속한 창에서 이어서 진행해 주세요."
 SUSPENDED = {
     False: "문제가 해결되지 않아 면접을 중단했습니다. 다시 접속하면 재시험을 볼 수 있습니다. 면접 마감 전에 응시해 주세요.",
     True: "문제가 해결되지 않아 면접을 중단했습니다. 담당자가 확인한 뒤 내 지원 현황에서 다시 응시할 수 있습니다.",
@@ -49,6 +50,11 @@ SUSPENDED = {
 
 def _iso(at: datetime) -> str:
     return at.astimezone(timezone.utc).isoformat()
+
+
+# 응시마다 지금 면접을 진행하는 연결. 두 창이 같은 응시를 진행하면 ai-service 그래프 상태가 엇갈렸다
+# (통합테스트 IT-INQ-001 세션 627: 재시험이 새 질문을 낸 뒤 바로 '완료'로 끝남). 새 연결이 오면 이전 연결을 끊는다
+_connected: dict[int, "InterviewSocketHandler"] = {}
 
 
 class InterviewSocketHandler:
@@ -74,6 +80,7 @@ class InterviewSocketHandler:
         self.inquiry_idle.set()
         self.interrupt_actions: list[dict] | None = None  # 문의 판단이 끼어들 때의 다음 행동
         self.handling_status: str | None = None  # 마지막 문의의 처리 상태 (중단 안내)
+        self.replaced = False  # 다른 창의 새 연결에 자리를 넘겼다. 이후 행동은 하지 않는다
 
     async def run(self) -> None:
         async with AsyncSessionLocal() as db:
@@ -90,6 +97,9 @@ class InterviewSocketHandler:
                 await self.ws.close(code=INTERNAL_ERROR)
                 return
         await self.ws.accept()
+        previous, _connected[self.session_id] = _connected.get(self.session_id), self
+        if previous is not None:
+            await previous.close_as_replaced()
         session_events.record(self.session_id, "재연결" if payload["resume"] else "면접 연결")
         self.settings = payload["settings"]
         self.order = {q["qkey"]: i for i, q in enumerate(payload["questions"], start=1)}
@@ -110,6 +120,18 @@ class InterviewSocketHandler:
         finally:
             reader.cancel()
             inquiries.cancel()
+            if _connected.get(self.session_id) is self:
+                del _connected[self.session_id]
+
+    async def close_as_replaced(self) -> None:
+        """다른 창이 같은 응시에 접속했다. 안내하고 이 연결을 닫는다. 진행 중이던 ai-service 요청의 결과는 버린다."""
+        self.replaced = True
+        session_events.record(self.session_id, "다른 창에서 접속해 이전 연결을 끊음")
+        await self._send_error("CONNECTED_ELSEWHERE", CONNECTED_ELSEWHERE)
+        try:
+            await self.ws.close()
+        except Exception:
+            pass
 
     async def _read(self) -> None:
         """브라우저 메시지를 나눈다. 문의는 inquiry_msgs로, 나머지는 타이머가 보는 events로.
@@ -147,6 +169,8 @@ class InterviewSocketHandler:
         await_expression(표정 재분석), suspend(응시 중단), end(종료)."""
         next_actions: list[dict] = []
         for action in actions:
+            if self.replaced:  # 새 연결이 진행한다
+                return []
             if action["type"] == "remove":
                 await self.remove(action["question"])
             elif action["type"] == "invalidate":
