@@ -48,6 +48,16 @@ class InquiryService:
         await self.repo.add_logs(inquiry_id, logs)
         await self.db.commit()
 
+    async def end_abandoned(self, session_id: int) -> None:
+        """문의 도중 끊겨 재접속했다. ai-service가 그 문의를 끝내므로(cancel) 판정 없이 종료 시각을 남긴다.
+        판단이 없어 관리자 목록에는 보이지 않는다 (2026-11-18 결정)."""
+        for inquiry in await self.db.scalars(
+            select(Inquiry).where(Inquiry.session_id == session_id, Inquiry.ended_at.is_(None))
+        ):
+            inquiry.ended_at = datetime.now(timezone.utc)
+            inquiry.handling_detail = "재접속으로 문의 종료"
+        await self.db.commit()
+
     async def close(self, inquiry_id: int, judgment: dict) -> tuple[str, str | None]:
         """(해결 여부, 원인)으로 판단 결과 코드를 찾아 저장한다 (SYS-003). (처리 상태, 후속 조치)를 돌려준다."""
         kind = await self.repo.get_judgment_type(judgment["resolved"], judgment["cause"])

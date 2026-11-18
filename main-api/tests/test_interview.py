@@ -699,6 +699,24 @@ def test_inquiry_resolved_on_system_side_represents_a_new_question(monkeypatch, 
     assert _inquiry_row(inquiry_id)[:2] == ("AI 처리", "RESOLVED_SYSTEM")
 
 
+def test_reconnect_ends_the_inquiry_left_open(monkeypatch, applicant, ready):
+    """통합테스트 IT-INQ-001 2단계: 문의 도중 새로고침하면 ai-service는 문의를 끝내는데(cancel) DB의 문의는 열린 채 남았다.
+    재접속하면 판정 없이 끝난 문의로 종료 시각을 남긴다. 판단이 없으니 관리자 목록에는 보이지 않는다."""
+    aid, qids = ready
+    _long_answer_time(aid)
+    sid = _enter(applicant, aid).json()["session_id"]
+    monkeypatch.setattr(ws_interview, "get_ai_client", lambda: InquiryAi(qids[:1], cause="시스템 측"))
+    with _socket(applicant, sid) as ws:
+        _to_answer_phase(ws, qids[0])
+        inquiry_id = _inquire(ws, qids[0])
+    assert _sql("select ended_at from inquiry where inquiry_id = :i", i=inquiry_id)[0][0] is None  # 끊긴 채 열려 있다
+    with _socket(applicant, sid) as ws:
+        _recv(ws, "question")
+    row = _sql("select ended_at is not null, handling_status, judgment_code, handling_detail from inquiry where inquiry_id = :i",
+               i=inquiry_id)[0]
+    assert row == (True, None, None, "재접속으로 문의 종료")
+
+
 def test_unresolved_system_side_suspends_waits_for_admin_then_retake(monkeypatch, client, admin, applicant, ready):
     aid, qids = ready
     _long_answer_time(aid)

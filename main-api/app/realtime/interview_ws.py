@@ -96,6 +96,8 @@ class InterviewSocketHandler:
                 log.exception("면접 %s 시작 본문을 만들지 못했다", self.session_id)
                 await self.ws.close(code=INTERNAL_ERROR)
                 return
+            if payload["resume"]:
+                await InquiryService(db).end_abandoned(self.session_id)
         await self.ws.accept()
         previous, _connected[self.session_id] = _connected.get(self.session_id), self
         if previous is not None:
