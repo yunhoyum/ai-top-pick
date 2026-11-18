@@ -9,11 +9,14 @@
 - 바른 말이 틀린 말보다 지나치게 길지 않다 (2배 + 4글자 이하). 답변을 덧붙이지 못하게 한다
 - 바른 말에 영문·숫자가 없으면(한글끼리 고침) 자모 유사도가 MIN_JAMO_SIMILARITY 이상이다.
   소리가 비슷한 낱말을 고친 것만 남긴다. '몰라요' → '잘 모르겠습니다' 같은 바꿔 쓰기는 버린다
+- 바른 말에 숫자가 있으면 그 숫자가 틀린 말에서 읽은 숫자(한글 숫자 또는 아라비아 숫자)에 있어야 한다.
+  실험 T1에서 '십 초'를 '1초'로 고쳤다. 지원자가 말한 숫자가 바뀌면 채점이 달라진다
 - 틀린 말의 부정어(않·안·못·없)를 바른 말에서 지우지 않는다. '쓰지 않겠습니다' → '함께 쓰겠습니다'는 자모 유사도가
   0.71이라 위 검사를 지난다
 """
 
 import logging
+import re
 from difflib import SequenceMatcher
 
 from langchain_core.runnables import Runnable
@@ -27,6 +30,9 @@ log = logging.getLogger(__name__)
 MAX_WRONG_LEN = 20
 MIN_JAMO_SIMILARITY = 0.5
 NEGATIONS = ("않", "안 ", "못", "없")
+_DIGITS = {"영": 0, "공": 0, "일": 1, "이": 2, "삼": 3, "사": 4, "오": 5, "육": 6, "칠": 7, "팔": 8, "구": 9}
+_UNITS = {"십": 10, "백": 100, "천": 1000}
+_KOREAN_NUMBER = re.compile("[영공일이삼사오육칠팔구십백천만]+")
 
 
 class Fix(BaseModel):
@@ -65,9 +71,31 @@ def _acceptable(text: str, wrong: str, right: str) -> bool:
         return False
     if any(n in f"{wrong} " and n not in f"{right} " for n in NEGATIONS):
         return False
+    numbers = re.findall(r"\d+", right)
+    if numbers and not set(map(int, numbers)) <= _spoken_numbers(wrong):
+        return False
     if any(c.isascii() and c.isalnum() for c in right):
         return True  # 한글 소리로 적힌 용어·숫자를 영문·숫자로 고쳤다
     return SequenceMatcher(None, _jamo(wrong), _jamo(right)).ratio() >= MIN_JAMO_SIMILARITY
+
+
+def _spoken_numbers(text: str) -> set[int]:
+    """틀린 말에 적힌 숫자. 한글로 읽은 숫자('십' → 10, '삼백' → 300)와 아라비아 숫자."""
+    return {_read_korean(run) for run in _KOREAN_NUMBER.findall(text)} | set(map(int, re.findall(r"\d+", text)))
+
+
+def _read_korean(run: str) -> int:
+    total = section = digit = 0
+    for ch in run:
+        if ch in _DIGITS:
+            digit = _DIGITS[ch]
+        elif ch in _UNITS:
+            section += (digit or 1) * _UNITS[ch]
+            digit = 0
+        else:  # 만
+            total += (section + digit or 1) * 10000
+            section = digit = 0
+    return total + section + digit
 
 
 def _jamo(text: str) -> str:

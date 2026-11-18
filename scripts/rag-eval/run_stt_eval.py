@@ -6,6 +6,7 @@ stt_eval_set.json의 답변마다 STT 보정을 실제 LLM으로 돌리고 v1 �
 - 다시 쓰기: 원문과 보정문의 글자 유사도가 0.6보다 낮은 구간 수 (앱이 막은 뒤의 결과로 센다)
 - 형식 실패와 시간
 바뀐 구간은 results/stt-<실험 ID>-review.csv에 원문·보정문을 두고 사람이 본다.
+LLM이 낸 원래 출력(llm_outputs)도 남긴다. v2에서 LLM이 낸 짝 중 코드가 버린 것을 보기 위해서다 (T2부터).
 
 PC2의 final_project 폴더에서 (PowerShell):
   docker run --rm --env-file pc2/.env -v "${PWD}/ai-service:/src" -v "${PWD}/scripts/rag-eval:/eval" -w /src pc2-ai-service:latest python /eval/run_stt_eval.py <실험 ID> [반복 횟수]
@@ -37,20 +38,34 @@ def frozen_v1():
     return module
 
 
+class Recorder:
+    """LLM 출력을 그대로 남긴다."""
+
+    def __init__(self, model):
+        self.model, self.outputs = model, []
+
+    def invoke(self, messages):
+        out = self.model.invoke(messages)
+        self.outputs.append(out.content)
+        return out
+
+
 def run_case(model, chain, case: dict) -> dict:
     segments = [{"time_offset_sec": i, "raw_text": s} for i, s in enumerate(case["segments"])]
+    model = Recorder(model)
     start = time.perf_counter()
     try:
         out = [s["corrected_text"] for s in chain.correct_transcript(model, case["question"], segments)]
     except Exception as e:
-        return {"error": f"{type(e).__name__}: {e}"[:300], "seconds": round(time.perf_counter() - start, 1)}
+        return {"error": f"{type(e).__name__}: {e}"[:300], "seconds": round(time.perf_counter() - start, 1),
+                "llm_outputs": model.outputs}
     raws = case["segments"]
     hits = [f["right"] in out[f["segment"] - 1] and f["wrong"] not in out[f["segment"] - 1] for f in case["expect_fixes"]]
     kept = [out[i - 1] == raws[i - 1] for i in case["keep"]]
     similarity = [SequenceMatcher(None, r, c).ratio() for r, c in zip(raws, out)]
     return {"corrected": out, "seconds": round(time.perf_counter() - start, 1), "fix_hits": hits, "kept": kept,
             "rewrites": sum(s < REWRITE_SIMILARITY for s in similarity),
-            "changed": [i + 1 for i, (r, c) in enumerate(zip(raws, out)) if r != c]}
+            "changed": [i + 1 for i, (r, c) in enumerate(zip(raws, out)) if r != c], "llm_outputs": model.outputs}
 
 
 def summary(rows: list[dict]) -> dict:

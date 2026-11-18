@@ -55,6 +55,14 @@ def test_rewriting_a_segment_into_an_answer_is_rejected():
     assert _corrected(fixes, *raws) == raws
 
 
+def test_number_fix_must_keep_the_spoken_number():
+    """실험 T1: '십 초'를 '1초'로 고쳤다. 바른 말의 숫자는 틀린 말의 한글 숫자와 같아야 한다."""
+    raws = ["응답이 십 초 걸렸습니다.", "응답을 일 조 아래로 줄였습니다.", "삼백 밀리초였습니다."]
+    fixes = [_fix(1, "십 초", "1초"), _fix(2, "일 조", "1초"), _fix(3, "삼백 밀리초", "300밀리초")]
+    assert _corrected(fixes, *raws) == ["응답이 십 초 걸렸습니다.", "응답을 1초 아래로 줄였습니다.", "300밀리초였습니다."]
+    assert _corrected([_fix(1, "십 초", "10초")], raws[0]) == ["응답이 10초 걸렸습니다."]
+
+
 def test_fix_whose_wrong_text_is_not_in_the_segment_is_ignored():
     # 구간 번호가 틀렸거나 원문에 없는 낱말이다. 다른 바른 짝은 적용한다
     raws = ["음, AP 응답을 캐시로 줄였습니다.", "벡터 검색만으로 충분해서 키워드 검색은 쓰지 않겠습니다."]
