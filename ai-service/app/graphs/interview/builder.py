@@ -13,6 +13,7 @@ thread_id는 session-{session_id}다. 재접속·재시험은 같은 체크포�
 """
 
 import base64
+import time
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
@@ -33,6 +34,15 @@ from app.schemas.internal import AnswerRequest, ExpressionRequest, InquiryReques
 
 class NoCheckpointError(Exception):
     """재접속(resume=참)인데 체크포인트가 없다. 처음부터 시작하지 않는다. 답변 중복 저장을 막기 위해서다."""
+
+
+class GraphBusyError(Exception):
+    """재접속했는데 이전 연결의 요청(답변 채점 등)이 기다리는 시간 안에 끝나지 않았다."""
+
+
+# 재접속 때 이전 연결의 요청이 끝나기를 기다리는 시간. 답변 채점은 LLM을 여러 번 불러 수십 초 걸린다 (제안)
+RESUME_WAIT_SEC = 300.0
+RESUME_POLL_SEC = 0.5
 
 
 class NotWaitingError(Exception):
@@ -72,13 +82,29 @@ def _waiting_question(graph, config, node: str = "wait_answer") -> dict | None:
     return snapshot.values.get("current") if node in snapshot.next else None
 
 
-def start_or_resume(graph, req: StartInterviewRequest, tts: Tts) -> list[dict]:
+def _wait_until_paused(graph, config, wait_sec: float):
+    """다른 요청이 그래프를 진행 중이면(다음 노드는 있는데 멈춘 interrupt가 없음) 멈추거나 끝날 때까지 기다린다."""
+    deadline = time.monotonic() + wait_sec
+    while True:
+        snapshot = graph.get_state(config)
+        if not snapshot.next or any(task.interrupts for task in snapshot.tasks):
+            return snapshot
+        if time.monotonic() >= deadline:
+            raise GraphBusyError(config["configurable"]["thread_id"])
+        time.sleep(RESUME_POLL_SEC)
+
+
+def start_or_resume(graph, req: StartInterviewRequest, tts: Tts, wait_sec: float = RESUME_WAIT_SEC) -> list[dict]:
     """체크포인트가 없으면 새로 시작한다. 있으면 마지막 상태에서 이어간다 (재접속).
+    이전 연결의 요청이 아직 그래프를 진행 중이면 멈출 때까지 기다린다. 통합테스트 재수행 세션 796: 답변 채점 중에
+    새로고침하자 멈춘 상태가 아니라서 '이미 끝난 면접'으로 보고 응시를 '완료'로 끝냈다.
     답변을 기다리던 중이면 그 질문을 다시 돌려준다. 음성도 다시 만든다 (SYS-011: 다시 제시한 질문도 다시 읽어준다).
     중단(재접속 대기) 상태면 interrupt를 풀어 진행 중이던 질문을 무효로 하고 다시 제시한다 (재시험, APP-014).
     문의 도중 끊겼으면 문의를 끝내고 진행 중이던 질문을 다시 제시한다 (5단계 결정)."""
     config = graph_config(req.session_id)
     snapshot = graph.get_state(config)
+    if snapshot.values:
+        snapshot = _wait_until_paused(graph, config, wait_sec)
     if not snapshot.values:
         if req.resume:
             raise NoCheckpointError(req.session_id)

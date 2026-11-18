@@ -2,6 +2,7 @@
 
 import base64
 import json
+import threading
 from decimal import Decimal
 
 import pytest
@@ -166,6 +167,49 @@ def test_reconnect_presents_the_waiting_question_again_without_advancing(setup):
     assert [(a["type"], a["question"]["qkey"]) for a in actions] == [("present", "q12")]
     assert tts.texts.count("모른다고 말한 경험은?") == 2  # 다시 제시한 질문도 다시 읽어준다 (SYS-011)
     assert graph2.get_state(builder.graph_config(5)).values["answered"] == ["q11"]
+
+
+class SlowScoring(Fakes):
+    """내용 채점이 release 전까지 끝나지 않는다. 채점을 시작하면 scoring을 켠다."""
+
+    def __init__(self):
+        super().__init__()
+        self.scoring, self.release = threading.Event(), threading.Event()
+
+    def score_content(self, *args, **kwargs):
+        self.scoring.set()
+        assert self.release.wait(5)
+        return super().score_content(*args, **kwargs)
+
+
+def test_reconnect_while_the_answer_is_being_scored_waits_for_the_next_question():
+    # 통합테스트 재수행 세션 796: 답변 채점 중에 새로고침하자 재개 요청이 '이미 끝난 면접'(end)을 받아 응시가 '완료'됐다
+    tts, saver, fakes = FakeTts(), InMemorySaver(), SlowScoring()
+    graph = _build(saver, tts, fakes=fakes)
+    builder.start_or_resume(graph, StartInterviewRequest(**BODY), tts)
+    answering = threading.Thread(target=builder.submit_answer, args=(graph, 5, _answer("q11", 11, raw_text=RAW, words=WORDS)))
+    answering.start()  # 이전 연결의 답변 요청
+    assert fakes.scoring.wait(5)
+    threading.Timer(0.3, fakes.release.set).start()
+    actions = builder.start_or_resume(graph, StartInterviewRequest(**(BODY | {"resume": True})), tts)  # 새 연결
+    answering.join(5)
+    assert [(a["type"], a["question"]["qkey"]) for a in actions] == [("present", "q12")]
+
+
+def test_reconnect_gives_up_when_the_graph_stays_busy(monkeypatch):
+    monkeypatch.setattr(builder, "RESUME_POLL_SEC", 0.05)
+    tts, saver, fakes = FakeTts(), InMemorySaver(), SlowScoring()
+    graph = _build(saver, tts, fakes=fakes)
+    builder.start_or_resume(graph, StartInterviewRequest(**BODY), tts)
+    answering = threading.Thread(target=builder.submit_answer, args=(graph, 5, _answer("q11", 11, raw_text=RAW, words=WORDS)))
+    answering.start()
+    assert fakes.scoring.wait(5)
+    try:
+        with pytest.raises(builder.GraphBusyError):  # 끝난 면접으로 보지 않는다
+            builder.start_or_resume(graph, StartInterviewRequest(**(BODY | {"resume": True})), tts, wait_sec=0.2)
+    finally:
+        fakes.release.set()
+        answering.join(5)
 
 
 def test_resume_without_checkpoint_is_an_error(setup):

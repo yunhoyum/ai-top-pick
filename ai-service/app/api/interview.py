@@ -77,6 +77,8 @@ def start(session_id: int, req: StartInterviewRequest, graph=Depends(get_intervi
         return StartInterviewResponse(actions=builder.start_or_resume(graph, req, tts))
     except builder.NoCheckpointError:
         raise HTTPException(status_code=409, detail="이어서 진행할 면접 상태가 없습니다.")
+    except builder.GraphBusyError:
+        raise HTTPException(status_code=409, detail="이전 요청을 아직 처리하고 있습니다.")
 
 
 @router.post("/{session_id}/answer", response_model=AnswerResponse)
