@@ -13,7 +13,7 @@ thread_id는 session-{session_id}다. 재접속·재시험은 같은 체크포�
 """
 
 import base64
-import time
+import threading
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
@@ -42,7 +42,16 @@ class GraphBusyError(Exception):
 
 # 재접속 때 이전 연결의 요청이 끝나기를 기다리는 시간. 답변 채점은 LLM을 여러 번 불러 수십 초 걸린다 (제안)
 RESUME_WAIT_SEC = 300.0
-RESUME_POLL_SEC = 0.5
+
+# 응시마다 그래프를 한 요청씩만 진행한다. 체크포인트로 '진행 중'을 판단하면 한 단계가 끝나고 다음 체크포인트가
+# 저장되기 전 순간에 할 일이 없는(끝난) 그래프로 보인다 (통합테스트 재수행 세션 798). uvicorn 프로세스는 하나다
+_locks: dict[int, threading.Lock] = {}
+_locks_guard = threading.Lock()
+
+
+def _session_lock(session_id: int) -> threading.Lock:
+    with _locks_guard:
+        return _locks.setdefault(session_id, threading.Lock())
 
 
 class NotWaitingError(Exception):
@@ -82,29 +91,26 @@ def _waiting_question(graph, config, node: str = "wait_answer") -> dict | None:
     return snapshot.values.get("current") if node in snapshot.next else None
 
 
-def _wait_until_paused(graph, config, wait_sec: float):
-    """다른 요청이 그래프를 진행 중이면(다음 노드는 있는데 멈춘 interrupt가 없음) 멈추거나 끝날 때까지 기다린다."""
-    deadline = time.monotonic() + wait_sec
-    while True:
-        snapshot = graph.get_state(config)
-        if not snapshot.next or any(task.interrupts for task in snapshot.tasks):
-            return snapshot
-        if time.monotonic() >= deadline:
-            raise GraphBusyError(config["configurable"]["thread_id"])
-        time.sleep(RESUME_POLL_SEC)
-
-
 def start_or_resume(graph, req: StartInterviewRequest, tts: Tts, wait_sec: float = RESUME_WAIT_SEC) -> list[dict]:
     """체크포인트가 없으면 새로 시작한다. 있으면 마지막 상태에서 이어간다 (재접속).
     이전 연결의 요청이 아직 그래프를 진행 중이면 멈출 때까지 기다린다. 통합테스트 재수행 세션 796: 답변 채점 중에
     새로고침하자 멈춘 상태가 아니라서 '이미 끝난 면접'으로 보고 응시를 '완료'로 끝냈다.
+    채점 요청과 같은 잠금을 쓴다 (_session_lock).
     답변을 기다리던 중이면 그 질문을 다시 돌려준다. 음성도 다시 만든다 (SYS-011: 다시 제시한 질문도 다시 읽어준다).
     중단(재접속 대기) 상태면 interrupt를 풀어 진행 중이던 질문을 무효로 하고 다시 제시한다 (재시험, APP-014).
     문의 도중 끊겼으면 문의를 끝내고 진행 중이던 질문을 다시 제시한다 (5단계 결정)."""
+    lock = _session_lock(req.session_id)
+    if not lock.acquire(timeout=wait_sec):
+        raise GraphBusyError(req.session_id)
+    try:
+        return _start_or_resume(graph, req, tts)
+    finally:
+        lock.release()
+
+
+def _start_or_resume(graph, req: StartInterviewRequest, tts: Tts) -> list[dict]:
     config = graph_config(req.session_id)
     snapshot = graph.get_state(config)
-    if snapshot.values:
-        snapshot = _wait_until_paused(graph, config, wait_sec)
     if not snapshot.values:
         if req.resume:
             raise NoCheckpointError(req.session_id)
@@ -136,6 +142,8 @@ def start_or_resume(graph, req: StartInterviewRequest, tts: Tts, wait_sec: float
     if current := _waiting_question(graph, config, "wait_expression"):
         # 답변은 이미 받았고 표정 재분석을 기다리던 중에 끊겼다. main-api가 다시 분석해 /expression을 보낸다
         return [{"type": "await_expression", "question": current}]
+    if snapshot.next:  # 멈춘 곳이 아닌데 다음 노드가 있다: 진행이 중간에 끊겼다. 끝난 면접으로 보지 않는다
+        raise GraphBusyError(req.session_id)
     return [{"type": "end"}]  # 이미 끝난 면접
 
 
@@ -155,23 +163,25 @@ def _represent_new_question(state: dict, current: dict, audio: str, questions: l
 
 def submit_answer(graph, session_id: int, req: AnswerRequest) -> tuple[dict, list[dict]]:
     """답변으로 interrupt를 풀고 (답변 평가, 다음 행동)을 돌려준다."""
-    config = graph_config(session_id)
-    current = _waiting_question(graph, config)
-    if current is None or current["qkey"] != req.qkey:
-        raise NotWaitingError(req.qkey)
-    # bindings(새 질문의 question_id 짝)는 wait_answer가 지금 질문에 반영한다
-    state = graph.invoke(Command(resume={"type": "answer", **req.model_dump()}), config)
-    return state["last_evaluation"], state["actions"]
+    with _session_lock(session_id):
+        config = graph_config(session_id)
+        current = _waiting_question(graph, config)
+        if current is None or current["qkey"] != req.qkey:
+            raise NotWaitingError(req.qkey)
+        # bindings(새 질문의 question_id 짝)는 wait_answer가 지금 질문에 반영한다
+        state = graph.invoke(Command(resume={"type": "answer", **req.model_dump()}), config)
+        return state["last_evaluation"], state["actions"]
 
 
 def submit_expression(graph, session_id: int, req: ExpressionRequest) -> tuple[dict, list[dict]]:
     """다시 분석한 표정으로 interrupt를 풀고 (답변 평가, 다음 행동)을 돌려준다 (규약 2.5)."""
-    config = graph_config(session_id)
-    current = _waiting_question(graph, config, "wait_expression")
-    if current is None or current["qkey"] != req.qkey:
-        raise NotWaitingError(req.qkey)
-    state = graph.invoke(Command(resume=req.model_dump()), config)
-    return state["last_evaluation"], state["actions"]
+    with _session_lock(session_id):
+        config = graph_config(session_id)
+        current = _waiting_question(graph, config, "wait_expression")
+        if current is None or current["qkey"] != req.qkey:
+            raise NotWaitingError(req.qkey)
+        state = graph.invoke(Command(resume=req.model_dump()), config)
+        return state["last_evaluation"], state["actions"]
 
 
 # 이벤트마다 받을 수 있는 interrupt. 해결 확인을 기다리는 중에도 지원자가 글로 더 알려 줄 수 있다
@@ -181,16 +191,17 @@ INQUIRY_NODE = {"open": {"wait_answer"}, "message": {"inquiry_wait", "check_reso
 def submit_inquiry(graph, session_id: int, req: InquiryRequest) -> dict:
     """문의 요청으로 interrupt를 푼다 (규약 2.4). 문의는 답변을 기다릴 때만 시작할 수 있다 (AI Agent 설계서 4.5).
     {reply, check, judgment, actions}를 돌려준다."""
-    config = graph_config(session_id)
-    snapshot = graph.get_state(config)
-    inquiry = snapshot.values.get("inquiry")
-    if not INQUIRY_NODE[req.event] & set(snapshot.next):
-        raise NotWaitingError(req.event)
-    if req.event != "open" and (inquiry is None or inquiry["inquiry_id"] != req.inquiry_id):
-        raise NotWaitingError(req.inquiry_id)
-    value = {"type": "inquiry", **req.model_dump()}
-    if req.event != "open":  # 문의 서브그래프 안의 interrupt는 문의 이벤트만 받는다
-        value = req.model_dump()
-    state = graph.invoke(Command(resume=value), config)
-    return {"reply": state.get("inquiry_reply"), "check": state.get("inquiry_check"),
-            "judgment": state.get("inquiry_judgment"), "actions": state.get("actions", [])}
+    with _session_lock(session_id):
+        config = graph_config(session_id)
+        snapshot = graph.get_state(config)
+        inquiry = snapshot.values.get("inquiry")
+        if not INQUIRY_NODE[req.event] & set(snapshot.next):
+            raise NotWaitingError(req.event)
+        if req.event != "open" and (inquiry is None or inquiry["inquiry_id"] != req.inquiry_id):
+            raise NotWaitingError(req.inquiry_id)
+        value = {"type": "inquiry", **req.model_dump()}
+        if req.event != "open":  # 문의 서브그래프 안의 interrupt는 문의 이벤트만 받는다
+            value = req.model_dump()
+        state = graph.invoke(Command(resume=value), config)
+        return {"reply": state.get("inquiry_reply"), "check": state.get("inquiry_check"),
+                "judgment": state.get("inquiry_judgment"), "actions": state.get("actions", [])}

@@ -196,8 +196,7 @@ def test_reconnect_while_the_answer_is_being_scored_waits_for_the_next_question(
     assert [(a["type"], a["question"]["qkey"]) for a in actions] == [("present", "q12")]
 
 
-def test_reconnect_gives_up_when_the_graph_stays_busy(monkeypatch):
-    monkeypatch.setattr(builder, "RESUME_POLL_SEC", 0.05)
+def test_reconnect_gives_up_when_the_graph_stays_busy():
     tts, saver, fakes = FakeTts(), InMemorySaver(), SlowScoring()
     graph = _build(saver, tts, fakes=fakes)
     builder.start_or_resume(graph, StartInterviewRequest(**BODY), tts)
