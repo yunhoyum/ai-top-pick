@@ -11,7 +11,7 @@ inquiry_eval_set.json의 문의마다 결함 분석(analyze)을 실제 LLM으로
 안내 문구 품질은 사람이 본다. results/inquiry-<실험 ID>-review.csv에 판정 칸을 둔다.
 
 버전: frozen/inquiry_<버전>.py는 앱에서 바꾸기 전 사본, 그 밖은 앱의 app/prompts/inquiry.py(지금 버전).
-비교 대상은 FROZEN에 적는다 (실험 I3부터 v3 사본과 비교).
+비교 대상은 FROZEN에 적는다 (I3: v3 사본, I4부터 v4 사본과 비교).
 
 PC2의 final_project 폴더에서 (PowerShell):
   docker run --rm --env-file pc2/.env -v "${PWD}/ai-service:/src" -v "${PWD}/scripts/rag-eval:/eval" -w /src pc2-ai-service:latest python /eval/run_inquiry_eval.py <실험 ID> [반복 횟수] [current]
@@ -38,7 +38,7 @@ EVAL = json.loads(Path("/eval/inquiry_eval_set.json").read_text(encoding="utf-8"
 GREETING = current.GREETING
 
 
-FROZEN = "v3"
+FROZEN = "v4"
 
 
 def frozen(version: str):
