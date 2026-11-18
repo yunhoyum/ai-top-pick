@@ -8,6 +8,9 @@ LLM을 여러 번 부른다.
 
 1에 문서를 넣지 않는 이유: 문서를 같이 보면 답변에 없는 문서 내용을 답변에 섞어 읽었다 (RAG 설계서 5.5 P7).
 3을 주장마다 나누는 이유: 한 번에 비교하게 하면 주장을 합치거나 빠뜨리고 번호를 틀렸다 (P8).
+1이 뽑은 주장 중 답변에 없는 말로 쓴 것은 코드가 뺀다. '안녕하세요.'만 말한 답변에서 Redis 재시도 주장을 지어내
+내용 60점을 줬다 (통합테스트 IT-INTV-001, 2026-11-17). 평가셋에서도 "다시 검색하게 하면 됩니다."를 '피드백 요청,
+키워드 확장, 문서 추천'으로 읽었다 (P16 A26).
 2·3은 앞부분(지시, 회사 문서, 질문)을 같게 둬서 Ollama가 그 계산을 다시 쓰게 한다.
 """
 
@@ -46,8 +49,11 @@ RELEVANCE_CAP_NOTES = {
 NO_QUESTION_DOC_NOTE = "회사 문서에 관련 내용이 없는 질문이라 회사 문서 일치 축을 빼고 채점했다."
 NO_ANSWER_DOC_NOTE = "답변과 비교할 내용이 회사 문서에 없어 회사 문서 일치 축을 50점으로 채점했다."
 NO_CLAIM_NOTE = "답변에서 방법이나 사실을 찾지 못해 내용 점수를 0점으로 채점했다."
+UNGROUNDED_NOTE = "답변 읽기가 답변에 없는 내용을 주장으로 적어 그 주장을 뺐다."
+UNGROUNDED_PART_NOTE = "답변에 없는 주장 {n}개는 빼고 채점했다."
 
 _SENTENCE_ID = re.compile(r"\d+-\d+")
+_NON_WORD = re.compile(r"[^0-9a-z가-힣]")
 
 
 class EvidenceStatus(StrEnum):
@@ -103,18 +109,23 @@ def score_content(
 ) -> ContentScore:
     """topic: 질문을 낼 때 judge_question_topic으로 받아 둔 결과. 없으면 여기서 부른다."""
     model = model or get_chat_model()
-    read = _read_answer(model, question, answer, job_description)
+    read, ungrounded = _drop_ungrounded(_read_answer(model, question, answer, job_description), answer)
 
     # 다시 물어도 주장이 없으면 무응답으로 보고 0점이다. ㉡(50점)으로 두면 아무 말도 안 한 답변이
     # 문서와 반대인 답변보다 높은 점수를 받는다 (루브릭 설계서 3.3)
     if not read.claims:
-        llm_output = {"read": read.model_dump(), "topic": None, "claims": []}
-        return ContentScore(Decimal("0.00"), f"{read.reason} {NO_CLAIM_NOTE}", EvidenceStatus.NO_CLAIM, [], llm_output)
+        # 주장을 모두 뺐으면 읽기 이유도 지어낸 주장으로 쓴 것이라 쓰지 않는다
+        reason = f"{UNGROUNDED_NOTE} {NO_CLAIM_NOTE}" if ungrounded else f"{read.reason} {NO_CLAIM_NOTE}"
+        llm_output = {"read": read.model_dump(), "ungrounded_claims": ungrounded, "topic": None, "claims": []}
+        return ContentScore(Decimal("0.00"), reason, EvidenceStatus.NO_CLAIM, [], llm_output)
+    if ungrounded:
+        read = read.model_copy(update={"reason": f"{read.reason} {UNGROUNDED_PART_NOTE.format(n=len(ungrounded))}"})
 
     # ㉠: 질문으로 찾은 문서가 없다. 회사 문서와 비교하지 않는다
     if not question_context:
         check, read = _check_relevance(model, question, answer, read)
-        return _without_doc_axis(read, {"read": read.model_dump(), "relevance_check": check, "topic": None, "claims": []})
+        return _without_doc_axis(read, {"read": read.model_dump(), "ungrounded_claims": ungrounded,
+                                        "relevance_check": check, "topic": None, "claims": []})
 
     # 앞부분(시스템 메시지)은 질문 검색 문장만으로 만든다. 질문을 낼 때와 글자 하나 다르지 않아야 캐시를 다시 쓴다.
     # 답변으로만 찾은 문장은 번호를 이어 매겨 주장마다 뒤에 붙인다
@@ -132,6 +143,7 @@ def score_content(
     check, read = _check_relevance(model, question, answer, read)
     llm_output = {
         "read": read.model_dump(),
+        "ungrounded_claims": ungrounded,
         "relevance_check": check,
         "topic": topic.model_dump(),
         "claims": [j.model_dump() for j in judgments],
@@ -171,6 +183,25 @@ def _check_relevance(
         return check, read
     # 답변 읽기의 이유는 낮추기 전 점수로 썼다. 낮춘 사실을 덧붙인다 (㉠·㉡ 문구와 같은 방식, 루브릭 설계서 3.3)
     return check, read.model_copy(update={"relevance": capped, "reason": f"{read.reason} {RELEVANCE_CAP_NOTES[out.answered]}"})
+
+
+def _drop_ungrounded(read: AnswerReadOutput, answer: str) -> tuple[AnswerReadOutput, list[str]]:
+    """답변에 없는 말로 쓴 주장을 뺀다. (남은 주장의 읽기 결과, 뺀 주장).
+    주장의 글자 2개 묶음 중 답변에 있는 비율이 CLAIM_MIN_GROUNDING보다 낮으면 뺀다."""
+    answer_grams = _bigrams(answer)
+    threshold = get_settings().CLAIM_MIN_GROUNDING
+    kept, dropped = [], []
+    for claim in read.claims:
+        grams = _bigrams(claim)
+        grounded = len(grams & answer_grams) / len(grams) if grams else 0.0
+        (kept if grounded >= threshold else dropped).append(claim)
+    return (read.model_copy(update={"claims": kept}) if dropped else read), dropped
+
+
+def _bigrams(text: str) -> set[str]:
+    """띄어쓰기·문장부호를 빼고 소문자로 바꾼 글자 2개 묶음. 'N 플러스 일'과 'N플러스일'을 같게 본다."""
+    t = _NON_WORD.sub("", text.lower())
+    return {t[i:i + 2] for i in range(len(t) - 1)}
 
 
 def _question_sentences(question_context: list[Chunk]) -> list[NumberedSentence]:

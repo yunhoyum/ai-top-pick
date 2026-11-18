@@ -10,9 +10,11 @@
 final_project 폴더에서:
   docker run --rm --network pc1_default --env-file pc1/.env -e LLM_URL=<주소>/v1 -e LLM_MODEL=<모델> \
     -v "$(pwd)/ai-service:/src" -v "$(pwd)/scripts/rag-eval:/eval" -w /src pc2-ai-service:latest \
-    python /eval/run_content_eval.py <공고 ID> <실험 ID>
+    python /eval/run_content_eval.py <공고 ID> <실험 ID> [사본 버전]
+  사본 버전(예: v14)을 주면 frozen/answer_content_<버전>.py로 채점한다. 코드(답변에 없는 주장 빼기 등)는 지금 것이다.
 """
 
+import importlib.util
 import json
 import re
 import statistics
@@ -22,6 +24,7 @@ from pathlib import Path
 
 sys.path[:0] = ["/src"]
 
+from app.chains import answer_content
 from app.chains.answer_content import EvidenceStatus, judge_question_topic, score_content
 from app.chains.structured import StructuredOutputError
 from app.core.config import get_settings
@@ -182,6 +185,8 @@ def evaluate(posting_id: int) -> list[dict]:
               f"주제: {topic['question_in_docs'] if topic else '문서 없음'}"
               + (f" | 답했나: {r['llm']['relevance_check']['answered']} (읽기 적합 {r['llm']['relevance_check']['read_relevance']})"
                  if r["llm"].get("relevance_check") else ""), flush=True)
+        for claim in r["llm"].get("ungrounded_claims", []):
+            print(f"         뺌(답변에 없음): {claim[:60]}", flush=True)
         for i, claim in enumerate(read["claims"]):
             j = judged[i] if i < len(judged) else None
             print(f"         {i + 1}. {claim[:60]} → {j['level'] + ' ' + str(j['evidence_ids']) if j else '-'}", flush=True)
@@ -215,6 +220,9 @@ def report(rows: list[dict]) -> dict:
         judged = [r["level_ok"] for r in scored if r["level_ok"] is not None]
         errors["level_agreement"] = sum(judged) / len(judged) if judged else None
         print(f"일치 단계 일치율 {errors['level_agreement']:.1%} ({sum(judged)}/{len(judged)})" if judged else "일치 단계 비교 없음")
+    dropped = [r["id"] for r in rows if r.get("llm", {}).get("ungrounded_claims")]
+    errors["ungrounded_answers"] = dropped
+    print(f"답변에 없는 주장을 뺀 답변 {len(dropped)}개: {', '.join(dropped) or '없음'}")
     failed = sum(r.get("format_failed", False) for r in rows)
     print(f"검증 실패율 {failed / len(rows):.1%} ({failed}/{len(rows)}, 재시도해도 형식이 맞지 않은 답변)")
     print(f"채점 시간(답변 뒤 대기) 중앙 {statistics.median(r['seconds'] for r in rows):.1f}s")
@@ -237,8 +245,19 @@ def report(rows: list[dict]) -> dict:
     }
 
 
+def use_frozen(version: str) -> None:
+    """채점 체인이 쓰는 프롬프트를 바꾸기 전 사본으로 바꾼다."""
+    global prompts
+    spec = importlib.util.spec_from_file_location(f"answer_content_{version}", f"/eval/frozen/answer_content_{version}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    answer_content.prompts = prompts = module
+
+
 if __name__ == "__main__":
     posting_id, experiment = int(sys.argv[1]), sys.argv[2]
+    if len(sys.argv) > 3:
+        use_frozen(sys.argv[3])
     rows = evaluate(posting_id)
     summary = report(rows)
     settings = get_settings()

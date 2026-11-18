@@ -58,7 +58,8 @@ class FakeLlm:
         self.prompts.append(text)
         block = text.split("[음성 인식 구간]\n")[1].split("\n\n")[0]
         raws = [line.split("] ", 1)[1] for line in block.splitlines()]
-        return AIMessage(content=json.dumps({"corrected": [r.replace("AP ", "API ") for r in raws]}, ensure_ascii=False))
+        fixes = [{"segment": i, "wrong": "AP ", "right": "API "} for i, r in enumerate(raws, start=1) if "AP " in r]
+        return AIMessage(content=json.dumps({"fixes": fixes}, ensure_ascii=False))
 
 
 FILLERS = ["음", "어"]

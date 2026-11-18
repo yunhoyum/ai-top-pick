@@ -14,6 +14,8 @@ from app.chains.answer_content import (
     NO_ANSWER_DOC_NOTE,
     NO_CLAIM_NOTE,
     NO_QUESTION_DOC_NOTE,
+    UNGROUNDED_NOTE,
+    UNGROUNDED_PART_NOTE,
     EvidenceStatus,
     judge_question_topic,
     score_content,
@@ -194,7 +196,7 @@ def test_all_claims_same_uses_three_axes_and_copies_sentences():
     ],
 )
 def test_claim_levels_are_gathered_into_doc_match_level(levels, expected, gathered):
-    claims = [f"주장 {i}" for i in range(1, len(levels) + 1)]
+    claims = ["타임아웃 후 확인 중으로 둔다", "배치로 PG에 조회해 확정한다", "확인 중으로 두고 확정한다"][: len(levels)]
     result = _score(_model(*[(lv, ["1-1"]) for lv in levels], claims=claims))
     assert result.score == Decimal(expected) and result.doc_match_level == gathered
 
@@ -280,6 +282,27 @@ def test_empty_claims_score_zero_even_without_question_search():
     # ㉠보다 먼저 본다. 질문이 문서에 없어도 아무 말도 안 했으면 0점이다
     result = _score(FakeModel(_read(claims=()), _read(claims=())), question_context=())
     assert result.status == EvidenceStatus.NO_CLAIM and result.score == Decimal("0.00")
+
+
+INVENTED = "Redis 캐시를 활용한 재시도 메커니즘으로 중복 결제를 막는다"
+
+
+def test_claims_not_in_the_answer_are_dropped_and_nothing_left_scores_zero():
+    """통합테스트 IT-INTV-001 4단계: '안녕하세요.'만 말했는데 답변 읽기가 주장을 지어내 내용 60점이었다."""
+    model = FakeModel(_read(claims=[INVENTED]))
+    result = score_content(QUESTION, "안녕하세요.", [PG, DEPLOY], [], JOB, model=model, embed=FakeEmbed())
+    assert result.status == EvidenceStatus.NO_CLAIM and result.score == Decimal("0.00")
+    assert result.reason == f"{UNGROUNDED_NOTE} {NO_CLAIM_NOTE}"  # 지어낸 주장으로 쓴 읽기 이유는 쓰지 않는다
+    assert result.llm_output["ungrounded_claims"] == [INVENTED] and len(model.calls) == 1
+
+
+def test_only_claims_found_in_the_answer_are_compared():
+    model = FakeModel(_read(claims=[CLAIMS[0], INVENTED]), _topic(), _claim("같음", ["1-1"]), _relevance())
+    result = _score(model)
+    assert result.status == EvidenceStatus.FOUND and result.score == Decimal("90.00")
+    assert len(model.calls) == 4  # 읽기, 주제, 남은 주장 하나만 비교, 답했는지
+    assert UNGROUNDED_PART_NOTE.format(n=1) in result.reason
+    assert result.llm_output["ungrounded_claims"] == [INVENTED]
 
 
 # ---------- 질문에 답했는지 (v14, P16) ----------
