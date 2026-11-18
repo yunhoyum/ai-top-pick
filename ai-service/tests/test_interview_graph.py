@@ -493,6 +493,32 @@ def test_high_score_job_answer_gets_a_follow_up_and_next_job_question_is_removed
     assert fakes.searches[-1] == (1, [follow["text"]])
 
 
+def _resume_follow(graph, tts, questions):
+    body = FOLLOW_BODY | {"resume": True, "questions": questions}
+    return builder.start_or_resume(graph, StartInterviewRequest(**body), tts)
+
+
+def test_reconnect_before_the_follow_up_reached_main_api_repeats_the_removal():
+    # 통합테스트 재수행 세션 797: 채점 중 새로고침으로 이전 연결이 'Q3 제거·꼬리질문 제시'를 반영하지 못했다.
+    # 새 연결은 꼬리질문만 받아 순번이 비고('6/6') 제거됐어야 할 Q3은 '유효'로 남았다
+    graph, _, tts = _follow_setup(follow_ups=["꼬리?"])
+    builder.submit_answer(graph, 5, _job_answer("q21", 21))
+    actions = _resume_follow(graph, tts, FOLLOW_BODY["questions"])  # main-api는 꼬리질문을 아직 모른다
+    assert [(a["type"], a["question"]["qkey"]) for a in actions][0] == ("remove", "q22")
+    assert actions[1]["type"] == "present" and actions[1]["question"]["text"] == "꼬리?"
+    assert actions[1]["question"]["question_id"] is None
+
+
+def test_reconnect_after_main_api_saved_the_follow_up_gives_its_question_id():
+    # 꼬리질문 답변 중 새로고침: main-api는 저장했지만 그래프는 다음 요청에서야 question_id를 안다. 다시 저장하면 중복된다
+    graph, _, tts = _follow_setup(follow_ups=["꼬리?"])
+    builder.submit_answer(graph, 5, _job_answer("q21", 21))
+    saved = {"qkey": "q901", "question_id": 901, "kind": "꼬리", "question_type": "직무", "parent_qkey": "q21", "text": "꼬리?"}
+    questions = [q for q in FOLLOW_BODY["questions"] if q["qkey"] != "q22"] + [saved]
+    actions = _resume_follow(graph, tts, questions)
+    assert [(a["type"], a["question"]["question_id"]) for a in actions] == [("present", 901)]
+
+
 def test_binding_sets_question_id_and_follow_up_of_follow_up_keeps_the_same_parent():
     graph, fakes, _ = _follow_setup(follow_ups=["꼬리 1?", "꼬리 2?"])
     _, actions = builder.submit_answer(graph, 5, _job_answer("q21", 21))

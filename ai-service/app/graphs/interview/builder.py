@@ -130,11 +130,27 @@ def start_or_resume(graph, req: StartInterviewRequest, tts: Tts, wait_sec: float
         graph.invoke(Command(resume={"event": "cancel"}), config)
     if current := _waiting_question(graph, config):
         audio = base64.b64encode(tts(current["text"])).decode("ascii")
-        return [{"type": "present", "question": current, "audio_b64": audio}]
+        if current.get("question_id") is not None:
+            return [{"type": "present", "question": current, "audio_b64": audio}]
+        return _represent_new_question(graph.get_state(config).values, current, audio, req.questions)
     if current := _waiting_question(graph, config, "wait_expression"):
         # 답변은 이미 받았고 표정 재분석을 기다리던 중에 끊겼다. main-api가 다시 분석해 /expression을 보낸다
         return [{"type": "await_expression", "question": current}]
     return [{"type": "end"}]  # 이미 끝난 면접
+
+
+def _represent_new_question(state: dict, current: dict, audio: str, questions: list) -> list[dict]:
+    """question_id를 아직 모르는 새 질문(꼬리질문·대체 질문)을 재접속에서 다시 낸다.
+    main-api가 이미 저장했으면(질문 목록에 같은 글이 있음) 그 question_id로 낸다. 다시 저장하면 중복된다.
+    저장하지 않았으면 이전 연결이 마지막 요청의 행동을 반영하지 못한 것이다. 그 행동(질문 제거·무효)을 함께 낸다.
+    빠진 질문의 순번을 새 질문이 이어받으려면 main-api가 제거를 먼저 알아야 한다 (통합테스트 재수행 세션 797)."""
+    queued = {q["qkey"] for q in state.get("queue", [])}
+    saved = next((q for q in questions if q.question_id is not None and q.text == current["text"]
+                  and q.qkey not in queued), None)
+    if saved is not None:
+        return [{"type": "present", "question": current | {"question_id": saved.question_id}, "audio_b64": audio}]
+    unapplied = [a for a in state.get("actions", []) if a["type"] in ("remove", "invalidate")]
+    return unapplied + [{"type": "present", "question": current, "audio_b64": audio}]
 
 
 def submit_answer(graph, session_id: int, req: AnswerRequest) -> tuple[dict, list[dict]]:
