@@ -86,6 +86,19 @@ export default function SessionView({ applicationId, sessionId }: { applicationI
   }, []);
 
   useEffect(() => {
+    // cacheComponents는 떠났던 화면의 상태를 되살린다. 다시 접속하면 이전 연결의 중단 안내·챗봇 대화가 남았다
+    // (통합테스트 재수행 세션 799: 관리자 재개 후 재응시 화면에 '면접을 중단했습니다'가 그대로 보임). 연결마다 비운다
+    setError(null);
+    setSuspended(false);
+    setQuestion(null);
+    setAsked({});
+    setPhase("connecting");
+    setEndsAt(null);
+    setChat([]);
+    setInquiryId(null);
+    setCheck(null);
+    setWaitingReply(false);
+    inquiryRef.current = null;
     const ws = connectInterview(sessionId);
     wsRef.current = ws;
     let current: Question | null = null;
