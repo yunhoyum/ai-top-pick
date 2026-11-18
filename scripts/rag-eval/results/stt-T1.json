@@ -1,0 +1,717 @@
+{
+  "experiment": "T1",
+  "eval_set": "v1",
+  "repeat": 2,
+  "versions": {
+    "v1": {
+      "summary": {
+        "runs": 18,
+        "format_failures": 0,
+        "fix_hit": 0.071,
+        "fix_total": 28,
+        "keep_rate": 1.0,
+        "keep_total": 20,
+        "rewrites": 0,
+        "median_seconds": 1.2
+      },
+      "rows": [
+        {
+          "id": "S1",
+          "kind": "용어·숫자 오인식이 많은 긴 답변 (통합테스트 C Q1, answer 495)",
+          "run": 1,
+          "corrected": [
+            "이전 프로젝트에서는",
+            "매칭할 API 요청안에서 바로 보내서 응답이 십 초 걸렸습니다.",
+            "알림 발송을 샐러리 작업으로 관리하고 작업만 큐에 넣고 바로 언급하게 바꿔서 일 조 주셨습니다.",
+            "주문 서비스에서도 같은 방식을 적용하겠습니다.",
+            "결제 승인 결과 알림과 배송사항 연동은 주문 브러트트렌젝션이 검색한 뒤",
+            "세러리 작업으로 넘겨서 주문 API는 결제 승인과 주문처장까지 처리하게 하겠습니다.",
+            "배송사 연동처럼 느린 외부, 출연 전용 로컬로 단어 다른 작업을 막지 않게 하고 실패하면 지수 백 오 프로 재시도 하겠습니다.",
+            "같은 작업이 두 번 실행돼도 문제가 없도록 주문번호를 겪고 키를 두겠습니다.",
+            "또 주문 조회 거리는 회원법문 생성 시각.",
+            "로 최적화하고 이렇게 해서 좀 자리 응답 시간을 일 조 아래로 줄이는 것을 보도록 하겠습니다."
+          ],
+          "seconds": 5.3,
+          "fix_hits": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "kept": [
+            true,
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S1",
+          "kind": "용어·숫자 오인식이 많은 긴 답변 (통합테스트 C Q1, answer 495)",
+          "run": 2,
+          "corrected": [
+            "이전 프로젝트에서는",
+            "매칭할 API 요청안에서 바로 보내서 응답이 십 초 걸렸습니다.",
+            "알림 발송을 샐러리 작업으로 관리하고 작업만 큐에 넣고 바로 언급하게 바꿔서 일 조 주셨습니다.",
+            "주문 서비스에서도 같은 방식을 적용하겠습니다.",
+            "결제 승인 결과 알림과 배송사항 연동은 주문 브러트트렌젝션이 검색한 뒤",
+            "세러리 작업으로 넘겨서 주문 API는 결제 승인과 주문처장까지 처리하게 하겠습니다.",
+            "배송사 연동처럼 느린 외부, 출연 전용 로컬로 단어 다른 작업을 막지 않게 하고 실패하면 지수 백 오 프로 재시도 하겠습니다.",
+            "같은 작업이 두 번 실행돼도 문제가 없도록 주문번호를 겪고 키를 두겠습니다.",
+            "또 주문 조회 거리는 회원법문 생성 시각.",
+            "로 최적화하고 이렇게 해서 좀 자리 응답 시간을 일 조 아래로 줄이는 것을 보도록 하겠습니다."
+          ],
+          "seconds": 4.9,
+          "fix_hits": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "kept": [
+            true,
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S2",
+          "kind": "인사 + 용어 (통합테스트 B Q1, answer 490)",
+          "run": 1,
+          "corrected": [
+            "안녕하세요.",
+            "N 플러스 일 문제."
+          ],
+          "seconds": 2.0,
+          "fix_hits": [
+            false
+          ],
+          "kept": [
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S2",
+          "kind": "인사 + 용어 (통합테스트 B Q1, answer 490)",
+          "run": 2,
+          "corrected": [
+            "안녕하세요.",
+            "N 플러스 일 문제."
+          ],
+          "seconds": 0.5,
+          "fix_hits": [
+            false
+          ],
+          "kept": [
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S3",
+          "kind": "모른다는 말 (통합테스트 B Q2, answer 491)",
+          "run": 1,
+          "corrected": [
+            "몰라요.",
+            "몰라요.",
+            "잘 되네."
+          ],
+          "seconds": 2.2,
+          "fix_hits": [],
+          "kept": [
+            true,
+            true,
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S3",
+          "kind": "모른다는 말 (통합테스트 B Q2, answer 491)",
+          "run": 2,
+          "corrected": [
+            "몰라요.",
+            "몰라요.",
+            "잘 되네."
+          ],
+          "seconds": 0.7,
+          "fix_hits": [],
+          "kept": [
+            true,
+            true,
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S4",
+          "kind": "한 음절 (통합테스트 B Q4, answer 493)",
+          "run": 1,
+          "corrected": [
+            "한"
+          ],
+          "seconds": 2.3,
+          "fix_hits": [],
+          "kept": [
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S4",
+          "kind": "한 음절 (통합테스트 B Q4, answer 493)",
+          "run": 2,
+          "corrected": [
+            "한"
+          ],
+          "seconds": 0.9,
+          "fix_hits": [],
+          "kept": [
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S5",
+          "kind": "인사만 (통합테스트 C Q2, answer 496)",
+          "run": 1,
+          "corrected": [
+            "안녕하세요."
+          ],
+          "seconds": 1.2,
+          "fix_hits": [],
+          "kept": [
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S5",
+          "kind": "인사만 (통합테스트 C Q2, answer 496)",
+          "run": 2,
+          "corrected": [
+            "안녕하세요."
+          ],
+          "seconds": 1.1,
+          "fix_hits": [],
+          "kept": [
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S6",
+          "kind": "질문을 소리 내어 읽은 답변 (통합테스트 C Q3, answer 497)",
+          "run": 1,
+          "corrected": [
+            "테스트 실패원이네 끝까지 추적하여 또 그거를 수정한 경험에서 어떻게 문제 해결 과정에서 동료들과 적극적으로 소통량이 부풀렸는지 설명해줄"
+          ],
+          "seconds": 2.9,
+          "fix_hits": [
+            false
+          ],
+          "kept": [],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S6",
+          "kind": "질문을 소리 내어 읽은 답변 (통합테스트 C Q3, answer 497)",
+          "run": 2,
+          "corrected": [
+            "테스트 실패원이네 끝까지 추적하여 또 그거를 수정한 경험에서 어떻게 문제 해결 과정에서 동료들과 적극적으로 소통량이 부풀렸는지 설명해줄"
+          ],
+          "seconds": 1.2,
+          "fix_hits": [
+            false
+          ],
+          "kept": [],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S7",
+          "kind": "인사만, 다른 질문 (통합테스트 E Q1, answer 500)",
+          "run": 1,
+          "corrected": [
+            "안녕하세요."
+          ],
+          "seconds": 1.2,
+          "fix_hits": [],
+          "kept": [
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S7",
+          "kind": "인사만, 다른 질문 (통합테스트 E Q1, answer 500)",
+          "run": 2,
+          "corrected": [
+            "안녕하세요."
+          ],
+          "seconds": 1.2,
+          "fix_hits": [],
+          "kept": [
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S8",
+          "kind": "뜻 뒤집기 (e2e 세션 241)",
+          "run": 1,
+          "corrected": [
+            "벡터 검색만으로 충분해서 키워드 검색은 쓰지 않겠습니다."
+          ],
+          "seconds": 2.3,
+          "fix_hits": [],
+          "kept": [
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S8",
+          "kind": "뜻 뒤집기 (e2e 세션 241)",
+          "run": 2,
+          "corrected": [
+            "벡터 검색만으로 충분해서 키워드 검색은 쓰지 않겠습니다."
+          ],
+          "seconds": 1.0,
+          "fix_hits": [],
+          "kept": [
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S9",
+          "kind": "바른 낱말 고치기 (e2e 세션 241)",
+          "run": 1,
+          "corrected": [
+            "음, API 응답을 캐시로 줄였습니다.",
+            "권한이 필요한 문서는 아예 챗봇에 포함시키지 않고 공개 문서만 등록하겠습니다."
+          ],
+          "seconds": 2.6,
+          "fix_hits": [
+            true,
+            false
+          ],
+          "kept": [],
+          "rewrites": 0,
+          "changed": [
+            1,
+            2
+          ]
+        },
+        {
+          "id": "S9",
+          "kind": "바른 낱말 고치기 (e2e 세션 241)",
+          "run": 2,
+          "corrected": [
+            "음, API 응답을 캐시로 줄였습니다.",
+            "권한이 필요한 문서는 아예 챗봇에 포함시키지 않고 공개 문서만 등록하겠습니다."
+          ],
+          "seconds": 1.1,
+          "fix_hits": [
+            true,
+            false
+          ],
+          "kept": [],
+          "rewrites": 0,
+          "changed": [
+            1,
+            2
+          ]
+        }
+      ]
+    },
+    "v2": {
+      "summary": {
+        "runs": 18,
+        "format_failures": 0,
+        "fix_hit": 0.143,
+        "fix_total": 28,
+        "keep_rate": 1.0,
+        "keep_total": 20,
+        "rewrites": 2,
+        "median_seconds": 2.1
+      },
+      "rows": [
+        {
+          "id": "S1",
+          "kind": "용어·숫자 오인식이 많은 긴 답변 (통합테스트 C Q1, answer 495)",
+          "run": 1,
+          "corrected": [
+            "이전 프로젝트에서는",
+            "매칭할 API 요청안에서 바로 보내서 응답이 1초 걸렸습니다.",
+            "알림 발송을 샐러리 작업으로 관리하고 작업만 큐에 넣고 바로 언급하게 바꿔서 일 조 주셨습니다.",
+            "주문 서비스에서도 같은 방식을 적용하겠습니다.",
+            "결제 승인 결과 알림과 배송사항 연동은 주문 브러트트렌젝션이 검색한 뒤",
+            "세러리 작업으로 넘겨서 주문 API는 결제 승인과 주문처장까지 처리하게 하겠습니다.",
+            "배송사 연동처럼 느린 외부, 출연 전용 로컬로 단어 다른 작업을 막지 않게 하고 실패하면 지수 백 오 프로 재시도 하겠습니다.",
+            "같은 작업이 두 번 실행돼도 문제가 없도록 주문번호를 겪고 키를 두겠습니다.",
+            "또 주문 조회 거리는 회원법문 생성 시각.",
+            "로 최적화하고 이렇게 해서 좀 자리 응답 시간을 일 조 아래로 줄이는 것을 보도록 하겠습니다."
+          ],
+          "seconds": 9.5,
+          "fix_hits": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "kept": [
+            true,
+            true
+          ],
+          "rewrites": 0,
+          "changed": [
+            2
+          ]
+        },
+        {
+          "id": "S1",
+          "kind": "용어·숫자 오인식이 많은 긴 답변 (통합테스트 C Q1, answer 495)",
+          "run": 2,
+          "corrected": [
+            "이전 프로젝트에서는",
+            "매칭할 API 요청안에서 바로 보내서 응답이 1초 걸렸습니다.",
+            "알림 발송을 샐러리 작업으로 관리하고 작업만 큐에 넣고 바로 언급하게 바꿔서 일 조 주셨습니다.",
+            "주문 서비스에서도 같은 방식을 적용하겠습니다.",
+            "결제 승인 결과 알림과 배송사항 연동은 주문 브러트트렌젝션이 검색한 뒤",
+            "세러리 작업으로 넘겨서 주문 API는 결제 승인과 주문처장까지 처리하게 하겠습니다.",
+            "배송사 연동처럼 느린 외부, 출연 전용 로컬로 단어 다른 작업을 막지 않게 하고 실패하면 지수 백 오 프로 재시도 하겠습니다.",
+            "같은 작업이 두 번 실행돼도 문제가 없도록 주문번호를 겪고 키를 두겠습니다.",
+            "또 주문 조회 거리는 회원법문 생성 시각.",
+            "로 최적화하고 이렇게 해서 좀 자리 응답 시간을 일 조 아래로 줄이는 것을 보도록 하겠습니다."
+          ],
+          "seconds": 5.0,
+          "fix_hits": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "kept": [
+            true,
+            true
+          ],
+          "rewrites": 0,
+          "changed": [
+            2
+          ]
+        },
+        {
+          "id": "S2",
+          "kind": "인사 + 용어 (통합테스트 B Q1, answer 490)",
+          "run": 1,
+          "corrected": [
+            "안녕하세요.",
+            "N+1 문제."
+          ],
+          "seconds": 2.8,
+          "fix_hits": [
+            true
+          ],
+          "kept": [
+            true
+          ],
+          "rewrites": 1,
+          "changed": [
+            2
+          ]
+        },
+        {
+          "id": "S2",
+          "kind": "인사 + 용어 (통합테스트 B Q1, answer 490)",
+          "run": 2,
+          "corrected": [
+            "안녕하세요.",
+            "N+1 문제."
+          ],
+          "seconds": 0.8,
+          "fix_hits": [
+            true
+          ],
+          "kept": [
+            true
+          ],
+          "rewrites": 1,
+          "changed": [
+            2
+          ]
+        },
+        {
+          "id": "S3",
+          "kind": "모른다는 말 (통합테스트 B Q2, answer 491)",
+          "run": 1,
+          "corrected": [
+            "몰라요.",
+            "몰라요.",
+            "잘 되네."
+          ],
+          "seconds": 2.2,
+          "fix_hits": [],
+          "kept": [
+            true,
+            true,
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S3",
+          "kind": "모른다는 말 (통합테스트 B Q2, answer 491)",
+          "run": 2,
+          "corrected": [
+            "몰라요.",
+            "몰라요.",
+            "잘 되네."
+          ],
+          "seconds": 0.2,
+          "fix_hits": [],
+          "kept": [
+            true,
+            true,
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S4",
+          "kind": "한 음절 (통합테스트 B Q4, answer 493)",
+          "run": 1,
+          "corrected": [
+            "한"
+          ],
+          "seconds": 2.0,
+          "fix_hits": [],
+          "kept": [
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S4",
+          "kind": "한 음절 (통합테스트 B Q4, answer 493)",
+          "run": 2,
+          "corrected": [
+            "한"
+          ],
+          "seconds": 0.2,
+          "fix_hits": [],
+          "kept": [
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S5",
+          "kind": "인사만 (통합테스트 C Q2, answer 496)",
+          "run": 1,
+          "corrected": [
+            "안녕하세요."
+          ],
+          "seconds": 2.2,
+          "fix_hits": [],
+          "kept": [
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S5",
+          "kind": "인사만 (통합테스트 C Q2, answer 496)",
+          "run": 2,
+          "corrected": [
+            "안녕하세요."
+          ],
+          "seconds": 0.2,
+          "fix_hits": [],
+          "kept": [
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S6",
+          "kind": "질문을 소리 내어 읽은 답변 (통합테스트 C Q3, answer 497)",
+          "run": 1,
+          "corrected": [
+            "테스트 실패원이네 끝까지 추적하여 또 그거를 수정한 경험에서 어떻게 문제 해결 과정에서 동료들과 적극적으로 소통하며 협업하였는지 설명해줄"
+          ],
+          "seconds": 3.2,
+          "fix_hits": [
+            false
+          ],
+          "kept": [],
+          "rewrites": 0,
+          "changed": [
+            1
+          ]
+        },
+        {
+          "id": "S6",
+          "kind": "질문을 소리 내어 읽은 답변 (통합테스트 C Q3, answer 497)",
+          "run": 2,
+          "corrected": [
+            "테스트 실패원이네 끝까지 추적하여 또 그거를 수정한 경험에서 어떻게 문제 해결 과정에서 동료들과 적극적으로 소통하며 협업하였는지 설명해줄"
+          ],
+          "seconds": 1.0,
+          "fix_hits": [
+            false
+          ],
+          "kept": [],
+          "rewrites": 0,
+          "changed": [
+            1
+          ]
+        },
+        {
+          "id": "S7",
+          "kind": "인사만, 다른 질문 (통합테스트 E Q1, answer 500)",
+          "run": 1,
+          "corrected": [
+            "안녕하세요."
+          ],
+          "seconds": 2.2,
+          "fix_hits": [],
+          "kept": [
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S7",
+          "kind": "인사만, 다른 질문 (통합테스트 E Q1, answer 500)",
+          "run": 2,
+          "corrected": [
+            "안녕하세요."
+          ],
+          "seconds": 0.2,
+          "fix_hits": [],
+          "kept": [
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S8",
+          "kind": "뜻 뒤집기 (e2e 세션 241)",
+          "run": 1,
+          "corrected": [
+            "벡터 검색만으로 충분해서 키워드 검색은 쓰지 않겠습니다."
+          ],
+          "seconds": 3.0,
+          "fix_hits": [],
+          "kept": [
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S8",
+          "kind": "뜻 뒤집기 (e2e 세션 241)",
+          "run": 2,
+          "corrected": [
+            "벡터 검색만으로 충분해서 키워드 검색은 쓰지 않겠습니다."
+          ],
+          "seconds": 1.2,
+          "fix_hits": [],
+          "kept": [
+            true
+          ],
+          "rewrites": 0,
+          "changed": []
+        },
+        {
+          "id": "S9",
+          "kind": "바른 낱말 고치기 (e2e 세션 241)",
+          "run": 1,
+          "corrected": [
+            "음, API 응답을 캐시로 줄였습니다.",
+            "권한이 필요한 문서는 아예 챗봇에 넣지 않고 공개 문서만 새긴 하겠습니다."
+          ],
+          "seconds": 2.7,
+          "fix_hits": [
+            true,
+            false
+          ],
+          "kept": [],
+          "rewrites": 0,
+          "changed": [
+            1
+          ]
+        },
+        {
+          "id": "S9",
+          "kind": "바른 낱말 고치기 (e2e 세션 241)",
+          "run": 2,
+          "corrected": [
+            "음, API 응답을 캐시로 줄였습니다.",
+            "권한이 필요한 문서는 아예 챗봇에 넣지 않고 공개 문서만 새긴 하겠습니다."
+          ],
+          "seconds": 0.8,
+          "fix_hits": [
+            true,
+            false
+          ],
+          "kept": [],
+          "rewrites": 0,
+          "changed": [
+            1
+          ]
+        }
+      ]
+    }
+  }
+}
