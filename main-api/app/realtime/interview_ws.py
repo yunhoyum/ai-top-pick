@@ -329,7 +329,8 @@ class InterviewSocketHandler:
         await self.ws.send_json({
             "type": "question",
             "question_id": question["question_id"],
-            "seq": self.order.get(question["qkey"]),
+            # 재접속해 다시 낸 새 질문(꼬리질문·대체 질문)은 ai-service가 f…·r…로, 재접속한 main-api는 q{id}로 안다
+            "seq": self.order.get(question["qkey"]) or self.order.get(f"q{question['question_id']}"),
             "total": len(self.order),
             "text": question["text"],
             "think_sec": self.settings["think_time_sec"],

@@ -819,6 +819,32 @@ def test_replacing_a_replacement_keeps_its_seq(monkeypatch, applicant, ready):
     assert _sql("select question_status from interview_question where question_id = :q", q=old)[0][0] == "무효"
 
 
+class RepresentFollowUpAi(FakeAi):
+    """재접속하면 기다리던 꼬리질문을 다시 낸다. ai-service는 꼬리질문을 처음 만든 키(f…)로 안다."""
+
+    def __init__(self, qids, follow_qid):
+        super().__init__(qids)
+        self.follow_qid = follow_qid
+
+    async def start_interview(self, session_id, payload):
+        self.starts.append(payload)
+        return {"actions": [{"type": "present", "audio_b64": None, "question": {
+            "qkey": "fabc", "question_id": self.follow_qid, "kind": "꼬리", "text": "꼬리질문?"}}]}
+
+
+def test_reconnect_represents_a_follow_up_with_its_seq(monkeypatch, applicant, ready):
+    """통합테스트 IT-INTV-001 7단계: 꼬리질문 답변 중 새로고침하면 다시 낸 꼬리질문의 순번이 null이었다."""
+    aid, qids = ready
+    sid = _enter(applicant, aid).json()["session_id"]
+    _sql("update interview_question set question_status = '무효' where question_id = :q", q=qids[1])
+    follow = _sql("insert into interview_question (application_id, parent_question_id, question_type, seq, content, is_revealed) "
+                  "values (:a, :p, '직무', 2, '꼬리질문?', true) returning question_id", a=aid, p=qids[0])[0][0]
+    monkeypatch.setattr(ws_interview, "get_ai_client", lambda: RepresentFollowUpAi(qids, follow))
+    with _socket(applicant, sid) as ws:
+        q = _recv(ws, "question")
+    assert (q["question_id"], q["seq"], q["total"]) == (follow, 2, 3)
+
+
 # ---------- 면접 보고서 작업 (6단계, 아키텍처 8, Celery 4, 루브릭 설계서 8·9) ----------
 class ReportClient:
     """ai-service 가짜. 받은 InterviewReportRequest를 남기고 정해 둔 ReportResult를 돌려준다."""
