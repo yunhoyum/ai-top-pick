@@ -8,7 +8,10 @@ final_project 폴더에서:
     -v "$(pwd)/main-api:/src" -v "$(pwd)/scripts/rag-eval:/eval" -w /src pc1-main-api:latest \
     sh -c "pip install -q -r requirements-dev.txt; python /eval/index_eval_posting.py"
 
+청크 크기를 바꾸려면 docker run 뒤에 -e CHUNK_MAX_TOKENS=128 -e CHUNK_OVERLAP_TOKENS=32를 준다.
+
 마지막 줄에 공고 ID를 출력한다. run_retrieval_eval.py에 넘긴다.
+문서 텍스트는 results/doc-<공고 ID>.txt에 저장한다. contextualize_eval_posting.py가 문맥을 만들 때 읽는다.
 """
 
 import json
@@ -24,6 +27,7 @@ from app.clients.embed import EmbedClient
 from app.main import app
 from app.services import embedding_batch, job_queue
 from app.services.progress_batch import get_engine
+from app.workers.pdf_text import extract_text
 from test_postings import _fill_all, _login
 
 EVAL_SET = json.loads(Path("/eval/rag_eval_set.json").read_text(encoding="utf-8"))
@@ -56,4 +60,7 @@ assert status == "완료", error
 
 lengths = [len(o) for o in EmbedClient().tokenize(contents)]
 print(f"chunks={len(contents)} tokens min={min(lengths)} max={max(lengths)} total={sum(lengths)}")
+doc = Path("/eval/results") / f"doc-{pid}.txt"
+doc.parent.mkdir(exist_ok=True)
+doc.write_text(extract_text(PDF), encoding="utf-8")
 print(pid)
