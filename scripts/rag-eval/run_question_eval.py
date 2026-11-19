@@ -53,6 +53,9 @@ def run_applicant(graph, posting: PostingBrief, documents: ApplicantDocuments, j
             if key in update and node not in START_NODES:
                 step[key] = update[key]
         cur["steps"].append(step)
+        if node == "retrieve":
+            # 마지막 검색 결과가 질문 생성에 쓰인다. run_ragas_eval.py가 읽는다
+            cur["chunks"] = update.get("chunks", [])
         if node == "append":
             cur["question"] = (update.get("job") or update.get("personality"))[-1]
             cur["based_on"] = next((s["based_on"] for s in reversed(cur["steps"]) if s.get("based_on")), "")
