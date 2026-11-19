@@ -14,6 +14,9 @@ PC2의 final_project 폴더에서 (PowerShell):
   docker run --rm --env-file pc2/.env -v "${PWD}/ai-service:/src" -v "${PWD}/scripts/rag-eval:/eval" -w /src pc2-ai-service:latest python /eval/contextualize_eval_posting.py <공고 ID> <실험 ID>
 
 만든 문맥은 results/contexts-<실험 ID>.json에 저장한다.
+
+[문맥 파일]을 주면 LLM을 부르지 않고 그 파일의 문맥(seq별)으로 임베딩만 한다. LLM 서버가 없는 PC1에서도 돌릴 수 있다.
+예: Claude가 직접 쓴 문맥으로 하는 상한 실험 E4c — python /eval/contextualize_eval_posting.py <공고 ID> E4c /eval/results/contexts-E4c.json
 """
 
 import json
@@ -69,11 +72,15 @@ JSON {{"context": "..."}}만 출력하라."""
     ]
 
 
-def main(posting_id: int, experiment: str) -> None:
+def main(posting_id: int, experiment: str, contexts_file: str | None = None) -> None:
     text = Path(f"/eval/results/doc-{posting_id}.txt").read_text(encoding="utf-8")
     client = EmbedClient()
     offsets = client.tokenize([text])[0]
-    model = get_chat_model()
+    given = None
+    if contexts_file:
+        given = {r["seq"]: r["context"] for r in json.loads(Path(contexts_file).read_text(encoding="utf-8"))["chunks"]}
+    else:
+        model = get_chat_model()
     head = text[: offsets[min(HEAD_TOKENS, len(offsets)) - 1][1]]
 
     with Session(get_engine()) as db:
@@ -98,7 +105,10 @@ def main(posting_id: int, experiment: str) -> None:
         around = text[offsets[lo][0] : offsets[hi - 1][1]]
 
         started = time.perf_counter()
-        context = invoke_structured(model, prompt(head, around, content), ContextOutput).context.strip()
+        if given is not None:
+            context = given[seq]
+        else:
+            context = invoke_structured(model, prompt(head, around, content), ContextOutput).context.strip()
         rows.append({"chunk_id": chunk_id, "seq": seq, "context": context, "content": content,
                      "s": round(time.perf_counter() - started, 1)})
         print(f"[{seq}] {rows[-1]['s']}s {context}")
@@ -119,6 +129,9 @@ def main(posting_id: int, experiment: str) -> None:
     print(f"청크 {len(rows)}개, 문맥 생성 중앙 {statistics.median(seconds)}s 합계 {sum(seconds):.0f}s, "
           f"임베딩 입력 토큰 최대 {max(lengths)}")
     out = Path("/eval/results") / f"contexts-{experiment}.json"
+    if contexts_file and Path(contexts_file).resolve() == out.resolve():
+        # 받은 문맥 파일을 덮어쓰지 않는다
+        return
     out.write_text(json.dumps({"experiment": experiment, "posting_id": posting_id, "head_tokens": HEAD_TOKENS,
                                "around_tokens": AROUND_TOKENS, "chunks": rows}, ensure_ascii=False, indent=2),
                    encoding="utf-8")
@@ -126,4 +139,4 @@ def main(posting_id: int, experiment: str) -> None:
 
 
 if __name__ == "__main__":
-    main(int(sys.argv[1]), sys.argv[2])
+    main(int(sys.argv[1]), sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None)
