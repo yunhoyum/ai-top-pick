@@ -1,0 +1,200 @@
+{
+ "model": "hf.co/LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct-GGUF:IQ4_XS",
+ "results": [
+  {
+   "key": "D1/1",
+   "picked": [
+    1,
+    3
+   ],
+   "kept": [
+    923,
+    910
+   ],
+   "seconds": 11.0,
+   "error": null
+  },
+  {
+   "key": "D1/2",
+   "picked": [
+    1,
+    3
+   ],
+   "kept": [
+    913,
+    912
+   ],
+   "seconds": 11.8,
+   "error": null
+  },
+  {
+   "key": "D1/3",
+   "picked": [
+    1,
+    3
+   ],
+   "kept": [
+    865,
+    889
+   ],
+   "seconds": 8.8,
+   "error": null
+  },
+  {
+   "key": "D1/4",
+   "picked": [
+    1,
+    3
+   ],
+   "kept": [
+    959,
+    927
+   ],
+   "seconds": 8.7,
+   "error": null
+  },
+  {
+   "key": "D1/5",
+   "picked": [
+    3
+   ],
+   "kept": [
+    958
+   ],
+   "seconds": 9.4,
+   "error": null
+  },
+  {
+   "key": "D2/1",
+   "picked": [
+    1,
+    3,
+    7
+   ],
+   "kept": [
+    875,
+    892,
+    886
+   ],
+   "seconds": 9.1,
+   "error": null
+  },
+  {
+   "key": "D2/2",
+   "picked": [
+    8
+   ],
+   "kept": [
+    933
+   ],
+   "seconds": 10.0,
+   "error": null
+  },
+  {
+   "key": "D2/3",
+   "picked": [
+    1,
+    3,
+    4
+   ],
+   "kept": [
+    958,
+    893,
+    910
+   ],
+   "seconds": 9.8,
+   "error": null
+  },
+  {
+   "key": "D2/4",
+   "picked": [
+    3,
+    5,
+    8
+   ],
+   "kept": [
+    898,
+    899,
+    920
+   ],
+   "seconds": 9.1,
+   "error": null
+  },
+  {
+   "key": "D2/5",
+   "picked": [
+    3,
+    6
+   ],
+   "kept": [
+    954,
+    862
+   ],
+   "seconds": 9.7,
+   "error": null
+  },
+  {
+   "key": "D3/1",
+   "picked": [
+    3,
+    4,
+    5,
+    6,
+    9
+   ],
+   "kept": [
+    953,
+    947,
+    950,
+    948
+   ],
+   "seconds": 10.2,
+   "error": null
+  },
+  {
+   "key": "D3/2",
+   "picked": [
+    1,
+    3,
+    4,
+    6,
+    8
+   ],
+   "kept": [
+    959,
+    892,
+    947,
+    888,
+    949
+   ],
+   "seconds": 11.1,
+   "error": null
+  },
+  {
+   "key": "D3/3",
+   "picked": [
+    1,
+    3
+   ],
+   "kept": [
+    961,
+    894
+   ],
+   "seconds": 9.2,
+   "error": null
+  },
+  {
+   "key": "D3/4",
+   "picked": [
+    3,
+    6
+   ],
+   "kept": [
+    952,
+    951
+   ],
+   "seconds": 9.2,
+   "error": null
+  }
+ ]
+}
