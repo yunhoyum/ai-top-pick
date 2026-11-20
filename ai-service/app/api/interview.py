@@ -47,7 +47,7 @@ def _replacement(model, posting: dict, documents: dict, qtype: str, existing: li
     이미 나온 질문을 확정 목록에 넣어 겹침 검사가 비교하게 한다. fallback까지 실패하면 템플릿이라 항상 하나가 나온다."""
     job, personality = generate_questions(
         PostingBrief(**posting), ApplicantDocuments(**documents), int(qtype == "직무"), int(qtype != "직무"),
-        model=model, search=lambda q: [c.content for c in search_company_docs(posting["posting_id"], [q])],
+        model=model, search=lambda q: [c.content for c in search_company_docs(posting["posting_id"], [q], rerank=True)],
         existing=existing,
     )
     return (job or personality)[0]

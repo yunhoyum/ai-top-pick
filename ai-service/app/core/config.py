@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     RAG_TOP_K: int = 5
     # 명백히 관계없는 청크만 거른다. ㉠(질문 근거 없음)은 이 값이 아니라 LLM이 판정한다 (RAG 설계서 3.3, E2-v2)
     RAG_MIN_SIMILARITY: float = 0.50
+    # 리랭커(embed-server /rerank, bge-reranker-v2-m3). 지금은 질문 생성만 켠다 (RAG 개선 2, 2026-11-20).
+    # 벡터 상위 20개를 다시 정렬하고 점수가 기준 미만인 청크를 버린다. 1단계 평가셋 R@1 54.5% → 77.3%
+    RAG_RERANK_CANDIDATES: int = 20
+    RAG_RERANK_MIN_SCORE: float = 0.005
     # 주장과 근거 문장의 유사도가 이보다 낮은 근거는 저장하지 않는다. 판정은 바꾸지 않는다 (RAG 설계서 5.5 P11)
     EVIDENCE_MIN_SIMILARITY: float = 0.50
     # 답변 읽기가 뽑은 주장의 글자 2개 묶음 중 답변에 있는 비율이 이보다 낮으면 답변에 없는 주장으로 보고 뺀다.

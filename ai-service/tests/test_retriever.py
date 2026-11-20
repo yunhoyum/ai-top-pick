@@ -42,6 +42,19 @@ class FakeEmbedClient:
         return [_vector(*sorted({int(w[1:]) for w in re.findall(r"q\d+", t)})) for t in texts]
 
 
+class FakeRerankClient(FakeEmbedClient):
+    """리랭커 점수를 청크 본문으로 정해 둔다. 받은 (검색어 조각, 본문)을 기록한다."""
+
+    def __init__(self, scores):
+        super().__init__()
+        self.scores = scores
+        self.reranked: list[tuple[list[str], list[str]]] = []
+
+    def rerank(self, queries, documents):
+        self.reranked.append((queries, documents))
+        return [self.scores[d] for d in documents]
+
+
 @pytest.fixture
 def conn():
     engine = create_engine(get_settings().sqlalchemy_url)
@@ -118,3 +131,43 @@ def test_blank_texts_are_not_searched(conn):
 def test_posting_without_chunks_returns_empty(conn):
     found = search_company_docs(999, ["q0"], bind=conn, client=FakeEmbedClient())
     assert found == []
+
+
+# ---------- 리랭커 (RAG 개선 2, 질문 생성만 켠다) ----------
+
+CACHE, DEPLOY, BOTH = "결제 서버는 Redis 캐시를 쓴다.", "배포는 Docker로 한다.", "결제 서버 배포 절차."
+
+
+def test_rerank_is_off_by_default(conn):
+    client = FakeRerankClient({})
+    _search(conn, ["q0"], client=client)
+    assert client.reranked == []
+
+
+def test_rerank_reorders_candidates_and_drops_low_scores(conn):
+    # 벡터 순위는 1번(1.0) → 3번(0.71). 리랭커가 3번을 올리고, 기준 미만인 1번은 버린다
+    client = FakeRerankClient({CACHE: 0.001, BOTH: 0.9})
+    found = search_company_docs(POSTING, ["q0"], 5, bind=conn, client=client, rerank=True)
+    assert [c.chunk_id for c in found] == [3]
+    # 유사도 기준(0.50) 미만인 2번은 리랭커에 넘기지 않는다
+    assert client.reranked == [(["q0"], [CACHE, BOTH])]
+
+
+def test_rerank_sees_more_candidates_than_top_k(conn):
+    client = FakeRerankClient({CACHE: 0.2, BOTH: 0.8})
+    found = search_company_docs(POSTING, ["q0"], 1, bind=conn, client=client, rerank=True)
+    assert [c.chunk_id for c in found] == [3]
+
+
+def test_rerank_gets_split_query_pieces(conn, monkeypatch):
+    monkeypatch.setattr(get_settings(), "QUERY_MAX_TOKENS", 4 + 2)
+    client = FakeRerankClient({CACHE: 0.5, DEPLOY: 0.4, BOTH: 0.3})
+    found = search_company_docs(POSTING, ["q0 a b c\n\nq1 d e f"], 5, bind=conn, client=client, rerank=True)
+    # 조각마다 점수를 매겨 최고값을 쓰는 것은 embed-server가 한다. 조각을 그대로 넘긴다
+    assert client.reranked[0][0] == ["q0 a b c", "q1 d e f"]
+    assert [c.chunk_id for c in found] == [1, 2, 3]
+
+
+def test_rerank_drops_everything_below_min_score(conn):
+    client = FakeRerankClient({CACHE: 0.001, BOTH: 0.004})
+    assert search_company_docs(POSTING, ["q0"], 5, bind=conn, client=client, rerank=True) == []

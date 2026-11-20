@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Header, HTTPException
 
 from . import model
-from .schemas import EmbedRequest, EmbedResponse, TokenizeRequest, TokenizeResponse
+from .schemas import EmbedRequest, EmbedResponse, RerankRequest, RerankResponse, TokenizeRequest, TokenizeResponse
 
 INTERNAL_TOKEN = os.environ.get("INTERNAL_TOKEN", "")
 
@@ -42,3 +42,9 @@ def embed(req: EmbedRequest, x_internal_token: str | None = Header(default=None)
 def tokenize(req: TokenizeRequest, x_internal_token: str | None = Header(default=None)):
     _check_token(x_internal_token)
     return TokenizeResponse(offsets=model.tokenize(req.texts))
+
+
+@app.post("/rerank", response_model=RerankResponse)
+def rerank(req: RerankRequest, x_internal_token: str | None = Header(default=None)):
+    _check_token(x_internal_token)
+    return RerankResponse(scores=model.rerank(req.queries, req.documents))

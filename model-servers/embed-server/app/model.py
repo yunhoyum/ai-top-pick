@@ -2,7 +2,7 @@ import os
 import threading
 
 import torch
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import CrossEncoder, SentenceTransformer
 
 MODEL_NAME = "nlpai-lab/KURE-v1"
 EXPECTED_DIM = 1024
@@ -10,7 +10,12 @@ BATCH_SIZE = 16
 # 긴 입력이 VRAM을 키우지 않게 제한한다 (기본 모델 한도는 8192)
 MAX_SEQ_LEN = int(os.environ.get("EMBED_MAX_SEQ_LEN", "512"))
 
+# 리랭커 (RAG 개선 2). 평가(scripts/rag-eval/run_rerank_eval.py)와 같게 FP32, 입력 1024토큰으로 둔다
+RERANK_MODEL_NAME = "BAAI/bge-reranker-v2-m3"
+RERANK_MAX_LEN = 1024
+
 _model: SentenceTransformer | None = None
+_reranker: CrossEncoder | None = None
 _lock = threading.Lock()
 
 
@@ -30,6 +35,9 @@ def load() -> None:
         raise RuntimeError(f"임베딩 차원 불일치: {dim} (기대값 {EXPECTED_DIM})")
     _model = model
     encode(["예열"])  # 예열 1회
+    global _reranker
+    _reranker = CrossEncoder(RERANK_MODEL_NAME, max_length=RERANK_MAX_LEN, device="cuda")
+    rerank(["예열"], ["예열"])
     torch.cuda.empty_cache()
 
 
@@ -55,6 +63,17 @@ def tokenize(texts: list[str]) -> list[list[tuple[int, int]]]:
             texts, add_special_tokens=False, return_offsets_mapping=True, verbose=False
         )
     return [[tuple(o) for o in offsets] for offsets in encoded["offset_mapping"]]
+
+
+def rerank(queries: list[str], documents: list[str]) -> list[float]:
+    """문서마다 조각별 점수(0~1, 레이블 하나라 기본으로 시그모이드) 중 최고값."""
+    if _reranker is None:
+        raise RuntimeError("모델이 로드되지 않았습니다")
+    pairs = [(q, d) for d in documents for q in queries]
+    with _lock:
+        flat = _reranker.predict(pairs, batch_size=BATCH_SIZE)
+    n = len(queries)
+    return [float(max(flat[i * n:(i + 1) * n])) for i in range(len(documents))]
 
 
 def dim() -> int:

@@ -29,15 +29,20 @@ def search_company_docs(
     *,
     bind: Engine | Connection | None = None,
     client: EmbedClient | None = None,
+    rerank: bool = False,
 ) -> list[Chunk]:
     """그 공고의 회사 문서 청크 중 texts와 가까운 것을 유사도 순으로 최대 top_k개 돌려준다.
 
     1. 긴 글은 나눈다 2. 한 번에 임베딩한다 3. 벡터마다 상위 top_k개를 찾는다
     4. chunk_id로 합치고 가장 높은 유사도를 남긴다 5. min_similarity 미만을 뺀다 6. 상위 top_k개
+    rerank: 벡터 상위 RAG_RERANK_CANDIDATES개를 리랭커 점수로 다시 정렬하고 RAG_RERANK_MIN_SCORE 미만을 뺀다.
+      조각마다 점수를 매겨 최고값을 쓴다(embed-server). 전부 빠지면 빈 목록이다 (질문 생성은 evidence 실패로 처리)
     """
     settings = get_settings()
     top_k = top_k or settings.RAG_TOP_K
     client = client or EmbedClient()
+    # 리랭커가 순위를 바꿀 수 있게 후보를 더 가져온다
+    limit = max(top_k, settings.RAG_RERANK_CANDIDATES) if rerank else top_k
 
     queries = _split_queries(texts, client, settings.QUERY_MAX_TOKENS)
     if not queries:
@@ -60,7 +65,7 @@ def search_company_docs(
                 .where(DocChunk.posting_id == posting_id)
                 # 거리 오름차순으로 둬야 나중에 벡터 인덱스를 둘 때 인덱스를 탄다 (벡터 DB 설계서 8.2)
                 .order_by(distance)
-                .limit(top_k)
+                .limit(limit)
             ).all()
             for row in rows:
                 chunk = Chunk(*row)
@@ -69,7 +74,12 @@ def search_company_docs(
                     best[chunk.chunk_id] = chunk
 
     found = [c for c in best.values() if c.similarity >= settings.RAG_MIN_SIMILARITY]
-    return sorted(found, key=lambda c: c.similarity, reverse=True)[:top_k]
+    found = sorted(found, key=lambda c: c.similarity, reverse=True)[:limit]
+    if rerank and found:
+        scores = client.rerank(queries, [c.content for c in found])
+        ranked = sorted(zip(scores, found), key=lambda x: x[0], reverse=True)
+        found = [c for s, c in ranked if s >= settings.RAG_RERANK_MIN_SCORE]
+    return found[:top_k]
 
 
 def _split_queries(texts: list[str], client: EmbedClient, max_tokens: int) -> list[str]:

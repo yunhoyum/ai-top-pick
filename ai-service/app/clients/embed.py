@@ -40,6 +40,13 @@ class EmbedClient:
         return vectors
 
 
+    def rerank(self, queries: list[str], documents: list[str]) -> list[float]:
+        """문서마다 리랭커 점수(0~1). 검색어 조각마다 매긴 점수 중 가장 높은 값이다."""
+        r = self._client.post("/rerank", json={"queries": queries, "documents": documents})
+        r.raise_for_status()
+        return r.json()["scores"]
+
+
 def _batches(texts: list[str]):
     for i in range(0, len(texts), MAX_TEXTS):
         yield texts[i : i + MAX_TEXTS]

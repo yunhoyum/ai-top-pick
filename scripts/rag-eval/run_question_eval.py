@@ -15,6 +15,7 @@ PC2의 final_project 폴더에서 (PowerShell, pc2/.env에 DB·embed-server·LLM
 
 import csv
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -69,7 +70,10 @@ def run_applicant(graph, posting: PostingBrief, documents: ApplicantDocuments, j
 
 def main(posting_id: int, experiment: str, job_count: int, personality_count: int) -> None:
     posting = PostingBrief(posting_id=posting_id, **EVAL["posting"])
-    graph = build_question_graph(get_chat_model(), lambda q: [c.content for c in search_company_docs(posting_id, [q])])
+    # 서비스와 같게 리랭커를 켠다 (RAG 개선 2). 리랭커 전 결과와 비교하려면 -e RERANK=0
+    rerank = os.environ.get("RERANK", "1") != "0"
+    graph = build_question_graph(get_chat_model(),
+                                 lambda q: [c.content for c in search_company_docs(posting_id, [q], rerank=rerank)])
     results = []
     for a in EVAL["applicants"]:
         started = time.perf_counter()
@@ -89,13 +93,16 @@ def main(posting_id: int, experiment: str, job_count: int, personality_count: in
         # 겹침 중 같은 바탕 문장으로 코드가 판정한 것 (프롬프트 v5부터). 나머지는 LLM 판정
         "겹침 코드 판정": sum(s.get("failure_type") == "overlap" and "같은 서류 문장" in (s.get("feedback") or "")
                         for q in all_q for s in q["steps"]),
+        "검색어 수정": sum(s["node"] == "rewrite_query" for q in all_q for s in q["steps"]),
+        # 개선 2-① 뒤로는 0이어야 한다
+        "통과인데 청크 없음": sum(q.get("path") == "통과" and q["type"] == "직무" and not q.get("chunks") for q in all_q),
         "지원자당 시간(초)": [r["seconds"] for r in results],
         "질문당 시간 중앙(초)": sorted(q["seconds"] for q in all_q)[len(all_q) // 2] if all_q else None,
     }
     print(json.dumps(summary, ensure_ascii=False, indent=1))
 
     out = Path(f"/eval/results/question-{experiment}.json")
-    out.write_text(json.dumps({"experiment": experiment, "posting_id": posting_id, "prompt_version": prompts.VERSION,
+    out.write_text(json.dumps({"experiment": experiment, "posting_id": posting_id, "prompt_version": prompts.VERSION, "rerank": rerank,
                                "job_count": job_count, "personality_count": personality_count,
                                "summary": summary, "results": results}, ensure_ascii=False, indent=1), encoding="utf-8")
     review = Path(f"/eval/results/question-{experiment}-review.csv")

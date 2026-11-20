@@ -19,6 +19,7 @@ def generate(req: QuestionGenRequest) -> QuestionGenResponse:
     job, personality = generate_questions(
         req.posting, req.documents, req.job_count, req.personality_count,
         model=get_chat_model(),
-        search=lambda query: [c.content for c in search_company_docs(posting_id, [query])],
+        # 질문 생성만 리랭커를 켠다 (RAG 개선 2)
+        search=lambda query: [c.content for c in search_company_docs(posting_id, [query], rerank=True)],
     )
     return QuestionGenResponse(job=job, personality=personality)
