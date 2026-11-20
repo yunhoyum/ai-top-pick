@@ -12,10 +12,12 @@ final_project 폴더에서:
     -v "$(pwd)/ai-service:/src" -v "$(pwd)/scripts/rag-eval:/eval" -w /src pc2-ai-service:latest \
     python /eval/run_content_eval.py <공고 ID> <실험 ID> [사본 버전]
   사본 버전(예: v14)을 주면 frozen/answer_content_<버전>.py로 채점한다. 코드(답변에 없는 주장 빼기 등)는 지금 것이다.
+  -e RERANK=1을 주면 질문·답변 검색에 리랭커를 켠다 (RAG 개선 2. 서비스 채점은 아직 끔).
 """
 
 import importlib.util
 import json
+import os
 import re
 import statistics
 import sys
@@ -125,14 +127,17 @@ def _is_gold(sentence: str, gold: list[str]) -> bool:
     return any(s in _norm(g) or _norm(g) in s for g in gold)
 
 
+RERANK = os.environ.get("RERANK", "0") == "1"
+
+
 def evaluate(posting_id: int) -> list[dict]:
     queries = json.loads(Path("/eval/rag_eval_set.json").read_text(encoding="utf-8"))["queries"]
     by_id = {q["id"]: q for q in queries}
     rows = []
     for a in (q for q in queries if q["kind"] == "면접 답변"):
         q = by_id[a["question"]]
-        question_context = search_company_docs(posting_id, [q["query"]])
-        answer_context = search_company_docs(posting_id, [a["query"]])
+        question_context = search_company_docs(posting_id, [q["query"]], rerank=RERANK)
+        answer_context = search_company_docs(posting_id, [a["query"]], rerank=RERANK)
         model = TimedModel(get_chat_model())
         prepare_seconds = 0.0
         started = time.perf_counter()
@@ -264,7 +269,7 @@ if __name__ == "__main__":
     out = Path("/eval/results") / f"content-{experiment}.json"
     out.write_text(
         json.dumps(
-            {"experiment": experiment, "posting_id": posting_id, "prompt_version": prompts.VERSION,
+            {"experiment": experiment, "posting_id": posting_id, "prompt_version": prompts.VERSION, "rerank": RERANK,
              "llm_model": settings.LLM_MODEL, "summary": summary, "rows": rows},
             ensure_ascii=False, indent=2,
         ),
