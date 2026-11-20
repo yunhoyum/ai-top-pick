@@ -8,7 +8,7 @@ from langchain_core.messages import AIMessage
 
 from app.api import questions
 from app.core.config import get_settings
-from app.graphs.question import (FIXED_QUESTION, MAX_QUESTION_CHARS, NOT_GROUNDED, build_queries, form_problem,
+from app.graphs.question import (EMPTY_SEARCH, FIXED_QUESTION, MAX_QUESTION_CHARS, NOT_GROUNDED, build_queries, form_problem,
                                  generate_questions, numbered, pick_sentence, same_base_overlap)
 from app.main import app
 from app.schemas.internal import ApplicantDocuments, PostingBrief
@@ -137,6 +137,39 @@ def test_evidence_failure_rewrites_query_and_searches_again():
     assert job == ["새 질문"]
     assert search.queries == [CASE_A, "주문 API 캐시"]
     assert "문서가 캐시와 관계없다" in [t for k, t in model.calls if k == "query"][0]
+
+
+class EmptySearch(FakeSearch):
+    """처음 empty_times번은 빈 결과를 낸다."""
+
+    def __init__(self, empty_times):
+        super().__init__()
+        self.empty_times = empty_times
+
+    def __call__(self, query):
+        self.queries.append(query)
+        return [] if len(self.queries) <= self.empty_times else [f"문서: {query[:10]}"]
+
+
+def test_empty_search_is_evidence_failure_without_llm_validation():
+    # 검색 결과가 비면 LLM 검증 없이 evidence 실패 → 검색어를 고쳐 다시 검색한다 (개선 2-①)
+    model = FakeModel(generate=[_q("근거 없는 질문"), _q("새 질문")], validate=[PASS], query=[{"query": "주문 API 캐시"}])
+    search = EmptySearch(1)
+    job, _ = generate_questions(POSTING, _docs(), 1, 0, model, search)
+    assert job == ["새 질문"]
+    assert search.queries == [CASE_A, "주문 API 캐시"]
+    assert model.kinds() == ["generate", "query", "generate", "validate"]
+    assert EMPTY_SEARCH in model.texts("query")[0]
+
+
+def test_always_empty_search_goes_to_fallback():
+    model = FakeModel(generate=[_q("q1"), _q("q2"), _q("q3"), _q("적용 방안 질문")],
+                      query=[{"query": "고친1"}, {"query": "고친2"}])
+    search = EmptySearch(99)
+    job, _ = generate_questions(POSTING, _docs(), 1, 0, model, search)
+    assert job == ["적용 방안 질문"]
+    assert search.queries == [CASE_A, "고친1", "고친2"]
+    assert "validate" not in model.kinds()
 
 
 def test_question_failure_regenerates_with_feedback_without_new_search():

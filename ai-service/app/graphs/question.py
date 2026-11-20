@@ -47,6 +47,7 @@ _BULLET = re.compile(r"^\s*(?:[-•*·]|\d+[.)])\s*")
 
 # 형식 검사 (평가 Q3). LLM 검증 전에 코드로 본다. EXAONE은 '질문 하나, 한두 문장' 규칙을 자주 어기고 검증도 놓쳤다
 NOT_GROUNDED = "based_on 번호가 서류 문장 번호에 없다. 서류의 [번호] 하나를 고른다."
+EMPTY_SEARCH = "검색된 회사 프로젝트 문서가 없다. 서류에 나온 기술 이름이나 다룬 문제로 검색어를 고친다."
 MAX_QUESTION_CHARS = 200  # 2분 안에 답할 질문 길이 (제안. Q1-v1 평균 209자)
 _SENTENCE_END = re.compile(r"[.?!](?=\s|$)")
 _LABEL = re.compile(r"\[[^\]]+\]")  # 프롬프트 자료 표시가 새어 나온 것 ([비기능적 인재상] 등)
@@ -194,7 +195,7 @@ def build_question_graph(model: Runnable, search: Search):
     # ---------- 직무 ----------
 
     def retrieve(state: QuestionState) -> dict:
-        # 결과가 비면 그대로 생성으로 넘긴다. 근거가 없으면 검증이 evidence로 떨어뜨린다 (설계서 2.1 T-01)
+        # 결과가 비면 그대로 생성으로 넘긴다. 검증이 LLM 없이 evidence로 떨어뜨린다 (설계서 2.1 T-01)
         return {"chunks": search(state["query"])}
 
     def generate(state: QuestionState) -> dict:
@@ -218,6 +219,9 @@ def build_question_graph(model: Runnable, search: Search):
             return {"question": None, "based_on": base}
 
     def validate(state: QuestionState) -> dict:
+        # 검색 결과가 비면 LLM에 묻지 않고 evidence 실패다. EXAONE은 직무 설명만 보고 통과시켰다 (RAG 개선 2-①)
+        if not state["chunks"]:
+            return failed(state, "evidence", EMPTY_SEARCH)
         # 원래 서류 항목에서 고른 문장이다. rewrite_query가 고친 검색어는 서류 문장이 아니다
         if not state["based_on"]:
             return failed(state, "question", NOT_GROUNDED)
