@@ -3,7 +3,7 @@
 score: results/rerank-candidates-E4c.json의 후보(검색어마다 벡터 상위 8개)를 리랭커로 점수 매긴다.
   PC1 embed-server 이미지에서 실행한다 (sentence-transformers, GPU). 모델은 embed-models 볼륨에 받아 두었다.
   final_project 폴더에서:
-    docker run --rm --gpus all -v pc1_embed-models:/models -e HF_HOME=/models/hf -e HF_HUB_OFFLINE=1 -v "$(pwd)/scripts/rag-eval:/eval" pc1-embed-server python /eval/run_rerank_eval.py score
+    docker run --rm --gpus all -v pc1_embed-models:/models -e HF_HOME=/models/hf -e HF_HUB_OFFLINE=1 -v "$(pwd)/scripts/rag-eval:/eval" pc1-embed-server python /eval/run_rerank_eval.py score [whole|pieces]
 compare: 사람 관련도(results/rerank-E4c-review.csv)를 정답으로 세 방식을 비교한다. 로컬 python으로 돌린다.
     python scripts/rag-eval/run_rerank_eval.py compare [필터 실험 ID]
 """
@@ -18,13 +18,15 @@ RESULTS = Path(__file__).parent / "results"
 MODEL = "BAAI/bge-reranker-v2-m3"
 TOP_K, MIN_SIMILARITY = 5, 0.50  # 지금 설정 (app/core/config.py)
 RERANK_THRESHOLDS = (0.01, 0.02, 0.05, 0.1, 0.2, 0.3)
+RERANK_FILES = {"whole": "rerank-E4c-bge-m3.json", "pieces": "rerank-E4c-bge-m3-pieces.json"}
 
 
 def load_candidates():
     return json.loads((RESULTS / "rerank-candidates-E4c.json").read_text(encoding="utf-8"))["queries"]
 
 
-def score():
+def score(mode="whole"):
+    """whole: 서류 문장 전체를 검색어로. pieces: 검색기처럼 128토큰 조각마다 점수를 매겨 가장 높은 값."""
     from sentence_transformers import CrossEncoder
 
     model = CrossEncoder(MODEL, max_length=1024, device="cuda")
@@ -32,12 +34,15 @@ def score():
     for q in load_candidates():
         start = time.perf_counter()
         # 레이블이 하나인 CrossEncoder는 기본으로 시그모이드를 씌워 0~1을 돌려준다
-        probs = [float(s) for s in model.predict([(q["query"], c["content"]) for c in q["candidates"]])]
+        texts = q["pieces"] if mode == "pieces" else [q["query"]]
+        pairs = [(t, c["content"]) for c in q["candidates"] for t in texts]
+        flat = [float(s) for s in model.predict(pairs)]
+        probs = [max(flat[i * len(texts):(i + 1) * len(texts)]) for i in range(len(q["candidates"]))]
         seconds = round(time.perf_counter() - start, 3)
         out.append({"key": q["key"], "seconds": seconds,
                     "scores": {c["chunk_id"]: round(p, 4) for c, p in zip(q["candidates"], probs)}})
         print(q["key"], [round(p, 3) for p in probs], f"{seconds}s")
-    (RESULTS / "rerank-E4c-bge-m3.json").write_text(json.dumps({"model": MODEL, "results": out}, ensure_ascii=False,
+    (RESULTS / RERANK_FILES[mode]).write_text(json.dumps({"model": MODEL, "mode": mode, "results": out}, ensure_ascii=False,
                                                                indent=1), encoding="utf-8")
 
 
@@ -87,15 +92,19 @@ def compare(filter_label="exaone"):
     else:
         print(f"({fpath.name} 없음: LLM 필터 생략)")
 
-    rpath = RESULTS / "rerank-E4c-bge-m3.json"
-    if rpath.exists():
-        r = {x["key"]: x for x in json.loads(rpath.read_text(encoding="utf-8"))["results"]}
-        secs = sum(x["seconds"] for x in r.values()) / len(r)
+    for mode, name in RERANK_FILES.items():
+        rpath = RESULTS / name
+        if not rpath.exists():
+            print(f"({name} 없음: 리랭커 {mode} 생략)")
+            continue
+        r = {x["key"]: {int(c): s for c, s in x["scores"].items()} for x in json.loads(rpath.read_text(encoding="utf-8"))["results"]}
+        secs = sum(x["seconds"] for x in json.loads(rpath.read_text(encoding="utf-8"))["results"]) / len(r)
         for t in RERANK_THRESHOLDS:
-            kept = {k: [c for c, s in sorted(x["scores"].items(), key=lambda y: -y[1]) if s >= t][:TOP_K] for k, x in r.items()}
-            report(f"C 리랭커(점수≥{t}, 상위5)", {k: [int(c) for c in v] for k, v in kept.items()}, labels, queries, secs)
-    else:
-        print(f"({rpath.name} 없음: 리랭커 생략)")
+            kept = {k: [c for c, s in sorted(x.items(), key=lambda y: -y[1]) if s >= t][:TOP_K] for k, x in r.items()}
+            report(f"C 리랭커 {mode}(점수≥{t}, 상위5)", kept, labels, queries, secs)
+        # 지금 방식의 결과에서 리랭커 점수가 낮은 청크만 버린다
+        for t in (0.005, 0.01, 0.02):
+            report(f"D A + 리랭커 {mode}<{t} 버림", {k: [c for c in base[k] if r[k][c] >= t] for k in base}, labels, queries)
 
 
 if __name__ == "__main__":

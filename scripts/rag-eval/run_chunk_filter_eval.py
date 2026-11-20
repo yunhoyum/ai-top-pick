@@ -2,6 +2,7 @@
 
 results/rerank-candidates-E4c.json(검색어마다 벡터 검색 상위 8개)을 검색어마다 한 번에 보여 주고,
 질문 근거로 쓸 수 있는 문서 번호를 고르게 한다. 순서는 검색 순위 그대로다 (실제 그래프에 넣을 때와 같게).
+v1(exaone)은 형식 예시를 [1, 3]으로 줘서 14개 중 5개가 그대로 [1, 3]을 냈다. v2(exaone-v2)는 예시에 번호를 넣지 않는다.
 결과: results/filter-E4c-<실험 ID>.json. 정답(사람 관련도)과의 비교는 run_rerank_eval.py compare가 한다.
 
 DB·embed-server는 쓰지 않는다. PC2의 final_project 폴더에서 (PowerShell):
@@ -45,8 +46,9 @@ def prompt(query: str, chunks: list[str]):
 - 지원자 서류에 나온 기술, 다룬 문제, 쓴 방법과 같은 주제를 다루는 문서만 고른다.
 - 단어만 같고 다루는 내용이 다르면 고르지 않는다.
 - 해당하는 문서가 없으면 빈 목록을 출력한다.
+- relevant에는 고른 문서 번호를 정수로 넣는다.
 
-형식: {{"relevant": [1, 3]}}"""
+형식: {{"relevant": [...]}}"""
         ),
     ]
 
