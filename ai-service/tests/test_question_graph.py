@@ -359,10 +359,15 @@ def api(monkeypatch):
     seen = {}
 
     def fake(posting, documents, job_count, personality_count, model, search):
-        seen.update(posting_id=posting.posting_id, counts=(job_count, personality_count))
+        seen.update(posting_id=posting.posting_id, counts=(job_count, personality_count), chunks=search("검색어"))
         return ["직무1", "직무2"], ["인성1"]
 
+    def fake_search(posting_id, texts, top_k=None, *, rerank=False):
+        seen["search"] = {"posting_id": posting_id, "texts": texts, "top_k": top_k, "rerank": rerank}
+        return []
+
     monkeypatch.setattr(questions, "generate_questions", fake)
+    monkeypatch.setattr(questions, "search_company_docs", fake_search)
     monkeypatch.setattr(questions, "get_chat_model", lambda: None)
     yield TestClient(app), seen
     get_settings.cache_clear()
@@ -378,4 +383,11 @@ def test_api_returns_questions(api):
     r = client.post("/internal/questions/generate", json=BODY, headers={"X-Internal-Token": "secret"})
     assert r.status_code == 200, r.text
     assert r.json() == {"job": ["직무1", "직무2"], "personality": ["인성1"]}
-    assert seen == {"posting_id": 1, "counts": (2, 1)}
+    assert {k: seen[k] for k in ("posting_id", "counts")} == {"posting_id": 1, "counts": (2, 1)}
+
+
+def test_api_searches_top3_with_reranker(api):
+    # 질문 생성만 리랭커 + 상위 3개를 쓴다 (RAG 개선 2, 9.6). 채점은 벡터 상위 RAG_TOP_K개 그대로
+    client, seen = api
+    client.post("/internal/questions/generate", json=BODY, headers={"X-Internal-Token": "secret"})
+    assert seen["search"] == {"posting_id": 1, "texts": ["검색어"], "top_k": 3, "rerank": True}

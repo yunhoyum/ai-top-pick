@@ -22,6 +22,7 @@ from pathlib import Path
 
 sys.path[:0] = ["/src"]
 
+from app.core.config import get_settings
 from app.core.llm import get_chat_model
 from app.graphs.question import _STEPS_PER_QUESTION, build_queries, build_question_graph, essays_text
 from app.prompts import question as prompts
@@ -70,10 +71,11 @@ def run_applicant(graph, posting: PostingBrief, documents: ApplicantDocuments, j
 
 def main(posting_id: int, experiment: str, job_count: int, personality_count: int) -> None:
     posting = PostingBrief(posting_id=posting_id, **EVAL["posting"])
-    # 서비스와 같게 리랭커를 켠다 (RAG 개선 2). 리랭커 전 결과와 비교하려면 -e RERANK=0
+    # 서비스와 같게 리랭커 + RAG_QUESTION_TOP_K개(3)를 쓴다 (RAG 개선 2). 리랭커 전과 비교하려면 -e RERANK=0 -e RAG_QUESTION_TOP_K=5
     rerank = os.environ.get("RERANK", "1") != "0"
+    top_k = get_settings().RAG_QUESTION_TOP_K
     graph = build_question_graph(get_chat_model(),
-                                 lambda q: [c.content for c in search_company_docs(posting_id, [q], rerank=rerank)])
+                                 lambda q: [c.content for c in search_company_docs(posting_id, [q], top_k, rerank=rerank)])
     results = []
     for a in EVAL["applicants"]:
         started = time.perf_counter()
@@ -102,7 +104,7 @@ def main(posting_id: int, experiment: str, job_count: int, personality_count: in
     print(json.dumps(summary, ensure_ascii=False, indent=1))
 
     out = Path(f"/eval/results/question-{experiment}.json")
-    out.write_text(json.dumps({"experiment": experiment, "posting_id": posting_id, "prompt_version": prompts.VERSION, "rerank": rerank,
+    out.write_text(json.dumps({"experiment": experiment, "posting_id": posting_id, "prompt_version": prompts.VERSION, "rerank": rerank, "top_k": top_k,
                                "job_count": job_count, "personality_count": personality_count,
                                "summary": summary, "results": results}, ensure_ascii=False, indent=1), encoding="utf-8")
     review = Path(f"/eval/results/question-{experiment}-review.csv")
