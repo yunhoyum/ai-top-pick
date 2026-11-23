@@ -1,0 +1,5623 @@
+{
+  "label": "e1e2",
+  "source_posting_id": 8452,
+  "posting_id": 8461,
+  "run_at": "2026-11-23T02:30:06.267Z",
+  "answer_sec": 20,
+  "question_jobs": [
+    {
+      "application_id": 3956,
+      "status": "완료",
+      "queue_wait_sec": 0.039424,
+      "seconds": 102.110476,
+      "questions": 6,
+      "ai_questions": 4
+    },
+    {
+      "application_id": 3957,
+      "status": "완료",
+      "queue_wait_sec": 102.168318,
+      "seconds": 82.064661,
+      "questions": 6,
+      "ai_questions": 4
+    },
+    {
+      "application_id": 3958,
+      "status": "완료",
+      "queue_wait_sec": 184.249657,
+      "seconds": 102.154669,
+      "questions": 6,
+      "ai_questions": 4
+    }
+  ],
+  "interviews": [
+    {
+      "applicant": "D1",
+      "email": "timing-e1e2-8461-1@example.com",
+      "application_id": 3956,
+      "submitted": {
+        "posting": {
+          "posting_id": 8461,
+          "position_name": "백엔드 개발자 (신입) [시간측정 e1e2 ← 8452]",
+          "progress_status": "서류 접수 중",
+          "doc_end_at": "2026-11-24T02:03:19.848156Z",
+          "doc_result_at": "2026-11-25T02:03:19.848156Z"
+        },
+        "form": {
+          "has_education": true,
+          "has_career": false,
+          "has_project": false,
+          "essay_topics": [
+            {
+              "topic_id": 8247,
+              "topic_name": "지원 동기"
+            },
+            {
+              "topic_id": 8248,
+              "topic_name": "성격의 장단점"
+            }
+          ]
+        },
+        "preview": false,
+        "write_status": "제출",
+        "submitted_at": "2026-11-23T02:03:20.593926Z",
+        "profile": {
+          "name": "지원자 D1",
+          "phone": "010-0000-0001",
+          "email": "timing-e1e2-8461-1@example.com"
+        },
+        "educations": [
+          {
+            "school_name": "한빛대학교",
+            "major": "컴퓨터공학",
+            "period": "2019.03 ~ 2025.02"
+          }
+        ],
+        "careers": [],
+        "projects": [],
+        "skills": [
+          {
+            "skill_name": "Java",
+            "required": true,
+            "score": 4
+          },
+          {
+            "skill_name": "SQL",
+            "required": true,
+            "score": 4
+          }
+        ],
+        "cases": [
+          {
+            "skill_name": "Java",
+            "content": "[하이브리드 검색과 리랭킹] 사내 위키 챗봇에서 'retry.enabled'나 'E-4031' 같은 설정 키와 오류 코드를 물으면 벡터 검색이 정답 문서를 찾지 못했습니다. 실패한 질문 40개를 보니 31개가 설정 키나 오류 코드가 들어간 질문이었습니다. 설정 키처럼 글자가 정확히 같아야 하는 질문은 키워드 검색이, 표현이 다른 질문은 벡터 검색이 강하다고 판단해 두 검색을 함께 쓰기로 했습니다. 두 검색의 점수 척도가 달라 점수 대신 순위로 합치는 RRF(k=60)를 썼고, 합친 후보 30개를 Cross-Encoder 리랭커(bge-reranker-v2-m3)로 다시 정렬해 상위 5개만 LLM에 넘겼습니다. 질문 150개 평가셋에서 상위 5개 안에 정답이 든 비율이 72%에서 86%로 올랐고, 응답 시간은 평균 0.4초 늘었습니다."
+          },
+          {
+            "skill_name": "SQL",
+            "content": "[LangGraph 재검색] 검색된 문서가 질문과 관련이 없을 때 답변이 엉뚱하게 나오는 문제가 있어서 LangGraph로 문서 평가 노드를 만들었습니다. 관련 문서가 부족하면 질의를 다시 쓰고 다시 검색하도록 했습니다. 답변 품질이 좋아졌습니다."
+          }
+        ],
+        "essays": [
+          {
+            "topic_id": 8247,
+            "content": "저는 AI 분야에서 최고의 전문가가 되고 싶습니다. 귀사는 업계를 선도하는 기업이며 성장 가능성이 매우 크다고 생각합니다. 저는 책임감이 강하고 소통을 잘하며 어떤 일이든 최선을 다합니다. 입사하게 된다면 열정을 가지고 회사의 발전에 기여하는 인재가 되겠습니다."
+          },
+          {
+            "topic_id": 8248,
+            "content": "저는 포기하지 않는 사람입니다. 어려운 문제가 생겨도 끝까지 해결해 왔습니다. 개발을 하면서 많은 어려움이 있었지만 항상 꾸준히 노력했고 결국 좋은 결과를 얻었습니다. 이런 끈기는 저의 가장 큰 장점이며, 귀사에서도 어떤 문제든 끝까지 해결하겠습니다."
+          }
+        ],
+        "portfolio": {
+          "file_name": "portfolio.pdf",
+          "file_size": 48
+        }
+      },
+      "transitions": [
+        {
+          "question_id": 3025,
+          "reason": "button",
+          "next": 3026,
+          "seconds": 26.751,
+          "kind": "직무",
+          "next_kind": "직무"
+        },
+        {
+          "question_id": 3026,
+          "reason": "button",
+          "next": 3027,
+          "seconds": 37.289,
+          "kind": "직무",
+          "next_kind": "인성"
+        },
+        {
+          "question_id": 3027,
+          "reason": "button",
+          "next": 3028,
+          "seconds": 23.224,
+          "kind": "인성",
+          "next_kind": "인성"
+        },
+        {
+          "question_id": 3028,
+          "reason": "button",
+          "next": 3029,
+          "seconds": 20.792,
+          "kind": "인성",
+          "next_kind": "기업"
+        },
+        {
+          "question_id": 3029,
+          "reason": "button",
+          "next": 3030,
+          "seconds": 22.376,
+          "kind": "기업",
+          "next_kind": "기업"
+        },
+        {
+          "question_id": 3030,
+          "reason": "button",
+          "next": "interview_end",
+          "seconds": 22.578,
+          "kind": "기업",
+          "next_kind": "interview_end"
+        }
+      ],
+      "frames": [
+        {
+          "t": 1795399694891,
+          "dir": "recv",
+          "msg": {
+            "type": "connected",
+            "session_id": 808
+          }
+        },
+        {
+          "t": 1795399700026,
+          "dir": "recv",
+          "msg": {
+            "type": "question",
+            "question_id": 3025,
+            "seq": 1,
+            "total": 6,
+            "text": "귀하의 RRF(k=60) 기반 검색 및 리랭킹 프로세스 경험을 바탕으로, 회사에서 진행하는 벡터 DB 적재와 Contextual Retrieval을 통합한 검색 시스템 개발에 어떻게 적용하거나 개선할 수 있을까요?",
+            "think_sec": 5,
+            "answer_sec": 60
+          }
+        },
+        {
+          "t": 1795399700106,
+          "dir": "recv",
+          "msg": {
+            "type": "audio"
+          }
+        },
+        {
+          "t": 1795399715699,
+          "dir": "sent",
+          "msg": {
+            "type": "question_audio_ended",
+            "question_id": 3025
+          }
+        },
+        {
+          "t": 1795399715700,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "think",
+            "ends_at": "2026-11-23T02:08:40.699793+00:00"
+          }
+        },
+        {
+          "t": 1795399721342,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "answer",
+            "ends_at": "2026-11-23T02:09:40.698289+00:00"
+          }
+        },
+        {
+          "t": 1795399723396,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399724296,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상입니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399725191,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "네,",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399725191,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "네,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399726057,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "말씀드린",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399727021,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "말씀드리겠습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399728156,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399729061,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399729992,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399731161,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API의 응답이 느려질",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399732096,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API에 은퇴",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399732097,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "느려지는 문제가",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399732690,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "느려지는 문제가 있었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399733888,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399734801,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399736001,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399736910,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을 찾지",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399737524,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을 찾았고,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399738671,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399739563,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399740518,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399741695,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399741999,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399742635,
+          "dir": "sent",
+          "msg": {
+            "type": "answer_done",
+            "question_id": 3025
+          }
+        },
+        {
+          "t": 1795399742851,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399742860,
+          "dir": "recv",
+          "msg": {
+            "type": "answer_end",
+            "question_id": 3025,
+            "reason": "button"
+          }
+        },
+        {
+          "t": 1795399742863,
+          "dir": "recv",
+          "msg": {
+            "type": "evaluating",
+            "question_id": 3025
+          }
+        },
+        {
+          "t": 1795399769611,
+          "dir": "recv",
+          "msg": {
+            "type": "question",
+            "question_id": 3026,
+            "seq": 2,
+            "total": 6,
+            "text": "귀하의 책임감과 소통 능력을 바탕으로, 회사의 프로젝트에서 LangGraph와 RAG 기술을 활용한 Contextual Retrieval 시스템 구축 과정에서 어떤 역할을 수행하고, 이를 통해 팀의 효율성을 어떻게 향상시킬 수 있을까요?",
+            "think_sec": 5,
+            "answer_sec": 60
+          }
+        },
+        {
+          "t": 1795399769697,
+          "dir": "recv",
+          "msg": {
+            "type": "audio"
+          }
+        },
+        {
+          "t": 1795399786746,
+          "dir": "sent",
+          "msg": {
+            "type": "question_audio_ended",
+            "question_id": 3026
+          }
+        },
+        {
+          "t": 1795399786748,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "think",
+            "ends_at": "2026-11-23T02:09:51.746453+00:00"
+          }
+        },
+        {
+          "t": 1795399792228,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "answer",
+            "ends_at": "2026-11-23T02:10:51.746819+00:00"
+          }
+        },
+        {
+          "t": 1795399794559,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "로그와 쿼리 실행 계획을 확인",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399795773,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "로그와 쿼리 실행 계획을 확인해서 원인을 찾아",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399796297,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "로그와 쿼리 실행 계획을 확인해서 원인을 찾았고,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399797203,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399798402,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399799365,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399800215,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399800510,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399801698,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 별",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399802600,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399803505,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399804703,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399805304,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399806197,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399807101,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측과",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399808300,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399809207,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저 하는 습관을",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399810108,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저 하는",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399810109,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "습관을 갖게 되었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399810402,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "갖게 되었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399811598,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399812198,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상입니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399812851,
+          "dir": "sent",
+          "msg": {
+            "type": "answer_done",
+            "question_id": 3026
+          }
+        },
+        {
+          "t": 1795399813031,
+          "dir": "recv",
+          "msg": {
+            "type": "answer_end",
+            "question_id": 3026,
+            "reason": "button"
+          }
+        },
+        {
+          "t": 1795399813033,
+          "dir": "recv",
+          "msg": {
+            "type": "evaluating",
+            "question_id": 3026
+          }
+        },
+        {
+          "t": 1795399850320,
+          "dir": "recv",
+          "msg": {
+            "type": "question",
+            "question_id": 3027,
+            "seq": 3,
+            "total": 6,
+            "text": "어려움 속에서도 꾸준히 노력하여 좋은 결과를 얻은 경험을 바탕으로, 끝까지 파고드는 태도를 어떻게 발휘하여 복잡한 문제 해결 과정에서 팀 동료들에게 긍정적인 영향을 미쳤는지 설명해 주실 수 있나요?",
+            "think_sec": 5,
+            "answer_sec": 60
+          }
+        },
+        {
+          "t": 1795399850399,
+          "dir": "recv",
+          "msg": {
+            "type": "audio"
+          }
+        },
+        {
+          "t": 1795399866403,
+          "dir": "sent",
+          "msg": {
+            "type": "question_audio_ended",
+            "question_id": 3027
+          }
+        },
+        {
+          "t": 1795399866405,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "think",
+            "ends_at": "2026-11-23T02:11:11.405079+00:00"
+          }
+        },
+        {
+          "t": 1795399872054,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "answer",
+            "ends_at": "2026-11-23T02:12:11.404842+00:00"
+          }
+        },
+        {
+          "t": 1795399873796,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "말씀드리겠습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399874966,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399875869,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399877102,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399878022,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API의 응답이 느려질",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399878874,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API에 응태",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399878874,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "느려지는 문제가",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399879824,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "느려지는 문제가 있었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399880717,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399881575,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399882810,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399883693,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399884586,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을 찾았고,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399885504,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399886383,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399887631,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399888525,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399888846,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399889722,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399890954,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399891827,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399893022,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399893144,
+          "dir": "sent",
+          "msg": {
+            "type": "answer_done",
+            "question_id": 3027
+          }
+        },
+        {
+          "t": 1795399893294,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399893374,
+          "dir": "recv",
+          "msg": {
+            "type": "answer_end",
+            "question_id": 3027,
+            "reason": "button"
+          }
+        },
+        {
+          "t": 1795399893374,
+          "dir": "recv",
+          "msg": {
+            "type": "evaluating",
+            "question_id": 3027
+          }
+        },
+        {
+          "t": 1795399916598,
+          "dir": "recv",
+          "msg": {
+            "type": "question",
+            "question_id": 3028,
+            "seq": 4,
+            "total": 6,
+            "text": "과거에 직면한 복잡한 문제 상황에서 끝까지 해결하려는 노력을 어떻게 보여주셨는지 간단히 설명해 주실 수 있을까요?",
+            "think_sec": 5,
+            "answer_sec": 60
+          }
+        },
+        {
+          "t": 1795399916646,
+          "dir": "recv",
+          "msg": {
+            "type": "audio"
+          }
+        },
+        {
+          "t": 1795399926401,
+          "dir": "sent",
+          "msg": {
+            "type": "question_audio_ended",
+            "question_id": 3028
+          }
+        },
+        {
+          "t": 1795399926404,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "think",
+            "ends_at": "2026-11-23T02:12:11.403291+00:00"
+          }
+        },
+        {
+          "t": 1795399932056,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "answer",
+            "ends_at": "2026-11-23T02:13:11.402988+00:00"
+          }
+        },
+        {
+          "t": 1795399933483,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이제",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399934382,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399935588,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 AP",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399936499,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API의 응답이",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399937393,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API의 응답이 느려져",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399937690,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "문제가 있었",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399938283,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "문제가 있었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399939493,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399940400,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399941608,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399942510,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399943105,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을 찾았고,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399944302,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399945205,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399946116,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399947314,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399947595,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399948495,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399949694,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399950600,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399951500,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399952106,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399952995,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399953341,
+          "dir": "sent",
+          "msg": {
+            "type": "answer_done",
+            "question_id": 3028
+          }
+        },
+        {
+          "t": 1795399953585,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399953598,
+          "dir": "recv",
+          "msg": {
+            "type": "answer_end",
+            "question_id": 3028,
+            "reason": "button"
+          }
+        },
+        {
+          "t": 1795399953601,
+          "dir": "recv",
+          "msg": {
+            "type": "evaluating",
+            "question_id": 3028
+          }
+        },
+        {
+          "t": 1795399974390,
+          "dir": "recv",
+          "msg": {
+            "type": "question",
+            "question_id": 3029,
+            "seq": 5,
+            "total": 6,
+            "text": "Q1",
+            "think_sec": 5,
+            "answer_sec": 60
+          }
+        },
+        {
+          "t": 1795399974396,
+          "dir": "recv",
+          "msg": {
+            "type": "audio"
+          }
+        },
+        {
+          "t": 1795399975789,
+          "dir": "sent",
+          "msg": {
+            "type": "question_audio_ended",
+            "question_id": 3029
+          }
+        },
+        {
+          "t": 1795399975793,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "think",
+            "ends_at": "2026-11-23T02:13:00.792248+00:00"
+          }
+        },
+        {
+          "t": 1795399981281,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "answer",
+            "ends_at": "2026-11-23T02:14:00.793051+00:00"
+          }
+        },
+        {
+          "t": 1795399982810,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399983626,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399984736,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399985638,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저 하는 습관을 갖게",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399986547,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저 하는",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399986547,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "갖게 되었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399986835,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "갖게 되었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399987736,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399988338,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상입니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399989533,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "네,",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399989534,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "네,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399990430,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "말씀드리기",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399991335,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "말씀드리겠습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399992232,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399993434,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399994337,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399995536,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API의 응답이 느려질",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399996463,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API의 응답이 느려지는 문제가",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399997037,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "있었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795399998237,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795399999138,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400000043,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400001242,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을 찾지",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400001490,
+          "dir": "sent",
+          "msg": {
+            "type": "answer_done",
+            "question_id": 3029
+          }
+        },
+        {
+          "t": 1795400001669,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을 찾았고,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400001674,
+          "dir": "recv",
+          "msg": {
+            "type": "answer_end",
+            "question_id": 3029,
+            "reason": "button"
+          }
+        },
+        {
+          "t": 1795400001675,
+          "dir": "recv",
+          "msg": {
+            "type": "evaluating",
+            "question_id": 3029
+          }
+        },
+        {
+          "t": 1795400024050,
+          "dir": "recv",
+          "msg": {
+            "type": "question",
+            "question_id": 3030,
+            "seq": 6,
+            "total": 6,
+            "text": "Q2",
+            "think_sec": 5,
+            "answer_sec": 60
+          }
+        },
+        {
+          "t": 1795400024057,
+          "dir": "recv",
+          "msg": {
+            "type": "audio"
+          }
+        },
+        {
+          "t": 1795400025448,
+          "dir": "sent",
+          "msg": {
+            "type": "question_audio_ended",
+            "question_id": 3030
+          }
+        },
+        {
+          "t": 1795400025450,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "think",
+            "ends_at": "2026-11-23T02:13:50.448671+00:00"
+          }
+        },
+        {
+          "t": 1795400031093,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "answer",
+            "ends_at": "2026-11-23T02:14:50.449112+00:00"
+          }
+        },
+        {
+          "t": 1795400032595,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400033490,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400034621,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400035590,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400035590,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400036744,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 별",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400037633,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400038552,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400039728,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400040356,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400041231,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400042123,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측된",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400043326,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400044243,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저 하는 습관을",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400045147,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저 하는",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400045148,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "습관을 갖게 되었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400045734,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "갖게 되었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400046633,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400047240,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상입니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400048135,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "네,",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400048419,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "네,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400049315,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "말씀드리기",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400050225,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "말씀드리겠습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400051131,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400051640,
+          "dir": "sent",
+          "msg": {
+            "type": "answer_done",
+            "question_id": 3030
+          }
+        },
+        {
+          "t": 1795400051876,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400051888,
+          "dir": "recv",
+          "msg": {
+            "type": "answer_end",
+            "question_id": 3030,
+            "reason": "button"
+          }
+        },
+        {
+          "t": 1795400051890,
+          "dir": "recv",
+          "msg": {
+            "type": "evaluating",
+            "question_id": 3030
+          }
+        },
+        {
+          "t": 1795400074466,
+          "dir": "recv",
+          "msg": {
+            "type": "interview_end",
+            "answered_count": 6,
+            "ended_at": "2026-11-23T02:14:34.453576+00:00"
+          }
+        }
+      ]
+    },
+    {
+      "applicant": "D2",
+      "email": "timing-e1e2-8461-2@example.com",
+      "application_id": 3957,
+      "submitted": {
+        "posting": {
+          "posting_id": 8461,
+          "position_name": "백엔드 개발자 (신입) [시간측정 e1e2 ← 8452]",
+          "progress_status": "서류 접수 중",
+          "doc_end_at": "2026-11-24T02:03:19.848156Z",
+          "doc_result_at": "2026-11-25T02:03:19.848156Z"
+        },
+        "form": {
+          "has_education": true,
+          "has_career": false,
+          "has_project": false,
+          "essay_topics": [
+            {
+              "topic_id": 8247,
+              "topic_name": "지원 동기"
+            },
+            {
+              "topic_id": 8248,
+              "topic_name": "성격의 장단점"
+            }
+          ]
+        },
+        "preview": false,
+        "write_status": "제출",
+        "submitted_at": "2026-11-23T02:03:21.350929Z",
+        "profile": {
+          "name": "지원자 D2",
+          "phone": "010-0000-0002",
+          "email": "timing-e1e2-8461-2@example.com"
+        },
+        "educations": [
+          {
+            "school_name": "새봄대학교",
+            "major": "정보통신공학",
+            "period": "2017.03 ~ 2023.02"
+          }
+        ],
+        "careers": [],
+        "projects": [],
+        "skills": [
+          {
+            "skill_name": "Java",
+            "required": true,
+            "score": 4
+          },
+          {
+            "skill_name": "SQL",
+            "required": true,
+            "score": 4
+          }
+        ],
+        "cases": [
+          {
+            "skill_name": "Java",
+            "content": "[Prometheus·Grafana 관측] 주문 API가 느려져도 고객 문의가 들어온 뒤에야 알았습니다. 지난 분기 장애 6건을 보니 처음 알아챈 시점이 평균 32분 늦었습니다. 평균 지연은 정상인데 일부 요청만 느린 경우가 많아 평균 대신 P95 지연을 기준으로 삼았습니다. Prometheus 히스토그램으로 API별 지연과 오류율을 모으고, Grafana 대시보드를 만들고, P95 지연이 5분 동안 1.5초를 넘으면 슬랙으로 알림이 가게 했습니다. 이후 장애 4건은 알림으로 평균 5분 안에 알아챘습니다."
+          },
+          {
+            "skill_name": "SQL",
+            "content": "[FAQ 검색 챗봇] 상담 에이전트에 FAQ 검색을 붙였는데 답변 중간이 잘린 청크가 검색돼 엉뚱한 답이 나왔습니다. 청크가 작아서 문맥이 끊긴다고 보고 청크 크기를 300토큰에서 2,000토큰으로 키웠습니다. 한 청크에 FAQ가 여러 개 들어가 문맥이 끊기는 문제는 줄었고, 상담원이 보기에 답변이 더 자연스러워졌다는 의견을 받았습니다."
+          }
+        ],
+        "essays": [
+          {
+            "topic_id": 8247,
+            "content": "상담 에이전트를 운영하면서 답변 품질의 대부분이 검색에서 정해진다는 것을 알게 됐습니다. 에이전트가 틀린 답을 한 사례 50건을 직접 확인했더니 34건이 맞는 문서를 찾지 못한 경우였습니다. 그런데 저는 검색을 제대로 개선해 본 경험이 없어 청크 크기만 바꿔 보는 데서 멈췄습니다. 사내 문서 RAG를 지표로 재며 개선하는 이 직무에서 검색 단계를 깊이 배우고, 제가 가진 에이전트 설계와 운영 관측 경험을 보태고 싶어 지원했습니다."
+          },
+          {
+            "topic_id": 8248,
+            "content": "주문 API가 하루 한두 번 10초 넘게 멈추는 문제가 석 달 동안 원인을 모른 채 남아 있었습니다. 팀에서는 DB 부하라고 추측했지만, 저는 추측으로 고치기 전에 근거를 모으자고 제안했습니다. 느린 요청 200건의 트레이스를 모아 보니 모두 같은 외부 배송 API를 호출하고 있었고, 그 API에 타임아웃이 설정되어 있지 않았습니다. 타임아웃과 재시도 횟수를 정하고 나서 10초 넘는 요청이 사라졌습니다. 원인과 확인 과정, 바꾼 설정의 이유를 장애 회고 문서로 남겼고, 이후 팀은 외부 API를 추가할 때 이 문서의 점검 목록을 씁니다. 처음에 제가 원인을 모른다고 솔직히 말하고 데이터부터 모은 것이 문제를 푼 계기였다고 생각합니다."
+          }
+        ],
+        "portfolio": {
+          "file_name": "portfolio.pdf",
+          "file_size": 48
+        }
+      },
+      "transitions": [
+        {
+          "question_id": 3031,
+          "reason": "button",
+          "next": 3032,
+          "seconds": 41.03,
+          "kind": "직무",
+          "next_kind": "직무"
+        },
+        {
+          "question_id": 3032,
+          "reason": "button",
+          "next": 3033,
+          "seconds": 40.799,
+          "kind": "직무",
+          "next_kind": "인성"
+        },
+        {
+          "question_id": 3033,
+          "reason": "button",
+          "next": 3034,
+          "seconds": 37.409,
+          "kind": "인성",
+          "next_kind": "인성"
+        },
+        {
+          "question_id": 3034,
+          "reason": "button",
+          "next": 3035,
+          "seconds": 23.162,
+          "kind": "인성",
+          "next_kind": "기업"
+        },
+        {
+          "question_id": 3035,
+          "reason": "button",
+          "next": 3036,
+          "seconds": 22.598,
+          "kind": "기업",
+          "next_kind": "기업"
+        },
+        {
+          "question_id": 3036,
+          "reason": "button",
+          "next": "interview_end",
+          "seconds": 23.136,
+          "kind": "기업",
+          "next_kind": "interview_end"
+        }
+      ],
+      "frames": [
+        {
+          "t": 1795400104272,
+          "dir": "recv",
+          "msg": {
+            "type": "connected",
+            "session_id": 809
+          }
+        },
+        {
+          "t": 1795400110899,
+          "dir": "recv",
+          "msg": {
+            "type": "question",
+            "question_id": 3031,
+            "seq": 1,
+            "total": 6,
+            "text": "귀하의 경험에서 Prometheus를 활용해 API 지연 시간을 모니터링하고 알림 시스템을 구축한 것처럼, 회사의 Contextual Retriever 구현 단계에서 Prometheus 지연 히스토그램을 어떻게 활용하여 시스템의 성능을 최적화하고 문제를 신속히 감지할 수 있을까요?",
+            "think_sec": 5,
+            "answer_sec": 60
+          }
+        },
+        {
+          "t": 1795400111003,
+          "dir": "recv",
+          "msg": {
+            "type": "audio"
+          }
+        },
+        {
+          "t": 1795400130355,
+          "dir": "sent",
+          "msg": {
+            "type": "question_audio_ended",
+            "question_id": 3031
+          }
+        },
+        {
+          "t": 1795400130357,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "think",
+            "ends_at": "2026-11-23T02:15:35.356475+00:00"
+          }
+        },
+        {
+          "t": 1795400136012,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "answer",
+            "ends_at": "2026-11-23T02:16:35.357121+00:00"
+          }
+        },
+        {
+          "t": 1795400137417,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400138331,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400139522,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400140422,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API의 응답이 느려져",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400141344,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API의 응답이 느려지는 문제가",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400142223,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "있었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400143129,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400144378,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400145227,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400146168,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을 찾지",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400147030,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을 찾았고,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400147932,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400148825,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400150036,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400150937,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400151259,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400152138,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 별",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400153371,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400154226,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400155445,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400155763,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400156980,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400157829,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측된",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400158020,
+          "dir": "sent",
+          "msg": {
+            "type": "answer_done",
+            "question_id": 3031
+          }
+        },
+        {
+          "t": 1795400158245,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400158252,
+          "dir": "recv",
+          "msg": {
+            "type": "answer_end",
+            "question_id": 3031,
+            "reason": "button"
+          }
+        },
+        {
+          "t": 1795400158254,
+          "dir": "recv",
+          "msg": {
+            "type": "evaluating",
+            "question_id": 3031
+          }
+        },
+        {
+          "t": 1795400199282,
+          "dir": "recv",
+          "msg": {
+            "type": "question",
+            "question_id": 3032,
+            "seq": 2,
+            "total": 6,
+            "text": "귀하가 청크 크기 조정을 통해 검색 효율성을 개선한 경험을 바탕으로, KnowBridge의 문서 청크화 과정에서 발생할 수 있는 문맥 정보 손실 문제를 어떻게 예방하고 최적화할 수 있을지 회사의 Contextual Retriever 구현에 적용할 수 있는 방법은 무엇인가요?",
+            "think_sec": 5,
+            "answer_sec": 60
+          }
+        },
+        {
+          "t": 1795400199381,
+          "dir": "recv",
+          "msg": {
+            "type": "audio"
+          }
+        },
+        {
+          "t": 1795400218872,
+          "dir": "sent",
+          "msg": {
+            "type": "question_audio_ended",
+            "question_id": 3032
+          }
+        },
+        {
+          "t": 1795400218874,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "think",
+            "ends_at": "2026-11-23T02:17:03.873125+00:00"
+          }
+        },
+        {
+          "t": 1795400224397,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "answer",
+            "ends_at": "2026-11-23T02:18:03.874068+00:00"
+          }
+        },
+        {
+          "t": 1795400225983,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400226796,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400227912,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API에",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400228756,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API의 응답이 느려지는",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400229713,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API의 응답이 느려지는 문제가 있었을",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400231154,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400232359,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리,",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400233263,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400234168,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을 찾기",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400235065,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을 찾았고,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400235961,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400237159,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400238060,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400238966,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400239263,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400240458,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400241357,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400242260,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400243464,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400243762,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400244958,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400245860,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400246313,
+          "dir": "sent",
+          "msg": {
+            "type": "answer_done",
+            "question_id": 3032
+          }
+        },
+        {
+          "t": 1795400246480,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400246493,
+          "dir": "recv",
+          "msg": {
+            "type": "answer_end",
+            "question_id": 3032,
+            "reason": "button"
+          }
+        },
+        {
+          "t": 1795400246495,
+          "dir": "recv",
+          "msg": {
+            "type": "evaluating",
+            "question_id": 3032
+          }
+        },
+        {
+          "t": 1795400287292,
+          "dir": "recv",
+          "msg": {
+            "type": "question",
+            "question_id": 3033,
+            "seq": 3,
+            "total": 6,
+            "text": "석 달 동안 원인을 파악하지 못한 API 지연 문제를 해결하기 위해 끝까지 파고들었던 경험에서, 어떤 방법으로 문제 해결에 대한 끈기와 집중력을 발휘하셨는지 설명해 주실 수 있나요?",
+            "think_sec": 5,
+            "answer_sec": 60
+          }
+        },
+        {
+          "t": 1795400287366,
+          "dir": "recv",
+          "msg": {
+            "type": "audio"
+          }
+        },
+        {
+          "t": 1795400301909,
+          "dir": "sent",
+          "msg": {
+            "type": "question_audio_ended",
+            "question_id": 3033
+          }
+        },
+        {
+          "t": 1795400301911,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "think",
+            "ends_at": "2026-11-23T02:18:26.910184+00:00"
+          }
+        },
+        {
+          "t": 1795400307406,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "answer",
+            "ends_at": "2026-11-23T02:19:26.911332+00:00"
+          }
+        },
+        {
+          "t": 1795400309121,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400309702,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상입니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400310621,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "네,",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400310868,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "네,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400311822,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "말씀드리기",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400312669,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "말씀드리겠습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400313572,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400314472,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400315675,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400316577,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API의 응답이 느려져",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400317479,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API의 응답이 느려지는 문제가",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400318376,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "있었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400319273,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400320479,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400321381,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400322281,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400323186,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을 찾았고,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400324086,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400325277,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400326181,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400327082,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400327382,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400328576,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 별",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400328610,
+          "dir": "sent",
+          "msg": {
+            "type": "answer_done",
+            "question_id": 3033
+          }
+        },
+        {
+          "t": 1795400328782,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400328793,
+          "dir": "recv",
+          "msg": {
+            "type": "answer_end",
+            "question_id": 3033,
+            "reason": "button"
+          }
+        },
+        {
+          "t": 1795400328793,
+          "dir": "recv",
+          "msg": {
+            "type": "evaluating",
+            "question_id": 3033
+          }
+        },
+        {
+          "t": 1795400366202,
+          "dir": "recv",
+          "msg": {
+            "type": "question",
+            "question_id": 3034,
+            "seq": 4,
+            "total": 6,
+            "text": "처음에 문제의 원인을 모른다고 솔직하게 인정하고 데이터 수집부터 시작하셨다는 경험에서, 어려운 상황에서도 객관적인 분석을 통해 문제 해결의 방향을 설정하는 데 어떤 접근법을 취하셨나요?",
+            "think_sec": 5,
+            "answer_sec": 60
+          }
+        },
+        {
+          "t": 1795400366281,
+          "dir": "recv",
+          "msg": {
+            "type": "audio"
+          }
+        },
+        {
+          "t": 1795400381667,
+          "dir": "sent",
+          "msg": {
+            "type": "question_audio_ended",
+            "question_id": 3034
+          }
+        },
+        {
+          "t": 1795400381669,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "think",
+            "ends_at": "2026-11-23T02:19:46.667100+00:00"
+          }
+        },
+        {
+          "t": 1795400387318,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "answer",
+            "ends_at": "2026-11-23T02:20:46.667870+00:00"
+          }
+        },
+        {
+          "t": 1795400388811,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "응답시간이",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400389696,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "응답 시간이 절반 가까이",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400390900,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400390900,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400391748,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 .관",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400392943,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측된",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400393848,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400394761,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저 하는 습관을",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400395972,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저 하는",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400395972,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "습관을 갖게 되었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400396258,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "갖게 되었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400397202,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400397765,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상입니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400398937,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "네,",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400398952,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "네,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400399850,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "말씀드리기",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400400749,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "말씀드리겠습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400401646,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400402854,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400403755,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400404948,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API의 응답이 느려져",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400405867,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API의 응답이 느려지는 문제가",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400406455,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "있었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400407653,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400408557,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400408891,
+          "dir": "sent",
+          "msg": {
+            "type": "answer_done",
+            "question_id": 3034
+          }
+        },
+        {
+          "t": 1795400409143,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400409155,
+          "dir": "recv",
+          "msg": {
+            "type": "answer_end",
+            "question_id": 3034,
+            "reason": "button"
+          }
+        },
+        {
+          "t": 1795400409158,
+          "dir": "recv",
+          "msg": {
+            "type": "evaluating",
+            "question_id": 3034
+          }
+        },
+        {
+          "t": 1795400432317,
+          "dir": "recv",
+          "msg": {
+            "type": "question",
+            "question_id": 3035,
+            "seq": 5,
+            "total": 6,
+            "text": "Q1",
+            "think_sec": 5,
+            "answer_sec": 60
+          }
+        },
+        {
+          "t": 1795400432325,
+          "dir": "recv",
+          "msg": {
+            "type": "audio"
+          }
+        },
+        {
+          "t": 1795400433715,
+          "dir": "sent",
+          "msg": {
+            "type": "question_audio_ended",
+            "question_id": 3035
+          }
+        },
+        {
+          "t": 1795400433717,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "think",
+            "ends_at": "2026-11-23T02:20:38.716901+00:00"
+          }
+        },
+        {
+          "t": 1795400439170,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "answer",
+            "ends_at": "2026-11-23T02:21:38.717713+00:00"
+          }
+        },
+        {
+          "t": 1795400440571,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "찾았고",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400440571,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "찾았고",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400441471,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400442618,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400443574,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400444720,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400445025,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400445925,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 별",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400446821,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400448022,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400448923,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400449522,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400450481,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400451618,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400452524,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400453432,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저 하는 습관을",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400454626,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저 하는",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400454626,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "갖게 되었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400454919,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "갖게 되었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400455820,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400456417,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상입니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400457617,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "네,",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400457617,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "네,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400458515,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "말씀드리기",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400459416,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "말씀드리겠습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400460316,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400461054,
+          "dir": "sent",
+          "msg": {
+            "type": "answer_done",
+            "question_id": 3035
+          }
+        },
+        {
+          "t": 1795400461205,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400461215,
+          "dir": "recv",
+          "msg": {
+            "type": "answer_end",
+            "question_id": 3035,
+            "reason": "button"
+          }
+        },
+        {
+          "t": 1795400461217,
+          "dir": "recv",
+          "msg": {
+            "type": "evaluating",
+            "question_id": 3035
+          }
+        },
+        {
+          "t": 1795400483813,
+          "dir": "recv",
+          "msg": {
+            "type": "question",
+            "question_id": 3036,
+            "seq": 6,
+            "total": 6,
+            "text": "Q2",
+            "think_sec": 5,
+            "answer_sec": 60
+          }
+        },
+        {
+          "t": 1795400483821,
+          "dir": "recv",
+          "msg": {
+            "type": "audio"
+          }
+        },
+        {
+          "t": 1795400485213,
+          "dir": "sent",
+          "msg": {
+            "type": "question_audio_ended",
+            "question_id": 3036
+          }
+        },
+        {
+          "t": 1795400485215,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "think",
+            "ends_at": "2026-11-23T02:21:30.214234+00:00"
+          }
+        },
+        {
+          "t": 1795400490852,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "answer",
+            "ends_at": "2026-11-23T02:22:30.215073+00:00"
+          }
+        },
+        {
+          "t": 1795400492304,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "API의",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400493192,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "API의 응답이 느려지는",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400494407,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "API의 응답이 느려지는 문제가 있었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400494657,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "API의 응답이 느려지는 문제가 있었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400495557,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400496803,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400497714,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400498629,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400499527,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을 찾았고,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400500401,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400501608,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400502494,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400503402,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400503706,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400504910,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 별",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400505774,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400506705,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400507917,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400508182,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400509363,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400510309,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400511202,
+          "dir": "sent",
+          "msg": {
+            "type": "answer_done",
+            "question_id": 3036
+          }
+        },
+        {
+          "t": 1795400511471,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400511481,
+          "dir": "recv",
+          "msg": {
+            "type": "answer_end",
+            "question_id": 3036,
+            "reason": "button"
+          }
+        },
+        {
+          "t": 1795400511483,
+          "dir": "recv",
+          "msg": {
+            "type": "evaluating",
+            "question_id": 3036
+          }
+        },
+        {
+          "t": 1795400534617,
+          "dir": "recv",
+          "msg": {
+            "type": "interview_end",
+            "answered_count": 6,
+            "ended_at": "2026-11-23T02:22:14.601122+00:00"
+          }
+        }
+      ]
+    },
+    {
+      "applicant": "D3",
+      "email": "timing-e1e2-8461-3@example.com",
+      "application_id": 3958,
+      "submitted": {
+        "posting": {
+          "posting_id": 8461,
+          "position_name": "백엔드 개발자 (신입) [시간측정 e1e2 ← 8452]",
+          "progress_status": "서류 접수 중",
+          "doc_end_at": "2026-11-24T02:03:19.848156Z",
+          "doc_result_at": "2026-11-25T02:03:19.848156Z"
+        },
+        "form": {
+          "has_education": true,
+          "has_career": false,
+          "has_project": false,
+          "essay_topics": [
+            {
+              "topic_id": 8247,
+              "topic_name": "지원 동기"
+            },
+            {
+              "topic_id": 8248,
+              "topic_name": "성격의 장단점"
+            }
+          ]
+        },
+        "preview": false,
+        "write_status": "제출",
+        "submitted_at": "2026-11-23T02:03:22.097716Z",
+        "profile": {
+          "name": "지원자 D3",
+          "phone": "010-0000-0003",
+          "email": "timing-e1e2-8461-3@example.com"
+        },
+        "educations": [
+          {
+            "school_name": "푸른대학교",
+            "major": "모바일소프트웨어",
+            "period": "2016.03 ~ 2022.02"
+          }
+        ],
+        "careers": [],
+        "projects": [],
+        "skills": [
+          {
+            "skill_name": "Java",
+            "required": true,
+            "score": 4
+          },
+          {
+            "skill_name": "SQL",
+            "required": true,
+            "score": 4
+          }
+        ],
+        "cases": [
+          {
+            "skill_name": "Java",
+            "content": "[React Native 이미지 로딩] 상품 상세 화면에 들어가면 이미지가 늦게 떠서 이탈률이 높았습니다. 로그를 보니 상세 화면 첫 이미지가 뜨기까지 평균 2.8초가 걸렸고, 원본 이미지(평균 1.9MB)를 그대로 받고 있었습니다. 이미지 서버에서 화면 크기에 맞춘 WebP를 받도록 바꾸고, 목록 화면에서 상세 화면 첫 이미지를 미리 받아 두었습니다. 캐시 라이브러리는 디스크 캐시와 우선순위 지정을 지원하는 FastImage를 골랐습니다. 첫 이미지 표시 시간이 2.8초에서 0.9초로 줄었고, 상세 화면 이탈률이 18%에서 12%로 내려갔습니다."
+          }
+        ],
+        "essays": [
+          {
+            "topic_id": 8247,
+            "content": "앱 고객센터에 들어오는 질문 대부분이 이미 도움말에 있는 내용이라는 것을 알고, 도움말 검색을 개선하는 일에 관심이 생겼습니다. 아직 RAG를 직접 만들어 본 적은 없어 온라인 강의로 LangChain 기초를 공부하고 있습니다. 사용자가 원하는 정보를 빨리 찾게 하는 일이라는 점에서 앱 성능을 개선해 온 경험과 이어진다고 생각해 지원했습니다."
+          },
+          {
+            "topic_id": 8248,
+            "content": "결제 화면에서 특정 기기만 앱이 꺼지는 문제가 있었습니다. 재현이 되지 않아 팀에서는 기기 문제로 보고 넘어가자는 의견도 있었습니다. 저는 원인을 모르는 상태로 두면 같은 문제가 다시 생긴다고 보고, 크래시 리포트 1,200건을 기기와 OS 버전별로 나눴습니다. 92%가 메모리 4GB 이하 기기의 특정 OS 버전에서 났고, 결제 화면이 고해상도 배너 이미지를 한꺼번에 불러오고 있었습니다. 배너를 나눠 불러오게 바꾼 뒤 크래시가 사라졌습니다. 분석 과정과 기기별 점검 방법을 팀 위키에 정리했고, 지금도 새 화면을 출시하기 전에 그 점검 목록을 씁니다."
+          }
+        ],
+        "portfolio": {
+          "file_name": "portfolio.pdf",
+          "file_size": 48
+        }
+      },
+      "transitions": [
+        {
+          "question_id": 3037,
+          "reason": "button",
+          "next": 3038,
+          "seconds": 23.621,
+          "kind": "직무",
+          "next_kind": "직무"
+        },
+        {
+          "question_id": 3038,
+          "reason": "button",
+          "next": 3039,
+          "seconds": 37.415,
+          "kind": "직무",
+          "next_kind": "인성"
+        },
+        {
+          "question_id": 3039,
+          "reason": "button",
+          "next": 3040,
+          "seconds": 42.135,
+          "kind": "인성",
+          "next_kind": "인성"
+        },
+        {
+          "question_id": 3040,
+          "reason": "button",
+          "next": 3041,
+          "seconds": 23.701,
+          "kind": "인성",
+          "next_kind": "기업"
+        },
+        {
+          "question_id": 3041,
+          "reason": "button",
+          "next": 3042,
+          "seconds": 22.505,
+          "kind": "기업",
+          "next_kind": "기업"
+        },
+        {
+          "question_id": 3042,
+          "reason": "button",
+          "next": "interview_end",
+          "seconds": 21.154,
+          "kind": "기업",
+          "next_kind": "interview_end"
+        }
+      ],
+      "frames": [
+        {
+          "t": 1795400565918,
+          "dir": "recv",
+          "msg": {
+            "type": "connected",
+            "session_id": 810
+          }
+        },
+        {
+          "t": 1795400573042,
+          "dir": "recv",
+          "msg": {
+            "type": "question",
+            "question_id": 3037,
+            "seq": 1,
+            "total": 6,
+            "text": "지원자님께서 React Native 환경에서 이미지 로딩 성능을 개선한 경험을 바탕으로, 저희 회사에서 현재 직면하고 있는 모바일 앱의 사용자 경험 저하 문제, 특히 초기 로딩 시간 지연으로 인한 사용자 이탈률 증가에 어떻게 접근하고 해결 방안을 제시하실 수 있을지 설명해 주실 수 있을까요?",
+            "think_sec": 5,
+            "answer_sec": 60
+          }
+        },
+        {
+          "t": 1795400573154,
+          "dir": "recv",
+          "msg": {
+            "type": "audio"
+          }
+        },
+        {
+          "t": 1795400594739,
+          "dir": "sent",
+          "msg": {
+            "type": "question_audio_ended",
+            "question_id": 3037
+          }
+        },
+        {
+          "t": 1795400594741,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "think",
+            "ends_at": "2026-11-23T02:23:19.739723+00:00"
+          }
+        },
+        {
+          "t": 1795400600216,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "answer",
+            "ends_at": "2026-11-23T02:24:19.740392+00:00"
+          }
+        },
+        {
+          "t": 1795400601633,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "API에 은답",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400602472,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "API의 응답이 느려지는 문제",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400603730,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "API의 응답이 느려지는 문제가 있었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400603730,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "API의 응답이 느려지는 문제가 있었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400604925,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400605776,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400606677,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400607879,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을 찾지",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400608482,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을 찾았고,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400609376,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400610576,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400611478,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400612683,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400612980,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400613875,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400614774,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400615994,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400616880,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400617479,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400618374,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400619574,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400620479,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400621383,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저 하는 습관을",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400621649,
+          "dir": "sent",
+          "msg": {
+            "type": "answer_done",
+            "question_id": 3037
+          }
+        },
+        {
+          "t": 1795400621818,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저 하는 습관을 갖게",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400621827,
+          "dir": "recv",
+          "msg": {
+            "type": "answer_end",
+            "question_id": 3037,
+            "reason": "button"
+          }
+        },
+        {
+          "t": 1795400621830,
+          "dir": "recv",
+          "msg": {
+            "type": "evaluating",
+            "question_id": 3037
+          }
+        },
+        {
+          "t": 1795400645448,
+          "dir": "recv",
+          "msg": {
+            "type": "question",
+            "question_id": 3038,
+            "seq": 2,
+            "total": 6,
+            "text": "LangChain을 통해 학습한 경험을 바탕으로, KnowBridge에서 Contextual Retriever를 활용해 문서 청크의 문맥 유지와 검색 정확도를 향상시키는 데 어떻게 적용하실 수 있을지 구체적인 방안을 제시해 주실 수 있을까요?",
+            "think_sec": 5,
+            "answer_sec": 60
+          }
+        },
+        {
+          "t": 1795400645529,
+          "dir": "recv",
+          "msg": {
+            "type": "audio"
+          }
+        },
+        {
+          "t": 1795400661876,
+          "dir": "sent",
+          "msg": {
+            "type": "question_audio_ended",
+            "question_id": 3038
+          }
+        },
+        {
+          "t": 1795400661878,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "think",
+            "ends_at": "2026-11-23T02:24:26.877495+00:00"
+          }
+        },
+        {
+          "t": 1795400667355,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "answer",
+            "ends_at": "2026-11-23T02:25:26.878090+00:00"
+          }
+        },
+        {
+          "t": 1795400669677,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "추가하고 자주 읽는 데",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400670920,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400671722,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400672624,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 별",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400673594,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400674738,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400675630,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400676229,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400677125,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 관",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400678334,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400679240,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400680133,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저 하는 습관을",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400681336,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저 하는",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400681337,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "갖게 되었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400681632,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "갖게 되었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400682525,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400683124,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상입니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400684324,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "네,",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400684324,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "네,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400685225,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "말씀드리긴",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400686124,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "말씀드리겠습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400687020,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400687880,
+          "dir": "sent",
+          "msg": {
+            "type": "answer_done",
+            "question_id": 3038
+          }
+        },
+        {
+          "t": 1795400688051,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400688059,
+          "dir": "recv",
+          "msg": {
+            "type": "answer_end",
+            "question_id": 3038,
+            "reason": "button"
+          }
+        },
+        {
+          "t": 1795400688059,
+          "dir": "recv",
+          "msg": {
+            "type": "evaluating",
+            "question_id": 3038
+          }
+        },
+        {
+          "t": 1795400725474,
+          "dir": "recv",
+          "msg": {
+            "type": "question",
+            "question_id": 3039,
+            "seq": 3,
+            "total": 6,
+            "text": "크래시 리포트를 기기와 OS 버전별로 분류하며 문제의 근본 원인을 파악하려 노력하셨는데, 이러한 끝까지 파고드는 태도가 팀 내에서 복잡한 기술적 이슈 해결 과정에서 어떻게 발휘될 수 있을지 구체적으로 설명해 주실 수 있을까요?",
+            "think_sec": 5,
+            "answer_sec": 60
+          }
+        },
+        {
+          "t": 1795400725562,
+          "dir": "recv",
+          "msg": {
+            "type": "audio"
+          }
+        },
+        {
+          "t": 1795400743114,
+          "dir": "sent",
+          "msg": {
+            "type": "question_audio_ended",
+            "question_id": 3039
+          }
+        },
+        {
+          "t": 1795400743115,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "think",
+            "ends_at": "2026-11-23T02:25:48.114383+00:00"
+          }
+        },
+        {
+          "t": 1795400748762,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "answer",
+            "ends_at": "2026-11-23T02:26:48.114980+00:00"
+          }
+        },
+        {
+          "t": 1795400750221,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "문제가 있었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400750775,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "문제가 있었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400751724,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400752624,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400753835,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400754725,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400755605,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을 찾았고,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400756490,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400757382,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400758615,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400759530,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400759804,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400760701,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 별",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400761929,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400762791,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400763755,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400764305,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400765239,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400766388,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측과",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400767333,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400768519,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저 하는 습관을",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400769413,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저 하는",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400769413,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "습관을 갖게 되었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400769717,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "갖게 되었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400770159,
+          "dir": "sent",
+          "msg": {
+            "type": "answer_done",
+            "question_id": 3039
+          }
+        },
+        {
+          "t": 1795400770423,
+          "dir": "recv",
+          "msg": {
+            "type": "answer_end",
+            "question_id": 3039,
+            "reason": "button"
+          }
+        },
+        {
+          "t": 1795400770428,
+          "dir": "recv",
+          "msg": {
+            "type": "evaluating",
+            "question_id": 3039
+          }
+        },
+        {
+          "t": 1795400812558,
+          "dir": "recv",
+          "msg": {
+            "type": "question",
+            "question_id": 3040,
+            "seq": 4,
+            "total": 6,
+            "text": "메모리 제약 환경에서의 성능 최적화 경험을 바탕으로, 팀 내에서 복잡한 기술적 문제 해결 과정에서 끝까지 파고드는 태도를 어떻게 발휘하여 문제를 근본적으로 해결하셨는지 설명해 주실 수 있을까요?",
+            "think_sec": 5,
+            "answer_sec": 60
+          }
+        },
+        {
+          "t": 1795400812639,
+          "dir": "recv",
+          "msg": {
+            "type": "audio"
+          }
+        },
+        {
+          "t": 1795400828571,
+          "dir": "sent",
+          "msg": {
+            "type": "question_audio_ended",
+            "question_id": 3040
+          }
+        },
+        {
+          "t": 1795400828573,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "think",
+            "ends_at": "2026-11-23T02:27:13.572673+00:00"
+          }
+        },
+        {
+          "t": 1795400834218,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "answer",
+            "ends_at": "2026-11-23T02:28:13.572264+00:00"
+          }
+        },
+        {
+          "t": 1795400835669,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "주문 A",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400836599,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "주문 API에 응답을",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400837729,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "주문 API의 응답이 느려지는 문제",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400838679,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "주문 API의 응답이 느려지는 문제가 있었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400838962,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "주문 API의 응답이 느려지는 문제가 있었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400839876,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400840731,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400841934,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400842870,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을 찾기",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400843438,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을 찾았고,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400844658,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400845538,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400846738,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400847674,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400847936,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400848877,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 별",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400850105,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400850967,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400851893,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400852439,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400853336,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400854422,
+          "dir": "sent",
+          "msg": {
+            "type": "answer_done",
+            "question_id": 3040
+          }
+        },
+        {
+          "t": 1795400854531,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400854690,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400854698,
+          "dir": "recv",
+          "msg": {
+            "type": "answer_end",
+            "question_id": 3040,
+            "reason": "button"
+          }
+        },
+        {
+          "t": 1795400854700,
+          "dir": "recv",
+          "msg": {
+            "type": "evaluating",
+            "question_id": 3040
+          }
+        },
+        {
+          "t": 1795400878399,
+          "dir": "recv",
+          "msg": {
+            "type": "question",
+            "question_id": 3041,
+            "seq": 5,
+            "total": 6,
+            "text": "Q1",
+            "think_sec": 5,
+            "answer_sec": 60
+          }
+        },
+        {
+          "t": 1795400878405,
+          "dir": "recv",
+          "msg": {
+            "type": "audio"
+          }
+        },
+        {
+          "t": 1795400879788,
+          "dir": "sent",
+          "msg": {
+            "type": "question_audio_ended",
+            "question_id": 3041
+          }
+        },
+        {
+          "t": 1795400879790,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "think",
+            "ends_at": "2026-11-23T02:28:04.790650+00:00"
+          }
+        },
+        {
+          "t": 1795400885286,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "answer",
+            "ends_at": "2026-11-23T02:29:04.790725+00:00"
+          }
+        },
+        {
+          "t": 1795400886669,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "갖게 되었으니",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400887305,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "갖게 되었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400888192,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400888744,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상입니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400889946,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "네,",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400889994,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "네,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400890849,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "말씀드리기",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400891744,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "말씀드리겠습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400892644,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400893844,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400894749,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400895648,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API의 응답이 느려질",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400896849,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API의 응답이 느려지는 문제가",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400897452,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "있었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400898346,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400899550,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400900449,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400901650,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400902251,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "먼저 로그와 쿼리 실행 계획을 확인해서 원인을 찾았고,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400903146,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400904351,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400905254,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400906151,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400906459,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "인덱스를 추가하고 자주 읽는 데이터는 캐시에 두었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400906552,
+          "dir": "sent",
+          "msg": {
+            "type": "answer_done",
+            "question_id": 3041
+          }
+        },
+        {
+          "t": 1795400906724,
+          "dir": "recv",
+          "msg": {
+            "type": "answer_end",
+            "question_id": 3041,
+            "reason": "button"
+          }
+        },
+        {
+          "t": 1795400906729,
+          "dir": "recv",
+          "msg": {
+            "type": "evaluating",
+            "question_id": 3041
+          }
+        },
+        {
+          "t": 1795400929229,
+          "dir": "recv",
+          "msg": {
+            "type": "question",
+            "question_id": 3042,
+            "seq": 6,
+            "total": 6,
+            "text": "Q2",
+            "think_sec": 5,
+            "answer_sec": 60
+          }
+        },
+        {
+          "t": 1795400929236,
+          "dir": "recv",
+          "msg": {
+            "type": "audio"
+          }
+        },
+        {
+          "t": 1795400930627,
+          "dir": "sent",
+          "msg": {
+            "type": "question_audio_ended",
+            "question_id": 3042
+          }
+        },
+        {
+          "t": 1795400930629,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "think",
+            "ends_at": "2026-11-23T02:28:55.628121+00:00"
+          }
+        },
+        {
+          "t": 1795400936080,
+          "dir": "recv",
+          "msg": {
+            "type": "phase",
+            "phase": "answer",
+            "ends_at": "2026-11-23T02:29:55.629197+00:00"
+          }
+        },
+        {
+          "t": 1795400937492,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400938326,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답시간이",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400939596,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400940494,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "그 결과 평균 응답 시간이 절반 가까이 줄었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400941637,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과제",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400942597,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400943442,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400944642,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저 하는 습관을",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400945549,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이 과정에서 추측보다 측정을 먼저 하는",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400945549,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "습관을 갖게 되었습니다.",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400945836,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "갖게 되었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400946731,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400947633,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이상입니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400948530,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "네,",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400948532,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "네,",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400949730,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "말씀드리긴",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400950330,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "말씀드리겠습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400951528,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400952430,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400953633,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400954537,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API의 응답이 느려질",
+            "is_final": false
+          }
+        },
+        {
+          "t": 1795400955444,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "이전 프로젝트에서 주문 API의 응답이 느려지는 문제가",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400956336,
+          "dir": "recv",
+          "msg": {
+            "type": "transcript",
+            "text": "있었습니다.",
+            "is_final": true
+          }
+        },
+        {
+          "t": 1795400956702,
+          "dir": "sent",
+          "msg": {
+            "type": "answer_done",
+            "question_id": 3042
+          }
+        },
+        {
+          "t": 1795400956870,
+          "dir": "recv",
+          "msg": {
+            "type": "answer_end",
+            "question_id": 3042,
+            "reason": "button"
+          }
+        },
+        {
+          "t": 1795400956873,
+          "dir": "recv",
+          "msg": {
+            "type": "evaluating",
+            "question_id": 3042
+          }
+        },
+        {
+          "t": 1795400978024,
+          "dir": "recv",
+          "msg": {
+            "type": "interview_end",
+            "answered_count": 6,
+            "ended_at": "2026-11-23T02:29:38.010527+00:00"
+          }
+        }
+      ]
+    }
+  ]
+}

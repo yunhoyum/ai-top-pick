@@ -10,6 +10,7 @@
 
 import base64
 import logging
+import time
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import asdict, dataclass
@@ -102,6 +103,13 @@ def next_job_question(queue: list[dict]) -> dict | None:
     return queue[0] if queue and queue[0].get("kind") == "AI" and queue[0].get("question_type") == "직무" else None
 
 
+def _log_time(state: InterviewState, step: str, started: float, chunks: int | None = None) -> None:
+    """구간별 처리 시간 로그 (scripts/timing-e2e가 question_id로 브라우저 측정과 맞춘다)."""
+    current = state.get("current") or {}
+    log.info("구간 시간 session=%s question_id=%s qkey=%s step=%s ms=%d chunks=%s", state.get("session_id"),
+             current.get("question_id"), current.get("qkey"), step, (time.perf_counter() - started) * 1000, chunks)
+
+
 def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
     def load_question(state: InterviewState) -> dict:
         """queue에서 다음 질문을 꺼낸다. 비었으면 current를 None으로 둔다 (종료로 간다)."""
@@ -112,12 +120,16 @@ def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
         """TTS 음성을 만들고 actions에 '제시'를 넣는다 (SYS-011). 질문으로 회사 문서를 미리 검색한다.
         찾은 문서가 있으면 질문 주제 판정을 뒤에서 부른다. 답변 뒤 주장 비교가 다시 쓸 앞부분 계산을 Ollama에 남긴다."""
         current = state["current"]
+        t = time.perf_counter()
         audio = base64.b64encode(deps.tts(current["text"])).decode("ascii")
+        _log_time(state, "tts", t)
+        t = time.perf_counter()
         try:
             context = deps.search(state["posting_id"], [current["text"]])
         except Exception:
             log.exception("질문 %s 회사 문서 검색 실패. 문서 없이 채점한다", current["qkey"])
             context = []
+        _log_time(state, "question_search", t, len(context))
         if context:
             _topics[(state["session_id"], current["qkey"])] = _topic_pool.submit(
                 deps.judge_topic, current["text"], context, deps.model
@@ -139,18 +151,23 @@ def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
         """보정된 답변으로 회사 문서를 검색하고 내용 점수를 낸다. 검색이나 채점이 끝까지 실패하면 (None, []).
         이때는 답변 점수 없이 면접을 이어간다. 꼬리질문도 만들지 않는다 (AI Agent 설계서 2.4)."""
         current = state["current"]
+        t = time.perf_counter()
         try:
             answer_context = deps.search(state["posting_id"], [answer_text])
         except Exception:
             log.exception("질문 %s 답변 검색 실패. 내용 점수 없이 진행한다", current["qkey"])
             return None, []
+        _log_time(state, "answer_search", t, len(answer_context))
         future = _topics.pop((state["session_id"], current["qkey"]), None)
         topic = None
+        t = time.perf_counter()
         if future is not None:
             try:
                 topic = future.result()
             except Exception:
                 log.warning("질문 %s 주제 판정 실패. 채점 때 다시 판정한다", current["qkey"])
+        _log_time(state, "topic_wait", t)
+        t = time.perf_counter()
         try:
             score = deps.score_content(
                 current["text"], answer_text, _chunks(state.get("question_context", [])), answer_context,
@@ -159,6 +176,7 @@ def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
         except Exception:
             log.exception("질문 %s 내용 채점 실패. 내용 점수 없이 진행한다", current["qkey"])
             score = None
+        _log_time(state, "score_content", t, len(state.get("question_context", [])) + len(answer_context))
         return score, [asdict(c) for c in answer_context]
 
     def _expression(video_path: str | None) -> tuple[str | None, dict | None]:
@@ -177,12 +195,18 @@ def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
         words = [Word(**w) for w in answer.get("words", [])]
         start = answer.get("answer_start_sec", 0.0)
         video_path = answer.get("video_path")
+        started = time.perf_counter()
         with ThreadPoolExecutor(max_workers=1) as pool:
             expression = pool.submit(_expression, video_path)
+            t = time.perf_counter()
             segments = correct_transcript(deps.model, state["current"]["text"], split_segments(words, start))
+            _log_time(state, "stt_correct", t)
             answer_text = " ".join(s["corrected_text"] for s in segments)
             content, answer_context = _content(state, answer_text) if answer_text else (None, [])
+            t = time.perf_counter()
             main_expression, ratio = expression.result()
+            _log_time(state, "expression_wait", t)
+        _log_time(state, "evaluate_total", started)
         filler_count = count_fillers(answer.get("raw_text", ""), fillers=deps.fillers)
         silence = calc_silence(words)
         delay = calc_response_delay(start, words)
@@ -242,7 +266,9 @@ def make_nodes(deps: Deps) -> dict[str, Callable[[InterviewState], dict]]:
         current, queue = state["current"], state.get("queue", [])
         parent = parent_qkey(current)
         removed = next_job_question(queue)
+        t = time.perf_counter()
         question = deps.follow_up(follow_up_inputs(state, current))
+        _log_time(state, "follow_up", t)
         if question is None:
             return {"follow_up_created": False}
         new = {"qkey": f"f{uuid.uuid4().hex}", "question_id": None, "kind": "꼬리", "question_type": "직무",

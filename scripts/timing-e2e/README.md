@@ -42,6 +42,27 @@ node compare.mjs before e1 e1e2
 결과는 `results/<조건>-p<복제 공고 ID>.json`에 저장한다. 같은 조건을 여러 번 돌리면 `compare.mjs`가 합친다.
 지원자 3명 기준으로 한 조건에 30~60분 걸린다.
 
+## 구간별 시간 (ai-service 로그)
+
+브라우저 측정에는 STT·영상 업로드·TTS가 섞여 잡음이 크다. ai-service가 면접 답변마다 아래 구간을 `구간 시간 ... step=<구간> ms=<밀리초> chunks=<청크 수>`로 남긴다.
+
+| 구간 | 내용 |
+|---|---|
+| `stt_correct` | STT 보정 (LLM) |
+| `answer_search` | 답변 글로 회사 문서 검색 (chunks = 찾은 청크 수) |
+| `topic_wait` | 질문 주제 판정(질문 제시 때 미리 시작)을 기다린 시간 |
+| `score_content` | 내용 채점 (LLM, chunks = 질문 + 답변 검색 청크 수) |
+| `expression_wait` | 표정 분석을 기다린 시간 |
+| `evaluate_total` | 위 전체 |
+| `follow_up` | 꼬리질문 판단·생성 |
+| `tts`, `question_search` | 다음 질문 음성, 질문 글로 검색 |
+
+측정을 마치면 PC2에서 로그를 받아(`docker compose logs ai-service --no-color > ai-service-<날짜>.log`, 재빌드하면 사라지니 그 전에) 이 폴더의 `logs/`에 두고 실행한다.
+
+```powershell
+node steps.mjs logs/ai-service-<날짜>.log [조건 이름 ...]
+```
+
 ## 한계
 
 - 같은 지원서여도 LLM 출력이 매번 달라 경로(재시도·fallback·꼬리질문 여부)가 바뀐다. 표본이 작으면 차이가 우연일 수 있다. 조건마다 2번 이상 돌린다.
