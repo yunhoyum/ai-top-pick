@@ -48,7 +48,7 @@ def _replacement(model, posting: dict, documents: dict, qtype: str, existing: li
     job, personality = generate_questions(
         PostingBrief(**posting), ApplicantDocuments(**documents), int(qtype == "직무"), int(qtype != "직무"),
         model=model, search=lambda q: [c.content for c in search_company_docs(
-            posting["posting_id"], [q], get_settings().RAG_QUESTION_TOP_K, rerank=True)],
+            posting["posting_id"], [q], get_settings().RAG_QUESTION_TOP_K, rerank=get_settings().RAG_QUESTION_RERANK)],
         existing=existing,
     )
     return (job or personality)[0]

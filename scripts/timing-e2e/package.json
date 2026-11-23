@@ -1,0 +1,9 @@
+{
+  "name": "timing-e2e",
+  "private": true,
+  "type": "module",
+  "description": "질문 생성·면접 중 AI 처리 시간을 실제 서비스 화면으로 잰다 (RAG 개선 1·2 전후 비교)",
+  "dependencies": {
+    "playwright": "1.65.1"
+  }
+}

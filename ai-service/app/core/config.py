@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     # 질문 생성이 LLM에 넘기는 청크 수. 리랭커 R@3(88.6%)가 벡터 R@5(86.4%)보다 높아 3개로 줄인다.
     # 질문당 −4.0초, 사람 판정 품질 차이 없음 (RAG 개선 2, 9.6). 채점은 RAG_TOP_K 그대로
     RAG_QUESTION_TOP_K: int = 3
+    # 질문 생성·대체 질문의 리랭커 사용. 시간 비교(scripts/timing-e2e)에서 개선 전 조건을 만들 때만 끈다
+    RAG_QUESTION_RERANK: bool = True
     # 주장과 근거 문장의 유사도가 이보다 낮은 근거는 저장하지 않는다. 판정은 바꾸지 않는다 (RAG 설계서 5.5 P11)
     EVIDENCE_MIN_SIMILARITY: float = 0.50
     # 답변 읽기가 뽑은 주장의 글자 2개 묶음 중 답변에 있는 비율이 이보다 낮으면 답변에 없는 주장으로 보고 뺀다.

@@ -17,11 +17,12 @@ router = APIRouter(prefix="/internal/questions", dependencies=[Depends(verify_in
 def generate(req: QuestionGenRequest) -> QuestionGenResponse:
     """SYS-006 AI 질문 생성. fallback까지 실패하면 템플릿 질문을 넣으므로 개수는 항상 요청과 같다."""
     posting_id = req.posting.posting_id
-    top_k = get_settings().RAG_QUESTION_TOP_K
+    settings = get_settings()
     job, personality = generate_questions(
         req.posting, req.documents, req.job_count, req.personality_count,
         model=get_chat_model(),
         # 질문 생성만 리랭커 + 상위 3개를 쓴다 (RAG 개선 2)
-        search=lambda query: [c.content for c in search_company_docs(posting_id, [query], top_k, rerank=True)],
+        search=lambda query: [c.content for c in search_company_docs(
+            posting_id, [query], settings.RAG_QUESTION_TOP_K, rerank=settings.RAG_QUESTION_RERANK)],
     )
     return QuestionGenResponse(job=job, personality=personality)
