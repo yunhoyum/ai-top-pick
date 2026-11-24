@@ -25,6 +25,8 @@ HERE = Path(__file__).parent
 RESULTS = HERE / "results"
 CANDIDATES = RESULTS / "rerank-retrieval-candidates-E4c.json"
 SCORES = RESULTS / "rerank-retrieval-E4c-bge-m3.json"
+# nDCG의 이상적인 순위는 공고 전체 청크의 정답 수로 정한다 (run_retrieval_eval.py와 같은 정의). 후보 20개 밖 정답도 센다
+FULL = RESULTS / "E4c-v5.json"
 POSTING, MAX_TOKENS, TOP = 8452, 128, 20
 MODEL = "BAAI/bge-reranker-v2-m3"
 EMPTY_EXPECTED = {"관계없음", "㉠"}  # run_retrieval_eval.py와 같다
@@ -101,6 +103,13 @@ def _rank(cands: list[dict]) -> int | None:
     return next((i + 1 for i, c in enumerate(cands) if c["gold"]), None)
 
 
+def _ndcg(cands: list[dict], total_gold: int, k: int) -> float:
+    """run_retrieval_eval.py의 _ndcg와 같다. 정답 청크를 관련도 1로 본다."""
+    dcg = sum(1 / math.log2(i + 2) for i, c in enumerate(cands[:k]) if c["gold"])
+    ideal = sum(1 / math.log2(i + 2) for i in range(min(total_gold, k)))
+    return dcg / ideal if ideal else 0.0
+
+
 def _boot(diffs, n=20000):
     rnd = random.Random(0)
     s = sorted(statistics.mean(rnd.choices(diffs, k=len(diffs))) for _ in range(n))
@@ -125,12 +134,17 @@ def report():
 
     vec = {q["id"]: _rank(q["candidates"]) for q in gold_q}
     rr = {q["id"]: _rank(sorted(q["candidates"], key=lambda c: -c["rerank"])) for q in gold_q}
+    total = {r["id"]: r["gold_chunks"] for r in json.loads(FULL.read_text(encoding="utf-8"))["rows"]}
+    ndcg = {name: {k: {q["id"]: _ndcg(order(q), total[q["id"]], k) for q in gold_q} for k in (3, 5)}
+            for name, order in (("벡터", lambda q: q["candidates"]),
+                                ("리랭커", lambda q: sorted(q["candidates"], key=lambda c: -c["rerank"])))}
     big = 10 ** 9
-    print(f"\n{'':<10} {'R@1':>6} {'R@3':>6} {'R@5':>6} {'R@10':>6} {'MRR':>6}")
+    print(f"\n{'':<10} {'R@1':>6} {'R@3':>6} {'R@5':>6} {'R@10':>6} {'MRR':>6} {'nDCG@3':>7} {'nDCG@5':>7}")
     for name, ranks in (("벡터", vec), ("리랭커", rr)):
         r = [ranks[q["id"]] or big for q in gold_q]
         print(f"{name:<10} " + " ".join(f"{sum(x <= k for x in r) / len(r):6.1%}" for k in (1, 3, 5, 10))
-              + f" {statistics.mean(1 / x if x < big else 0 for x in r):6.3f}")
+              + f" {statistics.mean(1 / x if x < big else 0 for x in r):6.3f}"
+              + "".join(f" {statistics.mean(ndcg[name][k].values()):7.3f}" for k in (3, 5)))
     for k in (1, 5):
         up = [i for i in vec if (rr[i] or big) <= k < (vec[i] or big)]
         down = [i for i in vec if (vec[i] or big) <= k < (rr[i] or big)]
@@ -138,6 +152,10 @@ def report():
     d = [(1 / rr[i] if rr[i] else 0) - (1 / vec[i] if vec[i] else 0) for i in vec]
     lo, hi = _boot(d)
     print(f"MRR 차이 {statistics.mean(d):+.3f}, 95% CI [{lo:+.3f}, {hi:+.3f}]")
+    for k in (3, 5):
+        d = [ndcg["리랭커"][k][i] - ndcg["벡터"][k][i] for i in vec]
+        lo, hi = _boot(d)
+        print(f"nDCG@{k} 차이 {statistics.mean(d):+.3f}, 95% CI [{lo:+.3f}, {hi:+.3f}]")
 
     print(f"\n생성에 넘길 청크(상위 {TOP_K}) 기준: 정답 있는 검색어 중 정답이 남은 비율 / 비어야 할 검색어 중 실제로 빈 비율 / 정답 있는데 다 버림")
 
