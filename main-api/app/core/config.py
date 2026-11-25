@@ -45,8 +45,8 @@ class Settings(BaseSettings):
     EMBED_URL: str = "http://embed-server:8000"
     INTERNAL_TOKEN: str = ""
     # 검색 평가 E2에서 정했다 (RAG 설계서 5.5). embed-server 입력 한도(EMBED_MAX_SEQ_LEN 512)보다 크면 안 된다
-    CHUNK_MAX_TOKENS: int = 256
-    CHUNK_OVERLAP_TOKENS: int = 64
+    CHUNK_MAX_TOKENS: int = 128
+    CHUNK_OVERLAP_TOKENS: int = 32
 
     # ---------- ai-service (PC2) ----------
     AI_SERVICE_URL: str = ""
