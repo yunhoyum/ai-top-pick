@@ -18,7 +18,7 @@ AI top-pick.은 채용 회사의 **서류 전형**과 **AI 화상면접 전형**
 | **Frontend** | ![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB) ![Next.js](https://img.shields.io/badge/Next.js-000000?logo=nextdotjs&logoColor=white) |
 | **Database** | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white) ![pgvector](https://img.shields.io/badge/pgvector-4169E1) |
 | **AI Orchestration** | ![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?logo=langchain&logoColor=white) ![LangGraph](https://img.shields.io/badge/LangGraph-1C3C3C) |
-| **LLM (On-Premise)** | ![EXAONE 3.5](https://img.shields.io/badge/EXAONE_3.5-A50034) ![Ollama](https://img.shields.io/badge/Ollama-000000?logo=ollama&logoColor=white) — 테스트 중 |
+| **LLM (On-Premise)** | ![EXAONE 3.5](https://img.shields.io/badge/EXAONE_3.5-A50034) ![Ollama](https://img.shields.io/badge/Ollama-000000?logo=ollama&logoColor=white) |
 | **Embedding** | ![KURE-v1](https://img.shields.io/badge/KURE--v1-555555) |
 | **STT** | ![Deepgram](https://img.shields.io/badge/Deepgram-13EF93?logo=deepgram&logoColor=black) |
 | **TTS** | ![Supertonic-3](https://img.shields.io/badge/Supertonic--3-555555) |
@@ -167,26 +167,6 @@ flowchart TB
 ```
 
 > 위 다이어그램은 논리 구조입니다. 실제 호출 경로는 구현 코드 기준으로 수정이 필요합니다.
-
----
-
-## 기술 스택
-
-| 구분 | 기술 |
-|---|---|
-| Backend | FastAPI, JWT, WebSocket, Celery, Redis |
-| Frontend | React, Next.js |
-| Database | PostgreSQL, pgvector |
-| AI Orchestration | LangChain, LangGraph |
-| LLM (On-Premise) | EXAONE 3.5 (Ollama) — 테스트 중 |
-| Embedding | KURE-v1 |
-| STT | Deepgram |
-| TTS | Supertonic-3 |
-| Vision | DeepFace |
-| 문서 이미지 분석 | OCR |
-| Infra | Docker, Docker Compose |
-| Design | Figma |
-| 협업·일정 | Jira, Notion |
 
 ---
 
