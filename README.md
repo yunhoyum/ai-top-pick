@@ -10,15 +10,23 @@ AI top-pick.은 채용 회사의 **서류 전형**과 **AI 화상면접 전형**
 <!-- TODO: 로고 이미지 경로 -->
 <!-- <p align="center"><img src="docs/images/logo.png" width="240"></p> -->
 
+## 🛠 Tech Stack
+
 | 분류 | 기술 |
 |---|---|
-| **AI / LLM** | ![RAG](https://img.shields.io/badge/RAG-1C3C3C) ![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?logo=langchain&logoColor=white) ![LangGraph](https://img.shields.io/badge/LangGraph-1C3C3C) |
-| **Backend** | ![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white) ![Java](https://img.shields.io/badge/Java-ED8B00?logo=openjdk&logoColor=white) ![Spring](https://img.shields.io/badge/Spring-6DB33F?logo=spring&logoColor=white) |
-| **DBMS** | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white) ![pgvector](https://img.shields.io/badge/pgvector-4169E1) ![Oracle](https://img.shields.io/badge/Oracle-F80000) ![MySQL](https://img.shields.io/badge/MySQL-4479A1?logo=mysql&logoColor=white) |
-| **Frontend** | ![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB) ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white) ![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?logo=javascript&logoColor=black) |
-| **DevOps** | ![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white) |
-| **Collaboration** | ![Jira](https://img.shields.io/badge/Jira-0052CC?logo=jira&logoColor=white) ![GitHub](https://img.shields.io/badge/GitHub-181717?logo=github&logoColor=white) |
-
+| **Backend** | ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white) ![JWT](https://img.shields.io/badge/JWT-000000?logo=jsonwebtokens&logoColor=white) ![WebSocket](https://img.shields.io/badge/WebSocket-010101) ![Celery](https://img.shields.io/badge/Celery-37814A?logo=celery&logoColor=white) ![Redis](https://img.shields.io/badge/Redis-FF4438?logo=redis&logoColor=white) |
+| **Frontend** | ![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB) ![Next.js](https://img.shields.io/badge/Next.js-000000?logo=nextdotjs&logoColor=white) |
+| **Database** | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white) ![pgvector](https://img.shields.io/badge/pgvector-4169E1) |
+| **AI Orchestration** | ![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?logo=langchain&logoColor=white) ![LangGraph](https://img.shields.io/badge/LangGraph-1C3C3C) |
+| **LLM (On-Premise)** | ![EXAONE 3.5](https://img.shields.io/badge/EXAONE_3.5-A50034) ![Ollama](https://img.shields.io/badge/Ollama-000000?logo=ollama&logoColor=white) — 테스트 중 |
+| **Embedding** | ![KURE-v1](https://img.shields.io/badge/KURE--v1-555555) |
+| **STT** | ![Deepgram](https://img.shields.io/badge/Deepgram-13EF93?logo=deepgram&logoColor=black) |
+| **TTS** | ![Supertonic-3](https://img.shields.io/badge/Supertonic--3-555555) |
+| **Vision** | ![DeepFace](https://img.shields.io/badge/DeepFace-555555) |
+| **문서 이미지 분석** | ![OCR](https://img.shields.io/badge/OCR-555555) |
+| **Infra** | ![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white) ![Docker Compose](https://img.shields.io/badge/Docker_Compose-2496ED?logo=docker&logoColor=white) |
+| **Design** | ![Figma](https://img.shields.io/badge/Figma-F24E1E?logo=figma&logoColor=white) |
+| **협업·일정** | ![Jira](https://img.shields.io/badge/Jira-0052CC?logo=jira&logoColor=white) ![Notion](https://img.shields.io/badge/Notion-000000?logo=notion&logoColor=white) |
 ---
 
 ## 목차
