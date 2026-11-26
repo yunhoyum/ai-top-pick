@@ -32,10 +32,6 @@ AI top-pick.은 채용 회사의 **서류 전형**과 **AI 화상면접 전형**
 7. [RAG 설계](#rag-설계)
 8. [인프라 구성](#인프라-구성)
 9. [주요 의사결정](#주요-의사결정)
-10. [개발 순서](#개발-순서)
-11. [실행 방법](#실행-방법)
-12. [화면](#화면)
-13. [설계 문서](#설계-문서)
 
 ---
 
@@ -326,8 +322,6 @@ flowchart TB
 | 개선 2 | Contextual Retrieval | <!-- TODO --> |
 | 개선 3 | Reranker | <!-- TODO --> |
 
-<!-- TODO: 평가 지표(예: Recall@k 등)와 평가 데이터셋 설명 -->
-
 ---
 
 ## 인프라 구성
@@ -344,82 +338,14 @@ AI 모델 서버를 컴퓨터 2대에 Docker로 나누어 운영합니다.
 - vision-server(DeepFace)는 CPU로 실행합니다. 1분 영상이 약 3초에 분석됩니다.
 - 6GB VRAM 안에서 더 큰 LLM(EXAONE 3.5 7.8B)을 GPU에 모두 올리는 방법을 시도 중입니다.
 
-<!-- TODO: PC1/PC2별 컨테이너 배치표 -->
-
 ---
 
 ## 주요 의사결정
 
 | 결정 | 이유 |
 |---|---|
-| AI 서비스 분리형 아키텍처 | 개발 일정이 길어질 것으로 예상되어 메인 API와 AI 서비스·모델 서버를 분리 |
-| 코딩테스트 전형 제외 | <!-- TODO: 이유 --> 2차 전형은 면접 전형만 남김 |
+| AI 서비스 분리형 아키텍처 | 메인 API와 AI 서비스·모델 서버를 분리 |
 | 질문 생성을 LangGraph로 전환 | 분기·반복이 생겨 LangChain 체인 대신 LangGraph 사용 |
 | 다단계 fallback 설계 | <!-- TODO: 이유 --> 검증 실패 시 fallback → 템플릿 질문 순으로 대체 |
-| VLM 대신 OCR | VLM 동시 적재 문제, 흐름 인식 정확도 문제 |
-| 음성 운율 분석 제외 | <!-- TODO: 이유 --> |
 | Vision 서버 CPU 실행 | 1분 영상이 약 3초에 분석됨 |
-| 온프레미스 LLM: EXAONE | 한국어 문서 처리 기대, 성능 평가 우수 (중국 모델은 후보에서 제외) |
 | RAG 단계적 개선 | 기본 RAG 평가 후 청크 축소, Contextual Retrieval, Reranker 적용 |
-
----
-
-## 개발 순서
-
-1. Docker Compose 뼈대 구성, 모든 서버 `/health` 연결
-2. 모델 서버 단독 테스트
-3. main-api 인증·CRUD
-4. 회사 문서 임베딩 → RAG 검색
-5. 면접 질문 생성
-6. 실시간 면접 흐름 (STT 보정, 표정 분석, 문의 처리)
-7. 서류·면접 보고서 체인
-8. 통합 테스트
-
----
-
-## 실행 방법
-
-<!-- TODO: 실제 레포 구조와 환경변수에 맞게 작성 -->
-
-```bash
-# 1. 저장소 클론
-git clone <repository-url>
-cd <repository-name>
-
-# 2. 환경변수 설정
-cp .env.example .env   # TODO: 실제 파일명 확인
-
-# 3. 컨테이너 실행
-docker compose up -d
-```
-
----
-
-## 화면
-
-액티비티 다이어그램을 기준으로 화면 26개를 도출했습니다.
-화면은 Figma로 제작합니다.
-
-<!-- TODO: 주요 화면 캡처 -->
-<!--
-| 관리자 대시보드 | 채용공고 상세 | AI 화상면접 |
-|---|---|---|
-| ![](docs/images/dashboard.png) | ![](docs/images/job-detail.png) | ![](docs/images/interview.png) |
--->
-
----
-
-## 설계 문서
-
-<!-- TODO: 노션 공개 링크 -->
-
-- 벡터 DB 설계서
-- RAG 설계서
-- AI Agent 설계서 (Task, Workflow: State · Node · Edge · Interrupt)
-- 테이블 명세서
-
----
-
-## 비고
-
-- 본 프로젝트는 포트폴리오용이며 상업적 목적이 없습니다.
